@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #f5f5f0;
+  --gold: #c9a84c;
+  --gold-light: #e8c97a;
+  --gold-dark: #8b6914;
+  --surface: #141414;
+  --surface-2: #1e1e1e;
+  --surface-3: #2a2a2a;
+  --border: rgba(201, 168, 76, 0.15);
+  --text-muted: #888888;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mobile-first max-width container (điện thoại) */
+.app-container {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background-color: var(--background);
+  overflow: hidden;
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* VOW brand title */
+.vow-title {
+  font-family: "Georgia", "Times New Roman", serif;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+/* Swipe card shadow */
+.card-shadow {
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Bottom nav safe area */
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+}
+
+/* Scrollbar hidden on mobile */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Camera viewfinder rounded */
+.camera-viewfinder {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
