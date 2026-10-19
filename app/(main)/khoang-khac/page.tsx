@@ -1,6 +1,6 @@
 // app/(main)/khoang-khac/page.tsx
 // Tab "Khoảnh Khắc" — Camera + Moments feed (Locket-style)
-// Server Component: xác thực + prefetch data, sau đó mount MomentsClient
+// Server Component: xác thực + prefetch data song song, sau đó mount MomentsClient
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -33,39 +33,44 @@ export default async function KhoangKhacPage() {
 
   if (!user) redirect('/dang-nhap')
 
-  // Lấy Moments từ bạn bè / người đã match (hiện tại: authenticated users)
-  const { data: momentsData, error: momentsError } = await supabase
-    .from('moments')
-    .select(`
-      id,
-      user_id,
-      media_url,
-      media_type,
-      thumbnail_url,
-      caption,
-      is_deleted,
-      deleted_at,
-      created_at,
-      profiles:user_id (
+  // Chạy song song cả Moments cộng đồng và Moments cá nhân
+  const [momentsRes, myMomentsRes] = await Promise.all([
+    supabase
+      .from('moments')
+      .select(`
         id,
-        username,
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq('is_deleted', false)
-    .neq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(30)
+        user_id,
+        media_url,
+        media_type,
+        thumbnail_url,
+        caption,
+        is_deleted,
+        deleted_at,
+        created_at,
+        profiles:user_id (
+          id,
+          username,
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq('is_deleted', false)
+      .neq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30),
 
-  // Lịch sử Moments của chính mình
-  const { data: myMomentsData } = await supabase
-    .from('moments')
-    .select('id, media_url, thumbnail_url, created_at, media_type')
-    .eq('user_id', user.id)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false })
-    .limit(20)
+    supabase
+      .from('moments')
+      .select('id, media_url, thumbnail_url, created_at, media_type')
+      .eq('user_id', user.id)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ])
+
+  const momentsData = momentsRes.data
+  const momentsError = momentsRes.error
+  const myMomentsData = myMomentsRes.data
 
   return (
     <MomentsClient

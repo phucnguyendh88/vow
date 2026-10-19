@@ -11,23 +11,36 @@ export default async function KetNoiSauPage() {
 
   if (!user) redirect('/dang-nhap')
 
-  // Lấy danh sách profiles đã swipe (để loại trừ)
-  const { data: swipedData } = await supabase
-    .from('swipes')
-    .select('swiped_id')
-    .eq('swiper_id', user.id)
-    .eq('context', 'dating')
+  // Chạy song song: swipes, blocks và matches
+  const [swipesRes, blocksRes, matchesRes] = await Promise.all([
+    supabase
+      .from('swipes')
+      .select('swiped_id')
+      .eq('swiper_id', user.id)
+      .eq('context', 'dating'),
 
-  const swipedIds = (swipedData as Array<{ swiped_id: string }> | null)?.map((s) => s.swiped_id) ?? []
+    supabase
+      .from('blocks')
+      .select('blocked_id, blocker_id')
+      .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
+
+    supabase
+      .from('matches')
+      .select(`
+        id,
+        user1_id,
+        user2_id,
+        created_at,
+        conversations (id)
+      `)
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const swipedIds = (swipesRes.data as Array<{ swiped_id: string }> | null)?.map((s) => s.swiped_id) ?? []
   const excludedIds = [user.id, ...swipedIds]
 
-  // Lấy danh sách profiles bị chặn (cả 2 chiều)
-  const { data: blockedData } = await supabase
-    .from('blocks')
-    .select('blocked_id, blocker_id')
-    .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`)
-
-  const blockedRelations = blockedData as Array<{ blocked_id: string; blocker_id: string }> | null
+  const blockedRelations = blocksRes.data as Array<{ blocked_id: string; blocker_id: string }> | null
   const blockedIds = blockedRelations?.flatMap((b) =>
     b.blocker_id === user.id ? [b.blocked_id] : [b.blocker_id]
   ) ?? []
@@ -50,23 +63,10 @@ export default async function KetNoiSauPage() {
 
   const { data: profiles, error } = await query
 
-  // Lấy danh sách Matches
-  const { data: matches } = await supabase
-    .from('matches')
-    .select(`
-      id,
-      user1_id,
-      user2_id,
-      created_at,
-      conversations (id)
-    `)
-    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-    .order('created_at', { ascending: false })
-
   return (
     <DatingClient
       discoverProfiles={profiles ?? []}
-      matches={matches ?? []}
+      matches={matchesRes.data ?? []}
       userId={user.id}
       fetchError={error?.message ?? null}
     />

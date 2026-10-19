@@ -166,26 +166,36 @@ export default function DevotionClient({
   }
 
   const handleMarkRead = useCallback(async () => {
-    if (todayRead || marking) return
-    setMarking(true)
+    if (todayRead) return
 
-    const { error } = await (supabase.from('reading_streaks') as any).insert({
-      user_id: userId,
-      date: today,
-    })
-
-    if (error && error.code !== '23505') {
-      toast.error('Không thể lưu. Vui lòng thử lại.')
-      setMarking(false)
-      return
-    }
-
+    // Optimistic instant feedback (0ms delay)
     setTodayRead(true)
-    setReadStreaks((prev) => [...prev, today])
+    setReadStreaks((prev) => (prev.includes(today) ? prev : [...prev, today]))
     setCurrentStreak((prev) => prev + 1)
     toast.success('🙏 Đã ghi nhận hôm nay!')
-    setMarking(false)
-  }, [todayRead, marking, supabase, userId, today])
+
+    // Background database insert
+    try {
+      const { error } = await (supabase.from('reading_streaks') as any).insert({
+        user_id: userId,
+        date: today,
+      })
+
+      if (error && error.code !== '23505') {
+        // Revert on error
+        setTodayRead(false)
+        setReadStreaks((prev) => prev.filter((d) => d !== today))
+        setCurrentStreak((prev) => Math.max(0, prev - 1))
+        toast.error('Không thể lưu vào máy chủ. Vui lòng thử lại.')
+      }
+    } catch {
+      // Revert on network exception
+      setTodayRead(false)
+      setReadStreaks((prev) => prev.filter((d) => d !== today))
+      setCurrentStreak((prev) => Math.max(0, prev - 1))
+      toast.error('Lỗi mạng khi lưu.')
+    }
+  }, [todayRead, supabase, userId, today])
 
   const iconBtnClass =
     'flex h-10 w-10 items-center justify-center rounded-full bg-surface text-cream active:scale-95 transition hover:brightness-110 border border-white/5 cursor-pointer shadow-md'
@@ -356,15 +366,15 @@ export default function DevotionClient({
         <button
           type="button"
           onClick={handleMarkRead}
-          disabled={todayRead || marking}
-          className={`flex w-full items-center justify-center gap-2 rounded-full border-2 py-3.5 font-semibold text-base transition-all ${
+          disabled={todayRead}
+          className={`flex w-full items-center justify-center gap-2 rounded-full border-2 py-3.5 font-semibold text-base transition-all touch-manipulation ${
             todayRead
               ? 'border-gold bg-gold/15 text-gold'
               : 'border-gold bg-transparent text-gold hover:bg-gold/10 active:scale-[0.99] cursor-pointer'
           }`}
         >
           {todayRead && <Check size={20} strokeWidth={2.5} />}
-          {todayRead ? 'Đã đọc hôm nay' : marking ? 'Đang lưu...' : 'Đánh dấu đã đọc'}
+          {todayRead ? 'Đã đọc hôm nay' : 'Đánh dấu đã đọc'}
         </button>
       </div>
 

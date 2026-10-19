@@ -2,6 +2,29 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  const protectedPaths = ['/tim-chua-truoc', '/khoang-khac', '/ket-noi-sau', '/ho-so', '/chat']
+  const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
+
+  // Fast path: router prefetch with session cookie avoids blocking remote getUser roundtrip
+  const isPrefetch =
+    request.headers.get('next-router-prefetch') === '1' ||
+    request.headers.get('purpose') === 'prefetch'
+
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.includes('-auth-token'))
+
+  if (isPrefetch && hasAuthCookie) {
+    return NextResponse.next()
+  }
+
+  // Fast path: public routes that don't need auth verification
+  if (!isProtected && pathname !== '/dang-nhap' && !pathname.startsWith('/api/admin')) {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -25,12 +48,9 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session — QUAN TRỌNG: không thêm code giữa createServerClient và getUser
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const pathname = request.nextUrl.pathname
 
   // Route API admin — kiểm tra ở route handler bằng service_role key
   if (pathname.startsWith('/api/admin')) {
@@ -39,15 +59,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Route chính yêu cầu đăng nhập (kể cả guest/anon session)
-  const protectedPaths = ['/tim-chua-truoc', '/khoang-khac', '/ket-noi-sau', '/ho-so', '/chat']
-  const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
-
+  // Route chính yêu cầu đăng nhập
   if (isProtected && !user) {
     return NextResponse.redirect(new URL('/dang-nhap', request.url))
   }
 
-  // Nếu đã đăng nhập và vào trang login/welcome thì redirect vào app
+  // Nếu đã đăng nhập và vào trang login thì redirect vào app
   if (pathname === '/dang-nhap' && user) {
     return NextResponse.redirect(new URL('/tim-chua-truoc', request.url))
   }
@@ -57,6 +74,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|m4a|mp3)$).*)',
   ],
 }

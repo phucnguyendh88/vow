@@ -1,7 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 function IconWrap({ children }: { children: React.ReactNode }) {
   return (
@@ -21,7 +22,6 @@ function IconWrap({ children }: { children: React.ReactNode }) {
     </svg>
   )
 }
-
 
 function DevotionIcon() {
   return (
@@ -65,6 +65,35 @@ const navTabs = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const router = useRouter()
+  // Optimistic active tab state for 0ms visual feedback
+  const [optimisticTab, setOptimisticTab] = useState(pathname)
+
+  useEffect(() => {
+    setOptimisticTab(pathname)
+  }, [pathname])
+
+  // Warm up and prefetch all main tabs in router cache for 0ms instant transition
+  useEffect(() => {
+    navTabs.forEach((tab) => {
+      try {
+        router.prefetch(tab.href)
+      } catch {}
+    })
+    try {
+      router.prefetch('/tin-nhan')
+    } catch {}
+  }, [router])
+
+  const handleTabClick = (href: string) => {
+    setOptimisticTab(href)
+  }
+
+  const handlePrefetch = (href: string) => {
+    try {
+      router.prefetch(href)
+    } catch {}
+  }
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex items-end justify-center gap-3 px-6 w-full max-w-[430px]">
@@ -74,16 +103,20 @@ export default function BottomNav() {
         className="pointer-events-auto flex items-center gap-1 rounded-full bg-[#1c1c1e]/95 px-2 py-2 shadow-2xl shadow-black/60 backdrop-blur border border-white/5"
       >
         {navTabs.map((tab) => {
-          const isActive = pathname.startsWith(tab.href)
+          const isActive = optimisticTab.startsWith(tab.href)
           return (
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={true}
               aria-label={tab.label}
               title={tab.label}
-              className={`flex h-12 w-14 items-center justify-center rounded-full transition active:scale-95 ${
+              onClick={() => handleTabClick(tab.href)}
+              onMouseEnter={() => handlePrefetch(tab.href)}
+              onTouchStart={() => handlePrefetch(tab.href)}
+              className={`flex h-12 w-14 items-center justify-center rounded-full transition-all duration-150 active:scale-90 touch-manipulation cursor-pointer ${
                 isActive
-                  ? 'bg-white/15 text-gold'
+                  ? 'bg-white/15 text-gold shadow-inner'
                   : 'text-white/55 hover:text-white'
               }`}
             >
@@ -96,9 +129,17 @@ export default function BottomNav() {
       {/* Floating Chat / Messages Button */}
       <Link
         href="/tin-nhan"
+        prefetch={true}
         aria-label="Tin nhắn"
         title="Tin nhắn"
-        className="pointer-events-auto relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1c1c1e]/95 text-white/80 shadow-2xl shadow-black/60 backdrop-blur transition active:scale-95 border border-white/5"
+        onClick={() => handleTabClick('/tin-nhan')}
+        onMouseEnter={() => handlePrefetch('/tin-nhan')}
+        onTouchStart={() => handlePrefetch('/tin-nhan')}
+        className={`pointer-events-auto relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1c1c1e]/95 shadow-2xl shadow-black/60 backdrop-blur transition-all duration-150 active:scale-90 touch-manipulation cursor-pointer border border-white/5 ${
+          optimisticTab.startsWith('/tin-nhan')
+            ? 'bg-white/15 text-gold shadow-inner'
+            : 'text-white/80 hover:text-white'
+        }`}
       >
         <ChatIcon />
       </Link>

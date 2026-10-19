@@ -611,7 +611,7 @@ export default function MomentsClient({
         {/* Controls: Gallery Picker, Shutter Button, Flip Camera */}
         <div className="flex items-center justify-between w-full px-6 pt-2">
           {/* Gallery Picker */}
-          <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-surface2 hover:bg-surface3 transition active:scale-95 border border-white/5">
+          <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-surface2 hover:bg-surface3 transition active:scale-95 border border-white/5 touch-manipulation">
             <input
               type="file"
               accept="image/*"
@@ -636,7 +636,7 @@ export default function MomentsClient({
             onClick={handleCapture}
             disabled={!cameraReady || !!cameraError}
             aria-label="Chụp ảnh"
-            className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gold bg-transparent transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-xl shadow-gold/10"
+            className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gold bg-transparent transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-xl shadow-gold/10 touch-manipulation"
           >
             <div className="h-14 w-14 rounded-full bg-white shadow-inner" />
           </button>
@@ -646,7 +646,7 @@ export default function MomentsClient({
             type="button"
             onClick={() => setFacingMode((f) => (f === 'user' ? 'environment' : 'user'))}
             aria-label="Đổi camera"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-surface2 text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer border border-white/5"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-surface2 text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer border border-white/5 touch-manipulation"
           >
             <SwitchCamera size={22} />
           </button>

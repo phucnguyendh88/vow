@@ -143,64 +143,67 @@ export default function DatingClient({
   const currentProfile = filteredCandidates[currentIndex]
 
   const handleSwipe = useCallback(
-    async (action: 'like' | 'pass') => {
+    (action: 'like' | 'pass') => {
       if (!currentProfile || swiping) return
       setSwiping(true)
       setSwipeDir(action === 'like' ? 'right' : 'left')
 
+      const profileSwiped = currentProfile
+
       if (action === 'pass') {
-        setPassedProfiles((prev) => [...prev, currentProfile])
+        setPassedProfiles((prev) => [...prev, profileSwiped])
       }
 
-      try {
-        if (!currentProfile.isSeed) {
-          // Ghi Swipe vào Supabase thật
-          const res = await fetch('/api/swipe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              swiped_id: currentProfile.id,
-              action,
-              context: 'dating',
-            }),
-          })
+      // Optimistic instant advance: card exits and next appears within 200ms
+      setTimeout(() => {
+        setCurrentIndex((i) => i + 1)
+        setSwiping(false)
+        setSwipeDir(null)
+      }, 200)
 
-          const data = await res.json()
-          if (!res.ok) {
-            toast.error(data.error ?? 'Đã xảy ra lỗi')
-            setSwiping(false)
-            setSwipeDir(null)
-            return
-          }
-
-          if (data.matched && action === 'like') {
-            setNewMatch({
-              name: currentProfile.name,
-              convId: data.match?.conversations?.[0]?.id,
-            })
-            if (data.match) {
-              setMatchList((prev) => [
-                { ...data.match, conversations: data.match.conversations ?? [] },
-                ...prev,
-              ])
+      // Background network sync
+      if (!profileSwiped.isSeed) {
+        fetch('/api/swipe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            swiped_id: profileSwiped.id,
+            action,
+            context: 'dating',
+          }),
+        })
+          .then(async (res) => {
+            const data = await res.json()
+            if (!res.ok) {
+              toast.error(data.error ?? 'Đã xảy ra lỗi khi lưu thao tác')
+              return
             }
-          }
-        } else {
-          // Seed profile
-          if (action === 'like' && currentProfile.likesBack) {
+
+            if (data.matched && action === 'like') {
+              setNewMatch({
+                name: profileSwiped.name,
+                convId: data.match?.conversations?.[0]?.id,
+              })
+              if (data.match) {
+                setMatchList((prev) => [
+                  { ...data.match, conversations: data.match.conversations ?? [] },
+                  ...prev,
+                ])
+              }
+            }
+          })
+          .catch(() => {
+            toast.error('Lỗi kết nối khi gửi tương tác')
+          })
+      } else {
+        // Seed profile match simulation
+        if (action === 'like' && profileSwiped.likesBack) {
+          setTimeout(() => {
             setNewMatch({
-              name: currentProfile.name,
+              name: profileSwiped.name,
             })
-          }
+          }, 250)
         }
-      } catch {
-        toast.error('Lỗi kết nối. Vui lòng thử lại.')
-      } finally {
-        setTimeout(() => {
-          setCurrentIndex((i) => i + 1)
-          setSwiping(false)
-          setSwipeDir(null)
-        }, 280)
       }
     },
     [currentProfile, swiping]
@@ -257,7 +260,7 @@ export default function DatingClient({
         <button
           type="button"
           onClick={() => setTab('discover')}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
             tab === 'discover'
               ? 'bg-gold text-ink shadow-md shadow-gold/20'
               : 'bg-surface2 text-muted hover:text-cream'
@@ -268,7 +271,7 @@ export default function DatingClient({
         <button
           type="button"
           onClick={() => setTab('matches')}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
             tab === 'matches'
               ? 'bg-gold text-ink shadow-md shadow-gold/20'
               : 'bg-surface2 text-muted hover:text-cream'
@@ -416,7 +419,7 @@ export default function DatingClient({
                 onClick={() => handleSwipe('pass')}
                 disabled={swiping}
                 aria-label="Bỏ qua"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-surface border border-rose-500/30 text-rose-400 shadow-xl transition-all active:scale-90 hover:bg-rose-500/10 cursor-pointer disabled:opacity-40"
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-surface border border-rose-500/30 text-rose-400 shadow-xl transition-all active:scale-90 hover:bg-rose-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
               >
                 <X size={28} strokeWidth={2.5} />
               </button>
@@ -427,7 +430,7 @@ export default function DatingClient({
                 onClick={() => handleSwipe('like')}
                 disabled={swiping}
                 aria-label="Thích"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-surface border border-emerald-500/30 text-emerald-400 shadow-xl transition-all active:scale-90 hover:bg-emerald-500/10 cursor-pointer disabled:opacity-40"
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-surface border border-emerald-500/30 text-emerald-400 shadow-xl transition-all active:scale-90 hover:bg-emerald-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
               >
                 <Heart size={28} strokeWidth={2.5} fill="currentColor" />
               </button>
