@@ -8,76 +8,70 @@ const features = [
 
 export default function HomePage() {
   return (
-    <main className="flex flex-col items-center justify-between min-h-dvh px-6 py-12 text-center">
-      {/* Logo VOW */}
-      <div />
+    <div
+      className="relative flex min-h-dvh flex-col justify-between"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 0%, rgba(245,179,1,0.06), transparent 60%)',
+      }}
+    >
+      <div className="mx-auto max-w-md w-full flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
+        {/* Logo VOW */}
+        <p className="font-serif-vow text-2xl font-semibold tracking-[0.35em] text-gold">
+          VOW
+        </p>
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-sm">
-        {/* Brand */}
-        <div className="flex flex-col items-center gap-4">
-          <h1 className="vow-title text-gold-gradient text-4xl font-bold tracking-widest">
-            V O W
-          </h1>
-
-          {/* Verse of the day teaser */}
-          <div className="space-y-2">
-            <p className="text-white/90 text-xl font-light italic leading-relaxed">
-              &ldquo;Chúng ta yêu, vì Chúa đã yêu chúng ta trước.&rdquo;
-            </p>
-            <p
-              className="text-sm font-medium"
-              style={{ color: 'var(--gold)' }}
-            >
-              1 Giăng 4:19
-            </p>
-          </div>
-
-          <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--text-muted)' }}>
-            Tình yêu thật sự không bắt nguồn từ khả năng, nỗ lực hay sự xứng
-            đáng của bản thân, mà xuất phát từ chính Đức Chúa Trời, Đấng đã
-            chủ động yêu thương chúng ta trước.
+        {/* Verse quote */}
+        <blockquote className="mt-6 max-w-xs">
+          <p className="font-serif-vow text-[1.7rem] italic leading-snug text-cream">
+            “Chúng ta yêu, vì Chúa đã yêu chúng ta trước.”
           </p>
-        </div>
+          <cite className="mt-3 block font-serif-vow text-base italic font-medium tracking-wide text-gold not-italic">
+            1 Giăng 4:19
+          </cite>
+        </blockquote>
 
-        {/* Features list */}
-        <div
-          className="flex flex-col gap-3 w-full rounded-2xl p-4"
-          style={{ background: 'var(--surface)' }}
-        >
+        {/* Scripture subtitle */}
+        <p className="mt-6 max-w-xs text-[14px] leading-relaxed text-cream/70">
+          Tình yêu thật sự không bắt nguồn từ khả năng, nỗ lực hay sự xứng đáng của bản thân, mà xuất phát từ chính Đức Chúa Trời, Đấng đã chủ động yêu thương chúng ta trước.
+        </p>
+
+        {/* 3 Pills */}
+        <div className="mt-7 flex flex-wrap justify-center gap-2.5 max-w-xs">
           {features.map((f) => (
-            <div key={f.label} className="flex items-center gap-3">
-              <span className="text-lg">{f.icon}</span>
-              <span className="text-sm" style={{ color: 'var(--foreground)' }}>
-                {f.label}
-              </span>
-            </div>
+            <span
+              key={f.label}
+              className="inline-flex items-center gap-1.5 rounded-full bg-surface2 px-3.5 py-1.5 text-[13px] text-cream/90 border border-white/5"
+            >
+              <span>{f.icon}</span>
+              <span>{f.label}</span>
+            </span>
           ))}
         </div>
 
         {/* CTA Button */}
         <Link
           href="/dang-nhap"
-          className="w-full py-4 rounded-2xl text-center font-semibold text-base text-black transition-opacity hover:opacity-90 active:opacity-75"
-          style={{ background: 'var(--gold)' }}
+          className="mt-9 w-full max-w-xs rounded-full bg-gold px-6 py-4 text-center text-base font-semibold text-ink shadow-lg shadow-gold/20 transition hover:brightness-105 active:scale-[0.99]"
         >
           Bắt đầu hành trình
         </Link>
 
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+        <p className="mt-4 text-xs text-muted">
           Đăng nhập hoặc tạo tài khoản mới chỉ trong vài giây
         </p>
-      </div>
 
-      {/* Footer links */}
-      <div className="flex gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-        <Link href="/dieu-khoan" className="hover:underline">
-          Điều khoản sử dụng
-        </Link>
-        <span>·</span>
-        <Link href="/bao-mat" className="hover:underline">
-          Chính sách bảo mật
-        </Link>
+        {/* Footer */}
+        <div className="mt-8 flex items-center justify-center gap-4 text-xs text-muted/80">
+          <Link href="/dieu-khoan" className="hover:text-gold underline underline-offset-4">
+            Điều khoản sử dụng
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/chinh-sach-bao-mat" className="hover:text-gold underline underline-offset-4">
+            Chính sách bảo mật
+          </Link>
+        </div>
       </div>
-    </main>
+    </div>
   )
 }
+
