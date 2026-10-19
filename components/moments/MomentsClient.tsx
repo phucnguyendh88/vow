@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import imageCompression from 'browser-image-compression'
 import toast from 'react-hot-toast'
+import { LayoutGrid, MessageCircle, Users, Image as ImageIcon, SwitchCamera, ChevronDown, X } from 'lucide-react'
 import type { Moment } from '@/types/database'
 
 interface MomentWithProfile extends Moment {
@@ -223,9 +224,10 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
           />
           <button
             onClick={() => { setCapturedImage(null); setCapturedFile(null); startCamera() }}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center text-lg"
+            aria-label="Đóng"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition"
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
 
@@ -262,25 +264,29 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
             <img src={myMoments[0].media_url} alt="" className="w-full h-full object-cover" />
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setView('feed')}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+            aria-label="Xem bảng tin"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition active:scale-95 cursor-pointer"
             style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
           >
-            ⊞
+            <LayoutGrid size={18} />
           </button>
-          <button
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+          <a
+            href="/tin-nhan"
+            aria-label="Tin nhắn"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition active:scale-95 cursor-pointer"
             style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
           >
-            💬
-          </button>
+            <MessageCircle size={18} />
+          </a>
           <button
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium cursor-pointer"
             style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
           >
-            👥 {moments.length} Bạn
+            <Users size={14} className="text-gold" />
+            <span>{moments.length} Bạn</span>
           </button>
         </div>
       </header>
@@ -327,7 +333,7 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
         {/* Controls */}
         <div className="flex items-center justify-between w-full pb-4">
           {/* Gallery picker */}
-          <label className="w-14 h-14 rounded-full overflow-hidden cursor-pointer" style={{ background: 'var(--surface-2)' }}>
+          <label className="w-14 h-14 rounded-full overflow-hidden cursor-pointer flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
             <input
               type="file"
               accept="image/*,video/*"
@@ -338,7 +344,7 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
               // eslint-disable-next-line @next/next/no-img-element
               <img src={myMoments[0].media_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-muted)' }}>🖼️</div>
+              <ImageIcon size={22} className="text-muted" />
             )}
           </label>
 
@@ -346,7 +352,7 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
           <button
             onClick={handleCapture}
             disabled={!cameraReady || !!cameraError}
-            className="w-20 h-20 rounded-full border-4 flex items-center justify-center disabled:opacity-40"
+            className="w-20 h-20 rounded-full border-4 flex items-center justify-center disabled:opacity-40 cursor-pointer transition active:scale-95"
             style={{ borderColor: 'var(--gold)', background: 'transparent' }}
           >
             <div className="w-14 h-14 rounded-full bg-white" />
@@ -355,20 +361,22 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
           {/* Flip camera */}
           <button
             onClick={() => setFacingMode((f) => f === 'user' ? 'environment' : 'user')}
-            className="w-14 h-14 rounded-full flex items-center justify-center text-xl"
+            aria-label="Đổi camera"
+            className="w-14 h-14 rounded-full flex items-center justify-center text-xl cursor-pointer transition active:scale-95"
             style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
           >
-            🔄
+            <SwitchCamera size={22} />
           </button>
         </div>
 
         {/* History label */}
         <button
           onClick={() => setView('history')}
-          className="text-sm"
-          style={{ color: 'var(--foreground)' }}
+          className="text-xs font-medium flex items-center gap-1.5 px-4 py-2 rounded-full cursor-pointer transition-colors"
+          style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
         >
-          Lịch sử ↓ <span style={{ color: 'var(--text-muted)' }}>{myMoments.length} khoảnh khắc</span>
+          <span>Lịch sử ({myMoments.length} khoảnh khắc)</span>
+          <ChevronDown size={14} className="text-muted" />
         </button>
       </div>
 
@@ -379,8 +387,15 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
           style={{ background: 'var(--background)' }}
         >
           <div className="flex items-center justify-between px-4 pt-14 pb-4">
-            <h2 className="text-lg font-semibold">Khoảnh khắc</h2>
-            <button onClick={() => setView('camera')} className="text-2xl">✕</button>
+            <h2 className="text-lg font-semibold text-white">Khoảnh khắc</h2>
+            <button
+              onClick={() => setView('camera')}
+              aria-label="Đóng"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 hover:text-white"
+              style={{ background: 'var(--surface-2)' }}
+            >
+              <X size={20} />
+            </button>
           </div>
           <div className="grid grid-cols-3 gap-0.5 overflow-y-auto">
             {myMoments.map((m) => (

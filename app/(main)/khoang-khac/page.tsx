@@ -1,100 +1,78 @@
 // app/(main)/khoang-khac/page.tsx
-'use client';
+// Tab "Khoảnh Khắc" — Camera + Moments feed (Locket-style)
+// Server Component: xác thực + prefetch data, sau đó mount MomentsClient
 
-import { useEffect, useState } from 'react';
-import { useSwipeQueue } from '@/hooks/useSwipeQueue';
-import { SwipeCard } from '@/components/design-system/SwipeCard';
-// Import client-side Supabase for browser usage
-import { createClient } from '@/lib/supabase/client';
-import { redirect } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import MomentsClient from '@/components/moments/MomentsClient'
+import type { Moment } from '@/types/database'
 
-/**
- * Discovery/Swipe page – shows a stack of profiles the user can Like or Pass.
- * Utilises the design‑system SwipeCard component and the useSwipeQueue hook.
- */
-export default function DiscoveryPage() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+interface MomentWithProfile extends Moment {
+  profiles: {
+    id: string
+    username: string | null
+    full_name: string | null
+    avatar_url: string | null
+  } | null
+}
 
-  // Authenticate on client side (fallback to server redirect if needed)
-  useEffect(() => {
-    async function fetchUser() {
-      const supabase = await createClient();
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        redirect('/dang-nhap');
-        return;
-      }
-      setUserId(user.id);
-      setAuthChecked(true);
-    }
-    fetchUser();
-  }, []);
+interface MyMoment {
+  id: string
+  media_url: string
+  thumbnail_url: string | null
+  created_at: string
+  media_type: 'image' | 'video'
+}
 
-  const { profiles, loading, error, removeTopProfile, hasMore, refetch } = useSwipeQueue(userId ?? '');
+export default async function KhoangKhacPage() {
+  const supabase = await createClient()
 
-  // Handle Like / Pass actions
-  const handleAction = async (profileId: string, action: 'like' | 'pass') => {
-    try {
-// Use API endpoint for swipes instead of direct Supabase insert
-      const response = await fetch('/api/swipe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ swiped_id: profileId, action }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to record swipe');
-      }
-      // Successful swipe – remove current card
-      removeTopProfile();
-      if (action === 'like' && result.matched) {
-        toast.success('Matched! 🎉');
-      }
-    } catch (e: any) {
-      toast.error(e.message ?? 'Failed to record swipe');
-    }
-  };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!authChecked) {
-    return <div className="p-4 text-center">Đang kiểm tra đăng nhập…</div>;
-  }
+  if (!user) redirect('/dang-nhap')
 
-  if (loading && profiles.length === 0) {
-    return <div className="p-4 text-center">Đang tải hồ sơ…</div>;
-  }
+  // Lấy Moments từ bạn bè / người đã match (hiện tại: authenticated users)
+  const { data: momentsData, error: momentsError } = await supabase
+    .from('moments')
+    .select(`
+      id,
+      user_id,
+      media_url,
+      media_type,
+      thumbnail_url,
+      caption,
+      is_deleted,
+      deleted_at,
+      created_at,
+      profiles:user_id (
+        id,
+        username,
+        full_name,
+        avatar_url
+      )
+    `)
+    .eq('is_deleted', false)
+    .neq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(30)
 
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-red-600">{error}</p>
-        <button onClick={refetch} className="mt-2 text-primary underline">Thử lại</button>
-      </div>
-    );
-  }
-
-  if (profiles.length === 0) {
-    return (
-      <div className="p-4 text-center">
-        <p>Không còn hồ sơ nào để khám phá.</p>
-        {hasMore && (
-          <button onClick={refetch} className="mt-2 text-primary underline">Tải thêm</button>
-        )}
-      </div>
-    );
-  }
-
-  const current = profiles[0];
+  // Lịch sử Moments của chính mình
+  const { data: myMomentsData } = await supabase
+    .from('moments')
+    .select('id, media_url, thumbnail_url, created_at, media_type')
+    .eq('user_id', user.id)
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .limit(20)
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-4">
-      <SwipeCard
-        profile={current}
-        loading={loading}
-        onLike={(id) => handleAction(id, 'like')}
-        onPass={(id) => handleAction(id, 'pass')}
-      />
-    </div>
-  );
+    <MomentsClient
+      initialMoments={(momentsData as MomentWithProfile[]) ?? []}
+      myMoments={(myMomentsData as MyMoment[]) ?? []}
+      userId={user.id}
+      fetchError={momentsError?.message ?? null}
+    />
+  )
 }

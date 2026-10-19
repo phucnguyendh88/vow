@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
+import { Settings, MessageCircle, Church, MapPin, X, Heart, User, Sparkles } from 'lucide-react'
 import type { Profile, Match } from '@/types/database'
 
 interface DiscoverProfile extends Pick<Profile, 'id' | 'username' | 'full_name' | 'bio' | 'avatar_url' | 'date_of_birth' | 'gender' | 'location_text' | 'church_name' | 'interests'> {}
@@ -89,9 +90,13 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
     <div className="flex flex-col min-h-dvh">
       {/* Header */}
       <header className="flex items-center justify-between px-4 pt-14 pb-4">
-        <button className="text-xl">⚙️</button>
+        <button className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+          <Settings size={18} style={{ color: 'var(--text-muted)' }} />
+        </button>
         <h1 className="vow-title text-gold-gradient text-xl font-bold tracking-widest">V O W</h1>
-        <button className="text-xl">💬</button>
+        <button className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+          <MessageCircle size={18} style={{ color: 'var(--text-muted)' }} />
+        </button>
       </header>
 
       {/* Tab switcher */}
@@ -130,7 +135,7 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
               className="w-full rounded-3xl p-8 text-center flex flex-col items-center gap-3"
               style={{ background: 'var(--surface)' }}
             >
-              <span className="text-4xl">🎉</span>
+              <Sparkles className="w-10 h-10 text-gold mb-1" />
               <p className="font-medium text-white">Đã xem hết mọi người!</p>
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 Quay lại sau để khám phá thêm nhé.
@@ -158,16 +163,16 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
                   {currentProfile.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={currentProfile.avatar_url}
+                       src={currentProfile.avatar_url}
                       alt={currentProfile.full_name ?? ''}
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                   ) : (
                     <div
-                      className="absolute inset-0 flex items-center justify-center text-6xl"
+                      className="absolute inset-0 flex items-center justify-center"
                       style={{ background: 'var(--surface-2)' }}
                     >
-                      👤
+                      <User className="w-20 h-20 text-muted/50" />
                     </div>
                   )}
                 </div>
@@ -184,13 +189,15 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
                       )}
                     </h2>
                     {currentProfile.church_name && (
-                      <p className="text-sm mt-0.5 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-                        ⛪ {currentProfile.church_name}
+                      <p className="text-sm mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                        <Church size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                        {currentProfile.church_name}
                       </p>
                     )}
                     {currentProfile.location_text && (
-                      <p className="text-sm flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-                        📍 {currentProfile.location_text}
+                      <p className="text-sm flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                        <MapPin size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                        {currentProfile.location_text}
                       </p>
                     )}
                   </div>
@@ -229,18 +236,20 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
               <button
                 onClick={() => handleSwipe('pass')}
                 disabled={swiping}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg disabled:opacity-50 transition-transform active:scale-95"
-                style={{ background: '#1a0000', border: '2px solid #ef4444' }}
+                aria-label="Bỏ qua"
+                className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg disabled:opacity-50 transition-all active:scale-95 cursor-pointer border border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                style={{ background: 'var(--surface-2)' }}
               >
-                📵
+                <X size={28} strokeWidth={2.5} />
               </button>
               <button
                 onClick={() => handleSwipe('like')}
                 disabled={swiping}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg disabled:opacity-50 transition-transform active:scale-95"
-                style={{ background: '#001a00', border: '2px solid #22c55e' }}
+                aria-label="Thích"
+                className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg disabled:opacity-50 transition-all active:scale-95 cursor-pointer border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                style={{ background: 'var(--surface-2)' }}
               >
-                📲
+                <Heart size={28} strokeWidth={2.5} fill="currentColor" />
               </button>
             </div>
           )}
@@ -251,8 +260,8 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
       {tab === 'matches' && (
         <div className="flex-1 px-4 overflow-y-auto">
           {matchList.length === 0 && (
-            <div className="py-20 text-center">
-              <p className="text-4xl mb-3">♡</p>
+            <div className="py-20 text-center flex flex-col items-center">
+              <Heart className="w-12 h-12 text-muted/40 mb-3" />
               <p className="font-medium text-white">Chưa có tương hợp nào</p>
               <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
                 Tiếp tục khám phá để tìm người phù hợp!
@@ -270,10 +279,10 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
                   style={{ background: 'var(--surface)' }}
                 >
                   <div
-                    className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl"
+                    className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center"
                     style={{ background: 'var(--surface-2)' }}
                   >
-                    👤
+                    <User className="w-6 h-6 text-muted" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">Match mới</p>
@@ -284,7 +293,7 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
                   {conversationId && (
                     <a
                       href={`/chat/${conversationId}`}
-                      className="px-3 py-1.5 rounded-xl text-xs font-medium"
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold"
                       style={{ background: 'var(--gold)', color: '#000' }}
                     >
                       Nhắn tin
@@ -316,7 +325,7 @@ export default function DatingClient({ discoverProfiles, matches, userId, fetchE
               style={{ background: 'var(--surface)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="text-5xl mb-4">🎉</p>
+              <Sparkles className="w-12 h-12 text-gold mx-auto mb-3" />
               <h2 className="text-xl font-bold text-white mb-2">Tương hợp!</h2>
               <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
                 Bạn và <span style={{ color: 'var(--gold)' }}>{newMatch.name}</span> đã tương hợp nhau!

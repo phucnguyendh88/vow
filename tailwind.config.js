@@ -10,31 +10,30 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Brand palette – warm neutral + gold accent
-        primary: '#4A7C59', // sage/forest green
-        accent: '#D97706', // warm gold/orange
-        background: '#FAF9F6', // ivory soft background
-        surface: '#FFFFFF',
-        muted: '#F5F5F4',
-        text: {
-          DEFAULT: '#1F2937', // gray-800
-          secondary: '#4B5563', // gray-600
+        // VOW Dark Luxury Design System tokens
+        ink: 'var(--color-ink)',
+        background: 'var(--background)',
+        surface: 'var(--surface)',
+        surface2: 'var(--surface-2)',
+        surface3: 'var(--surface-3)',
+        gold: 'var(--gold)',
+        cream: 'var(--foreground)',
+        muted: 'var(--text-muted)',
+        danger: 'var(--color-danger)',
+        success: 'var(--color-success)',
+        primary: {
+          DEFAULT: '#f5b301',
+          foreground: '#0b0b0f',
         },
       },
       fontFamily: {
-        sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
-        display: ['"Playfair Display"', 'serif'],
-        handwritten: ['"Cormorant Garamond"', 'serif'],
+        sans: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
       },
       borderRadius: {
-        DEFAULT: '0.5rem', // 8px – not over‑rounded
-      },
-      spacing: {
-        xs: '0.25rem', // 4px
-        sm: '0.5rem', // 8px
-        md: '1rem', // 16px
-        lg: '1.5rem', // 24px
-        xl: '2rem', // 32px
+        '2xl': '1rem',
+        '3xl': '1.5rem',
       },
     },
   },

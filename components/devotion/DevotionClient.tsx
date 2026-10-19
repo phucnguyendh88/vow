@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { DailyVerse } from '@/types/database'
 import toast from 'react-hot-toast'
+import { Flame, Check } from 'lucide-react'
 
 interface Props {
   verse: DailyVerse | null
@@ -144,7 +145,7 @@ export default function DevotionClient({
           </h1>
 
           <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1.5 border border-gold/30">
-            <span className="text-sm">🔥</span>
+            <Flame size={16} className="text-gold" />
             <span className="whitespace-nowrap text-sm font-semibold text-gold">
               {currentStreak} ngày
             </span>
@@ -176,7 +177,7 @@ export default function DevotionClient({
                       : 'bg-surface2 text-muted/60'
                   }`}
                 >
-                  {isRead ? '✓' : ''}
+                  {isRead ? <Check size={18} strokeWidth={3} /> : ''}
                 </div>
               </div>
             )
@@ -243,7 +244,7 @@ export default function DevotionClient({
                   : 'border-gold bg-transparent text-gold hover:bg-gold/10 active:scale-[0.99] cursor-pointer'
               }`}
             >
-              {todayRead && <span className="text-lg">✓</span>}
+              {todayRead && <Check size={20} strokeWidth={2.5} />}
               {todayRead ? 'Đã đọc hôm nay' : marking ? 'Đang lưu...' : 'Đánh dấu đã đọc'}
             </button>
           </div>

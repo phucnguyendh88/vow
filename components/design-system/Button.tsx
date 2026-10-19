@@ -19,9 +19,9 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   const base = 'rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary';
   const variantClasses: Record<'primary' | 'secondary' | 'ghost', string> = {
-    primary: 'bg-primary text-white hover:bg-primary/90',
-    secondary: 'bg-muted text-text hover:bg-muted/80',
-    ghost: 'bg-transparent text-primary hover:bg-muted',
+    primary: 'bg-gold text-ink font-semibold hover:brightness-105 active:scale-[0.99]',
+    secondary: 'bg-surface2 text-cream hover:bg-surface3 border border-white/5',
+    ghost: 'bg-transparent text-cream hover:bg-surface2',
   };
   const sizeClasses: Record<'default' | 'icon', string> = {
     default: 'px-4 py-2',
