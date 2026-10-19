@@ -7,33 +7,27 @@ export const metadata = {
     'Nơi yên tĩnh để gặp Chúa mỗi ngày, chia sẻ khoảnh khắc với bạn bè và kết nối với những người cùng đức tin.',
 }
 
-const features = [
-  { icon: <BookOpen size={15} className="text-gold" />, label: 'Lời Chúa mỗi ngày' },
-  { icon: <Camera size={15} className="text-gold" />, label: 'Khoảnh khắc cùng bạn bè' },
-  { icon: <Heart size={15} className="text-gold" />, label: 'Gặp người cùng đức tin' },
-]
-
 export default function HomePage() {
   return (
     <div
-      className="relative flex min-h-svh flex-col justify-between bg-ink text-cream"
+      className="relative flex min-h-svh flex-col justify-between bg-ink text-cream px-6 py-12"
       style={{
         backgroundImage:
-          'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(245,179,1,0.10), transparent 60%), radial-gradient(ellipse 90% 60% at 50% 110%, rgba(245,179,1,0.06), transparent 60%)',
+          'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(245,179,1,0.12), transparent 60%), radial-gradient(ellipse 90% 60% at 50% 110%, rgba(245,179,1,0.06), transparent 60%)',
       }}
     >
-      <div className="mx-auto max-w-md w-full flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="mx-auto max-w-sm w-full flex-1 flex flex-col items-center justify-center text-center">
         {/* Logo VOW */}
-        <p className="font-serif text-2xl font-semibold tracking-[0.35em] text-gold">
+        <p className="font-serif text-2xl font-semibold tracking-[0.35em] text-gold select-none">
           VOW
         </p>
 
         {/* Verse quote */}
-        <blockquote className="mt-6 max-w-xs">
-          <p className="font-serif text-[1.7rem] italic leading-snug text-cream">
+        <blockquote className="mt-8 max-w-xs">
+          <p className="font-serif text-[1.75rem] italic leading-snug text-cream">
             “Chúng ta yêu, vì Chúa đã yêu chúng ta trước.”
           </p>
-          <cite className="mt-3 block font-serif text-base italic font-medium tracking-wide text-gold not-italic">
+          <cite className="mt-3 block font-serif text-sm italic font-medium tracking-wide text-gold not-italic">
             1 Giăng 4:19
           </cite>
         </blockquote>
@@ -43,33 +37,39 @@ export default function HomePage() {
           Tình yêu thật sự không bắt nguồn từ khả năng, nỗ lực hay sự xứng đáng của bản thân, mà xuất phát từ chính Đức Chúa Trời, Đấng đã chủ động yêu thương chúng ta trước.
         </p>
 
-        {/* 3 Pills */}
-        <div className="mt-7 flex flex-wrap justify-center gap-2.5 max-w-xs">
-          {features.map((f) => (
-            <span
-              key={f.label}
-              className="inline-flex items-center gap-1.5 rounded-full bg-surface2 px-3.5 py-1.5 text-[13px] text-cream/90 border border-white/5"
-            >
-              {f.icon}
-              <span>{f.label}</span>
-            </span>
-          ))}
+        {/* 3 Pills xếp dọc chính xác như bản gốc */}
+        <div className="mt-8 flex flex-col items-center gap-2.5 w-full max-w-xs">
+          <span className="inline-flex items-center gap-2 rounded-full bg-surface2 px-4 py-2 text-[13px] text-cream/90 border border-white/5 shadow-sm">
+            <BookOpen size={15} className="text-gold shrink-0" />
+            <span>Lời Chúa mỗi ngày</span>
+          </span>
+
+          <span className="inline-flex items-center gap-2 rounded-full bg-surface2 px-4 py-2 text-[13px] text-cream/90 border border-white/5 shadow-sm">
+            <Camera size={15} className="text-gold shrink-0" />
+            <span>Khoảnh khắc cùng bạn bè</span>
+          </span>
+
+          <span className="inline-flex items-center gap-2 rounded-full bg-surface2 px-4 py-2 text-[13px] text-cream/90 border border-white/5 shadow-sm">
+            <Heart size={15} className="text-gold shrink-0" />
+            <span>Gặp người cùng đức tin</span>
+          </span>
         </div>
 
         {/* CTA Button */}
         <Link
           href="/dang-nhap"
-          className="mt-9 w-full max-w-xs rounded-full bg-gold px-6 py-4 text-center text-base font-semibold text-ink shadow-lg shadow-gold/20 transition hover:brightness-105 active:scale-[0.99] cursor-pointer"
+          className="mt-10 w-full max-w-xs rounded-full bg-gold px-6 py-4 text-center text-base font-semibold text-ink shadow-lg shadow-gold/25 transition hover:brightness-105 active:scale-[0.99] cursor-pointer"
         >
           Bắt đầu hành trình
         </Link>
 
-        <p className="mt-4 text-xs text-muted">
+        {/* Note */}
+        <p className="mt-4 text-xs text-muted/80">
           Đăng nhập hoặc tạo tài khoản mới chỉ trong vài giây
         </p>
 
         {/* Footer */}
-        <div className="mt-8 flex items-center justify-center gap-4 text-xs text-muted/80">
+        <div className="mt-8 flex items-center justify-center gap-4 text-xs text-muted/70">
           <Link href="/dieu-khoan" className="hover:text-gold underline underline-offset-4 transition">
             Điều khoản sử dụng
           </Link>

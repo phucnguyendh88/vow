@@ -6,9 +6,9 @@ export default function MainLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col min-h-dvh" style={{ background: 'var(--background)' }}>
+    <div className="flex-1 flex flex-col min-h-svh bg-ink text-cream relative">
       {/* Main content - pad bottom for nav */}
-      <main className="flex-1 pb-20 overflow-y-auto">
+      <main className="flex-1 pb-24 overflow-y-auto nice-scroll">
         {children}
       </main>
 

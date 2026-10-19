@@ -6,7 +6,9 @@ import { usePathname } from 'next/navigation'
 function IconWrap({ children }: { children: React.ReactNode }) {
   return (
     <svg
-      className="h-6 w-6"
+      width="24"
+      height="24"
+      className="h-6 w-6 shrink-0"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -19,6 +21,7 @@ function IconWrap({ children }: { children: React.ReactNode }) {
     </svg>
   )
 }
+
 
 function DevotionIcon() {
   return (

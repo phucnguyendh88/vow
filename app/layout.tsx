@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next'
+import './vow-original.css'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
-  title: 'VOW — Kết nối Cơ Đốc',
-  description: 'Học Kinh Thánh, chia sẻ khoảnh khắc, gặp gỡ người cùng đức tin',
-  manifest: '/manifest.json',
+  title: 'VOW — Niềm tin, cùng nhau',
+  description:
+    'Nơi yên tĩnh để gặp Chúa mỗi ngày, chia sẻ khoảnh khắc với bạn bè và kết nối với những người cùng đức tin.',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -18,7 +24,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0a0a0a',
+  viewportFit: 'cover',
+  themeColor: '#0b0b0f',
 }
 
 export default function RootLayout({
@@ -27,25 +34,25 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="vi" className="dark">
-      <body>
-        <div className="app-container">
+    <html lang="vi" className="dark bg-ink text-cream">
+      <body className="min-h-svh bg-ink text-cream antialiased flex justify-center">
+        <div className="w-full max-w-md min-h-svh flex flex-col relative shadow-2xl shadow-black/80 bg-ink">
           {children}
         </div>
         <Toaster
           position="top-center"
           toastOptions={{
             style: {
-              background: '#1e1e1e',
-              color: '#f5f5f0',
-              border: '1px solid rgba(201, 168, 76, 0.3)',
-              borderRadius: '12px',
+              background: '#1c1c1e',
+              color: '#f5f5f4',
+              border: '1px solid rgba(245, 179, 1, 0.2)',
+              borderRadius: '16px',
             },
             success: {
-              iconTheme: { primary: '#c9a84c', secondary: '#0a0a0a' },
+              iconTheme: { primary: '#f5b301', secondary: '#0b0b0f' },
             },
             error: {
-              iconTheme: { primary: '#ef4444', secondary: '#0a0a0a' },
+              iconTheme: { primary: '#f87171', secondary: '#0b0b0f' },
             },
           }}
         />
