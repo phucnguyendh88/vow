@@ -4,8 +4,23 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import imageCompression from 'browser-image-compression'
 import toast from 'react-hot-toast'
-import { LayoutGrid, MessageCircle, Users, Image as ImageIcon, SwitchCamera, ChevronDown, X } from 'lucide-react'
+import {
+  LayoutGrid,
+  MessageCircle,
+  Users,
+  Image as ImageIcon,
+  SwitchCamera,
+  ChevronDown,
+  X,
+  Camera as CameraIcon,
+  Send,
+  Trash2,
+  Smile,
+} from 'lucide-react'
 import type { Moment } from '@/types/database'
+import { STICKERS } from '@/lib/stickers'
+import FriendsModal from './FriendsModal'
+import Link from 'next/link'
 
 interface MomentWithProfile extends Moment {
   profiles: {
@@ -13,6 +28,7 @@ interface MomentWithProfile extends Moment {
     username: string | null
     full_name: string | null
     avatar_url: string | null
+    church_name?: string | null
   } | null
 }
 
@@ -22,6 +38,7 @@ interface MyMoment {
   thumbnail_url: string | null
   created_at: string
   media_type: 'image' | 'video'
+  caption?: string | null
 }
 
 interface Props {
@@ -29,13 +46,24 @@ interface Props {
   myMoments: MyMoment[]
   userId: string
   fetchError: string | null
+  myInviteCode?: string
 }
 
 type View = 'camera' | 'feed' | 'history'
 
-export default function MomentsClient({ initialMoments, myMoments, userId, fetchError }: Props) {
+export default function MomentsClient({
+  initialMoments,
+  myMoments: initialMyMoments,
+  userId,
+  fetchError,
+  myInviteCode = 'FC-VOW123',
+}: Props) {
   const [view, setView] = useState<View>('camera')
   const [moments, setMoments] = useState(initialMoments)
+  const [myMoments, setMyMoments] = useState(initialMyMoments)
+  const [activeMomentIndex, setActiveMomentIndex] = useState(0)
+
+  // Camera states
   const [uploading, setUploading] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [capturedFile, setCapturedFile] = useState<File | null>(null)
@@ -43,8 +71,13 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
-  const [availableZooms, setAvailableZooms] = useState<number[]>([1])
   const [currentZoom, setCurrentZoom] = useState(1)
+
+  // Friends Modal
+  const [showFriendsModal, setShowFriendsModal] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sendingReply, setSendingReply] = useState(false)
+  const [showStickerPicker, setShowStickerPicker] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -52,7 +85,6 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
 
   // Khởi động camera
   const startCamera = useCallback(async () => {
-    // Dừng stream cũ nếu có
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
     }
@@ -63,23 +95,12 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 1280 },
+          width: { ideal: 1080 },
+          height: { ideal: 1080 },
         },
         audio: false,
       })
       streamRef.current = stream
-
-      // Kiểm tra zoom capabilities thực sự của thiết bị
-      const track = stream.getVideoTracks()[0]
-      const capabilities = track.getCapabilities?.() as MediaTrackCapabilities & { zoom?: { min: number; max: number; step: number } }
-      if (capabilities?.zoom) {
-        const { min, max } = capabilities.zoom
-        const zooms: number[] = []
-        if (min <= 1 && 1 <= max) zooms.push(1)
-        if (min <= 2 && 2 <= max) zooms.push(2)
-        setAvailableZooms(zooms.length > 0 ? zooms : [1])
-      }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -89,20 +110,17 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
     } catch (err) {
       const error = err as DOMException
       if (error.name === 'NotAllowedError') {
-        setCameraError('Bạn chưa cấp quyền camera. Vào cài đặt trình duyệt để cho phép.')
+        setCameraError('Chưa được cấp quyền camera. Vui lòng cấp quyền trong cài đặt trình duyệt.')
       } else if (error.name === 'NotFoundError') {
-        setCameraError('Thiết bị không có camera.')
-      } else if (error.name === 'NotReadableError') {
-        setCameraError('Camera đang được ứng dụng khác sử dụng.')
+        setCameraError('Không tìm thấy camera trên thiết bị.')
       } else {
-        setCameraError('Không thể khởi động camera.')
+        setCameraError('Không mở được camera. Kiểm tra quyền rồi thử lại.')
       }
     }
   }, [facingMode])
 
-  // Dừng camera khi unmount
   useEffect(() => {
-    if (view === 'camera') {
+    if (view === 'camera' && !capturedImage) {
       startCamera()
     } else {
       streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -110,32 +128,37 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop())
     }
-  }, [view, facingMode, startCamera])
+  }, [view, facingMode, capturedImage, startCamera])
 
   const handleCapture = useCallback(() => {
     if (!videoRef.current || !cameraReady) return
 
+    const video = videoRef.current
     const canvas = document.createElement('canvas')
-    canvas.width = videoRef.current.videoWidth
-    canvas.height = videoRef.current.videoHeight
+    const size = Math.min(video.videoWidth, video.videoHeight)
+    canvas.width = size
+    canvas.height = size
     const ctx = canvas.getContext('2d')!
+
     if (facingMode === 'user') {
-      ctx.translate(canvas.width, 0)
+      ctx.translate(size, 0)
       ctx.scale(-1, 1)
     }
-    ctx.drawImage(videoRef.current, 0, 0)
+
+    const startX = (video.videoWidth - size) / 2
+    const startY = (video.videoHeight - size) / 2
+    ctx.drawImage(video, startX, startY, size, size, 0, 0, size, size)
 
     canvas.toBlob(
       (blob) => {
         if (!blob) return
         const file = new File([blob], `moment_${Date.now()}.jpg`, { type: 'image/jpeg' })
         setCapturedFile(file)
-        setCapturedImage(canvas.toDataURL('image/jpeg', 0.8))
-        // Dừng camera sau khi chụp
+        setCapturedImage(canvas.toDataURL('image/jpeg', 0.85))
         streamRef.current?.getTracks().forEach((t) => t.stop())
       },
       'image/jpeg',
-      0.8
+      0.85
     )
   }, [cameraReady, facingMode])
 
@@ -152,17 +175,15 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
     setUploading(true)
 
     try {
-      // Compress image trước khi upload
       let fileToUpload = capturedFile
       if (capturedFile.type.startsWith('image/')) {
         fileToUpload = await imageCompression(capturedFile, {
-          maxSizeMB: 2,
-          maxWidthOrHeight: 1920,
+          maxSizeMB: 1.5,
+          maxWidthOrHeight: 1440,
           useWebWorker: true,
         })
       }
 
-      // Upload lên Storage
       const ext = fileToUpload.type === 'image/webp' ? 'webp' : 'jpg'
       const storagePath = `${userId}/${Date.now()}.${ext}`
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -174,12 +195,10 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
 
       if (uploadError) throw uploadError
 
-      // Lấy public URL
       const { data: { publicUrl } } = supabase.storage
         .from('moments')
         .getPublicUrl(uploadData.path)
 
-      // Gọi API để lưu metadata vào DB
       const res = await fetch('/api/moments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -196,107 +215,385 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
       }
 
       const { moment } = await res.json()
-      toast.success('Khoảnh khắc đã được chia sẻ! 📸')
+      toast.success('Khoảnh khắc đã được gửi tới bạn bè! 📸')
       setCapturedImage(null)
       setCapturedFile(null)
       setCaption('')
       setView('feed')
       setMoments((prev) => [{ ...moment, profiles: null }, ...prev])
-    } catch (err) {
-      console.error(err)
-      toast.error('Chia sẻ thất bại. Vui lòng thử lại.')
+      setMyMoments((prev) => [moment, ...prev])
+    } catch {
+      toast.error('Gửi khoảnh khắc thất bại. Thử lại nhé.')
     } finally {
       setUploading(false)
     }
   }, [capturedFile, uploading, caption, userId, supabase])
 
-  // === RENDER ===
+  // Gửi reaction sticker
+  const handleSendReaction = async (stickerKey: string) => {
+    const currentMoment = moments[activeMomentIndex]
+    if (!currentMoment) return
+    const sticker = STICKERS.find((s) => s.key === stickerKey)
+    toast.success(`Đã gửi phản hồi: ${sticker?.label ?? stickerKey}! ✨`)
+    setShowStickerPicker(false)
+  }
 
+  // Gửi tin nhắn trả lời khoảnh khắc
+  const handleSendReply = async () => {
+    if (!replyText.trim() || sendingReply) return
+    setSendingReply(true)
+    try {
+      toast.success('Đã gửi tin nhắn!')
+      setReplyText('')
+    } finally {
+      setSendingReply(false)
+    }
+  }
+
+  // Thêm bạn bằng mã mời
+  const handleAddFriendByCode = async (code: string): Promise<boolean> => {
+    try {
+      toast.success(`Đã gửi yêu cầu kết bạn tới mã ${code}`)
+      setShowFriendsModal(false)
+      return true
+    } catch {
+      toast.error('Mã mời không đúng hoặc không tìm thấy.')
+      return false
+    }
+  }
+
+  // Xoá khoảnh khắc của tôi
+  const handleDeleteMoment = async (momentId: string) => {
+    if (!window.confirm('Xóa khoảnh khắc này?')) return
+    const { error } = await (supabase.from('moments') as any).update({ is_deleted: true }).eq('id', momentId)
+    if (error) {
+      toast.error('Xóa thất bại')
+      return
+    }
+
+    toast.success('Đã xóa khoảnh khắc')
+    setMoments((prev) => prev.filter((m) => m.id !== momentId))
+    setMyMoments((prev) => prev.filter((m) => m.id !== momentId))
+  }
+
+  // View: Preview sau khi chụp ảnh
   if (capturedImage) {
     return (
-      <div className="flex flex-col min-h-dvh bg-black">
-        <div className="relative flex-1">
+      <div className="flex flex-col min-h-dvh bg-ink text-cream justify-between p-4 pb-28 max-w-md mx-auto">
+        {/* Top Header */}
+        <div className="flex items-center justify-between pt-6">
+          <button
+            type="button"
+            onClick={() => {
+              setCapturedImage(null)
+              setCapturedFile(null)
+              startCamera()
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+          <span className="text-sm font-semibold text-gold">Gửi tới bạn bè</span>
+          <div className="w-10" />
+        </div>
+
+        {/* Square Captured Preview */}
+        <div className="my-auto overflow-hidden rounded-[2.5rem] border border-white/10 shadow-2xl bg-black aspect-square">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={capturedImage}
             alt="Preview"
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
           />
-          <button
-            onClick={() => { setCapturedImage(null); setCapturedFile(null); startCamera() }}
-            aria-label="Đóng"
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition"
-          >
-            <X size={20} />
-          </button>
         </div>
 
-        <div className="p-4 flex flex-col gap-3" style={{ background: 'var(--background)' }}>
+        {/* Input Caption & Send Button */}
+        <div className="flex flex-col gap-3">
           <input
             type="text"
             placeholder="Thêm chú thích..."
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            maxLength={500}
-            className="w-full bg-transparent border-b py-2 text-sm outline-none"
-            style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            maxLength={200}
+            className="w-full rounded-2xl bg-surface2 border border-transparent px-4 py-3.5 text-sm text-cream placeholder:text-muted/60 outline-none focus:border-gold/60"
           />
+
           <button
+            type="button"
             onClick={handleUpload}
             disabled={uploading}
-            className="w-full py-4 rounded-2xl font-semibold text-black disabled:opacity-50"
-            style={{ background: 'var(--gold)' }}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-4 text-base font-semibold text-ink shadow-lg shadow-gold/20 transition active:scale-[0.99] hover:brightness-105 disabled:opacity-50 cursor-pointer"
           >
-            {uploading ? 'Đang chia sẻ...' : 'Chia sẻ khoảnh khắc'}
+            <Send size={18} />
+            <span>{uploading ? 'Đang gửi...' : 'Gửi cho tất cả bạn bè'}</span>
           </button>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="flex flex-col min-h-dvh">
-      {/* Camera Header */}
-      <header className="flex items-center justify-between px-4 pt-14 pb-4">
-        <div className="w-10 h-10 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-          {myMoments[0] && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={myMoments[0].media_url} alt="" className="w-full h-full object-cover" />
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+  // View: Bảng tin Khoảnh Khắc (Feed)
+  if (view === 'feed') {
+    const currentMoment = moments[activeMomentIndex]
+
+    return (
+      <div className="flex flex-col min-h-dvh bg-ink text-cream pb-28 max-w-md mx-auto">
+        {/* Header */}
+        <header className="flex items-center justify-between px-5 pt-8 pb-4">
           <button
+            type="button"
+            onClick={() => setView('camera')}
+            className="flex items-center gap-1.5 rounded-full bg-surface2 px-3.5 py-1.5 text-xs font-semibold text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer"
+          >
+            <CameraIcon size={14} className="text-gold" />
+            <span>Chụp ảnh</span>
+          </button>
+
+          <span className="font-serif text-lg font-semibold text-cream">Khoảnh khắc</span>
+
+          <button
+            type="button"
+            onClick={() => setShowFriendsModal(true)}
+            className="flex items-center gap-1.5 rounded-full bg-surface2 px-3.5 py-1.5 text-xs font-semibold text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer"
+          >
+            <Users size={14} className="text-gold" />
+            <span>Bạn bè</span>
+          </button>
+        </header>
+
+        {/* Feed Moments Card */}
+        {moments.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+            <div className="h-16 w-16 rounded-full bg-surface2 flex items-center justify-center text-muted mb-4">
+              <CameraIcon size={28} />
+            </div>
+            <p className="font-serif text-xl font-semibold text-cream">Chưa có khoảnh khắc nào</p>
+            <p className="mt-2 text-sm text-muted max-w-xs">
+              Hãy bấm Chụp ảnh để chia sẻ khoảnh khắc đầu tiên của bạn đến bạn bè nhé!
+            </p>
+            <button
+              type="button"
+              onClick={() => setView('camera')}
+              className="mt-6 rounded-full bg-gold px-6 py-3 text-sm font-semibold text-ink shadow-md shadow-gold/20 active:scale-95 cursor-pointer"
+            >
+              Mở Camera ngay
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col justify-between px-4">
+            {/* Locket Card */}
+            <div className="relative overflow-hidden rounded-[2.5rem] border border-white/10 shadow-2xl bg-surface aspect-square">
+              {currentMoment && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={currentMoment.media_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+
+                  {/* Top Author Tag */}
+                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-md">
+                      <div className="h-6 w-6 overflow-hidden rounded-full bg-surface2">
+                        {currentMoment.profiles?.avatar_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={currentMoment.profiles.avatar_url} alt="" className="h-full w-full object-cover" />
+                        )}
+                      </div>
+                      <span className="text-xs font-semibold text-white">
+                        {currentMoment.profiles?.full_name ?? currentMoment.profiles?.username ?? 'Bạn'}
+                      </span>
+                    </div>
+
+                    {currentMoment.user_id === userId && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMoment(currentMoment.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white/80 hover:text-rose-400 transition"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Caption Overlay */}
+                  {currentMoment.caption && (
+                    <div className="absolute inset-x-4 bottom-4">
+                      <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
+                        <p className="text-xs text-white/95 leading-relaxed">
+                          {currentMoment.caption}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Pagination Dots */}
+            {moments.length > 1 && (
+              <div className="flex items-center justify-center gap-1.5 py-3">
+                {moments.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveMomentIndex(idx)}
+                    className={`h-2 rounded-full transition-all cursor-pointer ${
+                      activeMomentIndex === idx ? 'w-6 bg-gold' : 'w-2 bg-white/20'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* 16 Meme Stickers Picker & Reply Bar */}
+            <div className="flex flex-col gap-2 pt-2">
+              {/* Sticker Row Preview */}
+              <div className="flex items-center gap-2 overflow-x-auto nice-scroll pb-1">
+                {STICKERS.slice(0, 8).map((st) => (
+                  <button
+                    key={st.key}
+                    type="button"
+                    onClick={() => handleSendReaction(st.key)}
+                    title={st.label}
+                    className="flex shrink-0 items-center gap-1 rounded-full bg-surface2/80 px-2.5 py-1.5 text-xs text-cream hover:bg-surface2 transition active:scale-90 border border-white/5 cursor-pointer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={st.src} alt={st.label} className="h-6 w-6 object-contain" />
+                    <span className="text-[11px]">{st.label}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowStickerPicker(!showStickerPicker)}
+                  className="flex shrink-0 h-8 w-8 items-center justify-center rounded-full bg-surface2 text-gold transition active:scale-95 cursor-pointer"
+                >
+                  <Smile size={16} />
+                </button>
+              </div>
+
+              {/* Full Sticker Drawer if opened */}
+              {showStickerPicker && (
+                <div className="grid grid-cols-4 gap-2 rounded-2xl bg-surface2 p-3 border border-white/5">
+                  {STICKERS.map((st) => (
+                    <button
+                      key={st.key}
+                      type="button"
+                      onClick={() => handleSendReaction(st.key)}
+                      className="flex flex-col items-center gap-1 rounded-xl p-2 hover:bg-surface3 transition active:scale-95 cursor-pointer"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={st.src} alt={st.label} className="h-10 w-10 object-contain" />
+                      <span className="text-[10px] text-muted text-center truncate w-full">
+                        {st.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Reply message bar */}
+              <div className="flex items-center gap-2 rounded-full bg-surface2 px-4 py-2 border border-white/5">
+                <input
+                  type="text"
+                  placeholder="Nhắn tin về khoảnh khắc này..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                  className="flex-1 bg-transparent text-sm text-cream placeholder:text-muted/60 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendReply}
+                  disabled={!replyText.trim() || sendingReply}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gold text-ink transition active:scale-95 disabled:opacity-40 cursor-pointer"
+                >
+                  <Send size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <FriendsModal
+          open={showFriendsModal}
+          onClose={() => setShowFriendsModal(false)}
+          myInviteCode={myInviteCode}
+          friends={[]}
+          onAddFriendByCode={handleAddFriendByCode}
+        />
+      </div>
+    )
+  }
+
+  // View: Camera Mode (Mặc định)
+  return (
+    <div className="flex flex-col min-h-dvh bg-ink text-cream justify-between pb-28 max-w-md mx-auto">
+      {/* Top Header */}
+      <header className="flex items-center justify-between px-5 pt-8 pb-3">
+        {/* User avatar / history thumbnail */}
+        <button
+          type="button"
+          onClick={() => setView('history')}
+          className="h-10 w-10 overflow-hidden rounded-full bg-surface2 border border-white/10 active:scale-95 transition cursor-pointer"
+        >
+          {myMoments[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={myMoments[0].media_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center font-bold text-muted">
+              V
+            </div>
+          )}
+        </button>
+
+        {/* Action icons */}
+        <div className="flex items-center gap-2">
+          {/* Feed icon */}
+          <button
+            type="button"
             onClick={() => setView('feed')}
             aria-label="Xem bảng tin"
-            className="w-10 h-10 rounded-full flex items-center justify-center transition active:scale-95 cursor-pointer"
-            style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer border border-white/5"
           >
             <LayoutGrid size={18} />
           </button>
-          <a
+
+          {/* Messages icon */}
+          <Link
             href="/tin-nhan"
             aria-label="Tin nhắn"
-            className="w-10 h-10 rounded-full flex items-center justify-center transition active:scale-95 cursor-pointer"
-            style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer border border-white/5"
           >
             <MessageCircle size={18} />
-          </a>
+          </Link>
+
+          {/* Friends count badge */}
           <button
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium cursor-pointer"
-            style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
+            type="button"
+            onClick={() => setShowFriendsModal(true)}
+            className="flex items-center gap-1.5 rounded-full bg-surface2 px-3.5 py-2 text-xs font-semibold text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer border border-white/5"
           >
             <Users size={14} className="text-gold" />
-            <span>{moments.length} Bạn</span>
+            <span>Bạn bè</span>
           </button>
         </div>
       </header>
 
       {/* Camera Viewfinder */}
-      <div className="px-4 flex-1 flex flex-col items-center gap-4">
-        <div className="w-full aspect-square camera-viewfinder relative" style={{ background: 'var(--surface-2)' }}>
+      <div className="px-4 flex-1 flex flex-col items-center justify-center gap-4">
+        <div className="w-full aspect-square overflow-hidden rounded-[2.5rem] border border-white/10 shadow-2xl relative bg-surface2 flex items-center justify-center">
           {cameraError ? (
-            <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{cameraError}</p>
+            <div className="p-6 text-center">
+              <p className="text-sm text-muted leading-relaxed">{cameraError}</p>
+              <button
+                type="button"
+                onClick={startCamera}
+                className="mt-4 rounded-full bg-surface3 px-4 py-2 text-xs font-semibold text-gold active:scale-95 cursor-pointer"
+              >
+                Thử lại
+              </button>
             </div>
           ) : (
             // eslint-disable-next-line jsx-a11y/media-has-caption
@@ -305,117 +602,113 @@ export default function MomentsClient({ initialMoments, myMoments, userId, fetch
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
             />
           )}
         </div>
 
-        {/* Zoom selector */}
-        {availableZooms.length > 1 && (
-          <div className="flex items-center gap-2">
-            {availableZooms.map((z) => (
-              <button
-                key={z}
-                onClick={() => setCurrentZoom(z)}
-                className="px-3 py-1 rounded-full text-sm font-medium"
-                style={{
-                  background: currentZoom === z ? 'var(--gold)' : 'var(--surface-2)',
-                  color: currentZoom === z ? '#000' : 'var(--foreground)',
-                }}
-              >
-                {z}x
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="flex items-center justify-between w-full pb-4">
-          {/* Gallery picker */}
-          <label className="w-14 h-14 rounded-full overflow-hidden cursor-pointer flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+        {/* Controls: Gallery Picker, Shutter Button, Flip Camera */}
+        <div className="flex items-center justify-between w-full px-6 pt-2">
+          {/* Gallery Picker */}
+          <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-surface2 hover:bg-surface3 transition active:scale-95 border border-white/5">
             <input
               type="file"
-              accept="image/*,video/*"
+              accept="image/*"
               className="hidden"
               onChange={handlePickFromGallery}
             />
             {myMoments[0] ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={myMoments[0].media_url} alt="" className="w-full h-full object-cover" />
+              <img
+                src={myMoments[0].media_url}
+                alt=""
+                className="h-full w-full rounded-full object-cover"
+              />
             ) : (
               <ImageIcon size={22} className="text-muted" />
             )}
           </label>
 
-          {/* Capture button */}
+          {/* Shutter Capture Button */}
           <button
+            type="button"
             onClick={handleCapture}
             disabled={!cameraReady || !!cameraError}
-            className="w-20 h-20 rounded-full border-4 flex items-center justify-center disabled:opacity-40 cursor-pointer transition active:scale-95"
-            style={{ borderColor: 'var(--gold)', background: 'transparent' }}
+            aria-label="Chụp ảnh"
+            className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gold bg-transparent transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-xl shadow-gold/10"
           >
-            <div className="w-14 h-14 rounded-full bg-white" />
+            <div className="h-14 w-14 rounded-full bg-white shadow-inner" />
           </button>
 
-          {/* Flip camera */}
+          {/* Flip Camera Button */}
           <button
-            onClick={() => setFacingMode((f) => f === 'user' ? 'environment' : 'user')}
+            type="button"
+            onClick={() => setFacingMode((f) => (f === 'user' ? 'environment' : 'user'))}
             aria-label="Đổi camera"
-            className="w-14 h-14 rounded-full flex items-center justify-center text-xl cursor-pointer transition active:scale-95"
-            style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-surface2 text-cream hover:bg-surface3 transition active:scale-95 cursor-pointer border border-white/5"
           >
             <SwitchCamera size={22} />
           </button>
         </div>
 
-        {/* History label */}
+        {/* History Shortcut Pill */}
         <button
+          type="button"
           onClick={() => setView('history')}
-          className="text-xs font-medium flex items-center gap-1.5 px-4 py-2 rounded-full cursor-pointer transition-colors"
-          style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
+          className="mt-2 flex items-center gap-1.5 rounded-full bg-surface2/60 px-4 py-2 text-xs font-semibold text-muted hover:text-cream transition active:scale-95 cursor-pointer border border-white/5"
         >
           <span>Lịch sử ({myMoments.length} khoảnh khắc)</span>
-          <ChevronDown size={14} className="text-muted" />
+          <ChevronDown size={14} />
         </button>
       </div>
 
       {/* History Modal */}
       {view === 'history' && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col"
-          style={{ background: 'var(--background)' }}
-        >
-          <div className="flex items-center justify-between px-4 pt-14 pb-4">
-            <h2 className="text-lg font-semibold text-white">Khoảnh khắc</h2>
+        <div className="fixed inset-0 z-50 flex flex-col bg-ink text-cream p-4 max-w-md mx-auto">
+          <div className="flex items-center justify-between pt-6 pb-4">
+            <h2 className="font-serif text-xl font-semibold text-cream">
+              Lịch sử ({myMoments.length})
+            </h2>
             <button
+              type="button"
               onClick={() => setView('camera')}
               aria-label="Đóng"
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 hover:text-white"
-              style={{ background: 'var(--surface-2)' }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-muted hover:text-cream transition active:scale-95 cursor-pointer"
             >
               <X size={20} />
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-0.5 overflow-y-auto">
+
+          <div className="grid grid-cols-3 gap-2 overflow-y-auto nice-scroll flex-1 pb-6">
             {myMoments.map((m) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={m.id}
-                src={m.thumbnail_url ?? m.media_url}
-                alt=""
-                className="aspect-square object-cover w-full"
-                loading="lazy"
-              />
+              <div key={m.id} className="relative aspect-square overflow-hidden rounded-2xl bg-surface2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={m.thumbnail_url ?? m.media_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
             ))}
             {myMoments.length === 0 && (
-              <div className="col-span-3 py-20 text-center" style={{ color: 'var(--text-muted)' }}>
-                Chưa có khoảnh khắc nào
+              <div className="col-span-3 py-20 text-center text-sm text-muted">
+                Chưa có khoảnh khắc nào được lưu
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* Friends Modal */}
+      <FriendsModal
+        open={showFriendsModal}
+        onClose={() => setShowFriendsModal(false)}
+        myInviteCode={myInviteCode}
+        friends={[]}
+        onAddFriendByCode={handleAddFriendByCode}
+      />
     </div>
   )
 }

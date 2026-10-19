@@ -41,14 +41,14 @@ export default async function TimChuaTruocPage() {
   // Kiểm tra hôm nay đã đọc chưa
   const todayRead = streaks.some((s) => s.date === today)
 
-  // Lấy profile để hiển thị tên
+  // Lấy profile để hiển thị tên và kiểm tra admin
   const { data: profileData } = await supabase
     .from('profiles')
-    .select('full_name, username')
+    .select('full_name, username, role')
     .eq('id', user.id)
     .single()
 
-  const profile = profileData as { full_name: string | null; username: string | null } | null
+  const profile = profileData as { full_name: string | null; username: string | null; role: string | null } | null
 
   return (
     <DevotionClient
@@ -60,6 +60,8 @@ export default async function TimChuaTruocPage() {
       userId={user.id}
       userName={profile?.full_name ?? profile?.username ?? 'bạn'}
       today={today}
+      isAdmin={profile?.role === 'admin'}
     />
   )
 }
+
