@@ -1,5 +1,6 @@
 'use client'
 
+import { fastSignOut } from '@/lib/auth-fast'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -22,9 +23,9 @@ export default function LoginPage() {
 
   async function redirectAfterLogin() {
     const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) throw new Error('Không lấy được phiên đăng nhập.')
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.user) throw new Error('Không lấy được phiên đăng nhập.')
     router.replace('/tim-chua-truoc')
   }
 
@@ -58,8 +59,9 @@ export default function LoginPage() {
     } catch {}
 
     supabase.auth
-      .getUser()
-      .then(({ data: { user } }) => {
+      .getSession()
+      .then(({ data: { session } }) => {
+        const user = session?.user ?? null
         if (cancelled) return
         if (user) {
           const isGuest = Boolean(user.is_anonymous)
@@ -137,7 +139,6 @@ export default function LoginPage() {
           ? 'Đăng nhập khách đang tạm tắt trên hệ thống, vui lòng thử lại sau hoặc dùng Google nhé.'
           : msg || 'Đăng nhập thất bại, thử lại nhé.'
       )
-    } finally {
       setBusy(false)
     }
   }
@@ -149,7 +150,6 @@ export default function LoginPage() {
       await redirectAfterLogin()
     } catch (err: any) {
       setErrorMessage(err?.message || 'Đăng nhập thất bại, thử lại nhé.')
-    } finally {
       setBusy(false)
     }
   }
@@ -271,8 +271,7 @@ export default function LoginPage() {
                   )
                 ) {
                   try {
-                    await supabase.auth.signOut()
-                    window.location.reload()
+                    await fastSignOut('/dang-nhap')
                   } catch {
                     window.location.reload()
                   }
@@ -344,7 +343,7 @@ export default function LoginPage() {
                       onClick={async () => {
                         setConflictType(null)
                         setConfirmSwitchGoogle(false)
-                        await supabase.auth.signOut()
+                        await supabase.auth.signOut({ scope: 'local' })
                         handleGoogleLogin()
                       }}
                       className="flex-[2] rounded-full bg-gold px-4 py-3 text-sm font-bold text-ink active:scale-95"

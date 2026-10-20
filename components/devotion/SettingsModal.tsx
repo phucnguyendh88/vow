@@ -1,5 +1,6 @@
 'use client'
 
+import { fastSignOut } from '@/lib/auth-fast'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -82,13 +83,12 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
   }
 
   const handleSignOutOrExit = async () => {
-    try {
-      // If Guest, keep guest session on device and return to landing/login as in original VOW
-      if (!isGuest) {
-        await supabase.auth.signOut()
-      }
-    } catch {}
     onClose()
+    // If Guest, keep guest session on device and return to landing/login as in original VOW
+    if (!isGuest) {
+      await fastSignOut('/')
+      return
+    }
     router.replace('/')
   }
 

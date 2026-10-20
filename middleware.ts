@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  const protectedPaths = ['/tim-chua-truoc', '/khoang-khac', '/ket-noi-sau', '/ho-so', '/tin-nhan']
+  const protectedPaths = ['/tim-chua-truoc', '/khoang-khac', '/ket-noi-sau', '/ho-so', '/tin-nhan', '/admin']
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   // Fast path: public routes that don't need auth verification
@@ -35,9 +35,16 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Page navigations only need to know whether a session cookie exists (RLS and API routes
+  // re-verify server-side). getSession() reads the cookie locally and only hits the network
+  // to refresh an expired token, which removes ~300ms+ from every tab switch.
+  // Admin API keeps the strict network-verified getUser().
+  let user: import('@supabase/supabase-js').User | null = null
+  if (pathname.startsWith('/api/admin')) {
+    user = (await supabase.auth.getUser()).data.user
+  } else {
+    user = (await supabase.auth.getSession()).data.session?.user ?? null
+  }
 
   // Route API admin — kiểm tra quyền quản trị
   if (pathname.startsWith('/api/admin')) {

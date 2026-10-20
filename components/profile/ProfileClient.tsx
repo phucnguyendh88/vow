@@ -1,5 +1,6 @@
 'use client'
 
+import { fastSignOut } from '@/lib/auth-fast'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -135,9 +136,7 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
 
   const handleSignOut = async () => {
     if (!window.confirm('Bạn có chắc muốn đăng xuất?')) return
-    await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+    await fastSignOut('/')
   }
 
   return (

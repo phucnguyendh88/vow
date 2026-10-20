@@ -7,8 +7,9 @@ export default async function TimChuaTruocPage() {
   const supabase = await createClient()
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   if (!user) redirect('/dang-nhap')
 
@@ -32,7 +33,7 @@ export default async function TimChuaTruocPage() {
       .eq('user_id', user.id),
     supabase
       .from('profiles')
-      .select('full_name, username, role')
+      .select('full_name, username, role, is_complete')
       .eq('id', user.id)
       .single(),
   ])
@@ -41,7 +42,10 @@ export default async function TimChuaTruocPage() {
   const verseError = verseResult.error
   const streaks = (streaksResult.data as Array<{ date: string }> | null) ?? []
   const totalStreak = totalStreakResult.count ?? 0
-  const profile = profileResult.data as { full_name: string | null; username: string | null; role: string | null } | null
+  const profile = profileResult.data as { full_name: string | null; username: string | null; role: string | null; is_complete: boolean | null } | null
+  // First-time users must finish onboarding before entering the main app
+  if (profile && profile.is_complete === false) redirect('/onboarding')
+
   const todayRead = streaks.some((s) => s.date === today)
 
   return (

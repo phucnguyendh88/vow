@@ -15,39 +15,18 @@ interface MomentWithProfile extends Moment {
 export default async function KhoangKhacPage() {
   const supabase = await createClient()
 
+  // Middleware already verified the session; read it locally (no network round trip).
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   if (!user) redirect('/dang-nhap')
 
   const myInviteCode = 'FC-' + user.id.replace(/-/g, '').slice(0, 6).toUpperCase()
 
-  const [momentsRes, profileRes, friendshipsRes, incomingReqRes, outgoingReqRes] =
+  const [profileRes, friendshipsRes, matchesRes, blocksRes, incomingReqRes, outgoingReqRes] =
     await Promise.all([
-      supabase
-        .from('moments')
-        .select(`
-          id,
-          user_id,
-          media_url,
-          media_type,
-          thumbnail_url,
-          caption,
-          is_deleted,
-          deleted_at,
-          created_at,
-          profiles:user_id (
-            id,
-            username,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-        .limit(60),
-
       supabase
         .from('profiles')
         .select('id, username, full_name, avatar_url, church_name')
@@ -58,6 +37,16 @@ export default async function KhoangKhacPage() {
         .from('friendships')
         .select('id, user1_id, user2_id, created_at')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
+
+      supabase
+        .from('matches')
+        .select('user1_id, user2_id')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
+
+      supabase
+        .from('blocks')
+        .select('blocker_id, blocked_id')
+        .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
 
       supabase
         .from('friend_requests')
@@ -71,6 +60,44 @@ export default async function KhoangKhacPage() {
         .eq('sender_id', user.id)
         .eq('status', 'pending'),
     ])
+
+  // Privacy: only self + accepted friends + mutual matches, minus blocked users.
+  const blockedIds = new Set<string>()
+  for (const b of (blocksRes.data ?? []) as Array<{ blocker_id: string; blocked_id: string }>) {
+    blockedIds.add(b.blocker_id === user.id ? b.blocked_id : b.blocker_id)
+  }
+  const visibleIds = new Set<string>([user.id])
+  for (const f of (friendshipsRes.data ?? []) as Array<{ user1_id: string; user2_id: string }>) {
+    visibleIds.add(f.user1_id === user.id ? f.user2_id : f.user1_id)
+  }
+  for (const m of (matchesRes.data ?? []) as Array<{ user1_id: string; user2_id: string }>) {
+    visibleIds.add(m.user1_id === user.id ? m.user2_id : m.user1_id)
+  }
+  blockedIds.forEach((id) => visibleIds.delete(id))
+
+  const momentsRes = await supabase
+    .from('moments')
+    .select(`
+      id,
+      user_id,
+      media_url,
+      media_type,
+      thumbnail_url,
+      caption,
+      is_deleted,
+      deleted_at,
+      created_at,
+      profiles:user_id (
+        id,
+        username,
+        full_name,
+        avatar_url
+      )
+    `)
+    .in('user_id', Array.from(visibleIds))
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .limit(60)
 
   const friendships = (friendshipsRes.data ?? []) as Array<{
     id: string

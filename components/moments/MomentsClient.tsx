@@ -795,9 +795,9 @@ function MemoriesCalendarView({
       </div>
 
       <div className="shrink-0 border-t border-white/10 bg-black/95 px-6 py-3.5 flex items-center justify-center gap-6 text-sm font-semibold text-white">
-        <span>💛 {moments.length} Lockets</span>
+        <span>💛 {moments.length} khoảnh khắc</span>
         <span className="text-white/20">|</span>
-        <span>🔥 {streakDays}d streak</span>
+        <span>🔥 {streakDays} ngày liên tiếp</span>
       </div>
     </div>
   )
@@ -1325,14 +1325,11 @@ export default function MomentsClient({
   const handleAcceptRequest = useCallback(
     async (req: FriendItem) => {
       try {
-        await (supabase.from('friend_requests') as any)
+        // DB trigger creates the friendship + conversation when a request is accepted.
+        const { error: accErr } = await (supabase.from('friend_requests') as any)
           .update({ status: 'accepted' })
           .eq('id', req.id)
-        const [u1, u2] = [userId, req.profile.id].sort()
-        await (supabase.from('friendships') as any).insert({
-          user1_id: u1,
-          user2_id: u2,
-        })
+        if (accErr) throw accErr
         setIncoming((prev) => prev.filter((r) => r.id !== req.id))
         setFriends((prev) => [...prev, req])
         notify(`Đã kết bạn với ${req.profile.name}`)
@@ -1412,41 +1409,13 @@ export default function MomentsClient({
           return
         }
 
-        // Find or create direct conversation with targetUid
-        const { data: myMemberships } = await supabase
-          .from('conversation_members')
-          .select('conversation_id')
-          .eq('user_id', userId)
-
-        const myConvIds = ((myMemberships ?? []) as any[]).map((m) => m.conversation_id)
-        let convId: string | null = null
-
-        if (myConvIds.length > 0) {
-          const { data: shared } = await supabase
-            .from('conversation_members')
-            .select('conversation_id')
-            .eq('user_id', targetUid)
-            .in('conversation_id', myConvIds)
-            .limit(1)
-          if (shared && shared.length > 0) {
-            convId = (shared[0] as any).conversation_id
-          }
-        }
-
-        if (!convId) {
-          const { data: newConv, error: convErr } = await (
-            supabase.from('conversations') as any
-          )
-            .insert({ type: 'friend' })
-            .select('id')
-            .single()
-          if (convErr) throw convErr
-          convId = newConv.id
-          await (supabase.from('conversation_members') as any).insert([
-            { conversation_id: convId, user_id: userId },
-            { conversation_id: convId, user_id: targetUid },
-          ])
-        }
+        // Get-or-create the unique direct conversation (checks friendship/match + block server-side)
+        const { data: convData, error: convErr } = await (supabase as any).rpc(
+          'get_or_create_direct_conversation',
+          { other_user: targetUid }
+        )
+        if (convErr) throw convErr
+        const convId = convData as string
 
         const content = stickerKey ? `[sticker:${stickerKey}]` : text
         const { error: msgErr } = await (supabase.from('messages') as any).insert({
@@ -1823,7 +1792,7 @@ export default function MomentsClient({
                   gridTab === 'memories' ? 'bg-white/15 text-gold' : 'text-white/50'
                 }`}
               >
-                Memories
+                Ký ức
               </button>
             </div>
 
@@ -1989,7 +1958,7 @@ export default function MomentsClient({
                 className="absolute inset-0 h-full w-full bg-black object-cover transition-transform duration-150"
                 style={{
                   transform: `${facingMode === 'user' ? 'scaleX(-1)' : ''} ${
-                    !zoomRange && zoom !== 1 ? `scale(${zoom})` : ''
+                    facingMode !== 'user' && !zoomRange && zoom !== 1 ? `scale(${zoom})` : ''
                   }`.trim() || undefined,
                 }}
               />
@@ -2018,7 +1987,7 @@ export default function MomentsClient({
           </div>
 
           {/* Zoom Selector Row (1x / 2x) */}
-          {!cameraErrorKind && (
+          {!cameraErrorKind && facingMode !== 'user' && (
             <div className="mt-3 flex shrink-0 items-center justify-center gap-2">
               {availableZooms.map((z) => (
                 <button

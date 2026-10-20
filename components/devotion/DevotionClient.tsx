@@ -317,7 +317,7 @@ export default function DevotionClient({
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3">
-          <h1 className="min-w-0 whitespace-nowrap font-serif text-[clamp(1.15rem,5.2vw,1.5rem)] font-semibold leading-snug text-cream">
+          <h1 className="min-w-0 flex-1 truncate font-serif text-[clamp(1rem,4.4vw,1.25rem)] font-semibold leading-snug text-cream">
             Chào {getGreeting(now.getHours())}
             {userName ? `, ${userName}.` : '.'}
           </h1>
@@ -367,7 +367,7 @@ export default function DevotionClient({
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold">
               01 · Câu gốc
             </p>
-            <p className="mt-4 font-serif text-[1.7rem] font-medium leading-snug text-cream">
+            <p className="mt-4 text-[1.25rem] font-normal leading-relaxed text-cream/90">
               {verseText}
             </p>
             <p className="mt-5 text-lg font-semibold text-gold">{verseRef}</p>
