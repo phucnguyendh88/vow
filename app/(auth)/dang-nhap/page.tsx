@@ -119,6 +119,7 @@ export default function LoginPage() {
   }
 
   async function handleGuestLogin() {
+    if (busy) return
     setBusy(true)
     setErrorMessage('')
     try {

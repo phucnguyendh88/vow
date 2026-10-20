@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './vow-original.css'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
+import ZaloWebViewEscape from '@/components/auth/ZaloWebViewEscape'
 
 export const metadata: Metadata = {
   title: 'VOW — Niềm tin, cùng nhau',
@@ -57,6 +58,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-svh bg-ink text-cream antialiased flex justify-center">
         <div className="w-full max-w-md min-h-svh flex flex-col relative shadow-2xl shadow-black/80 bg-ink">
+          <ZaloWebViewEscape />
           {children}
         </div>
         <Toaster
