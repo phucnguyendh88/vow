@@ -34,7 +34,27 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="vi" className="dark bg-ink text-cream">
+    <html lang="vi" className="dark bg-ink text-cream" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('vow_theme') || localStorage.getItem('fc_devotion_theme');
+                  if (theme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.classList.add('devotion-light');
+                  } else {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('devotion-light');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-svh bg-ink text-cream antialiased flex justify-center">
         <div className="w-full max-w-md min-h-svh flex flex-col relative shadow-2xl shadow-black/80 bg-ink">
           {children}

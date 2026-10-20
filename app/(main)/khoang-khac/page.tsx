@@ -33,8 +33,11 @@ export default async function KhoangKhacPage() {
 
   if (!user) redirect('/dang-nhap')
 
-  // Chạy song song cả Moments cộng đồng và Moments cá nhân
-  const [momentsRes, myMomentsRes] = await Promise.all([
+  // Sinh mã kết bạn duy nhất và ổn định cho mỗi tài khoản từ user.id
+  const myInviteCode = 'FC-' + user.id.replace(/-/g, '').slice(0, 8).toUpperCase()
+
+  // Chạy song song: moments chung (bao gồm cả của mình), moments cá nhân, và profile user hiện tại
+  const [momentsRes, myMomentsRes, profileRes] = await Promise.all([
     supabase
       .from('moments')
       .select(`
@@ -55,28 +58,49 @@ export default async function KhoangKhacPage() {
         )
       `)
       .eq('is_deleted', false)
-      .neq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(30),
 
     supabase
       .from('moments')
-      .select('id, media_url, thumbnail_url, created_at, media_type')
+      .select('id, media_url, thumbnail_url, created_at, media_type, caption')
       .eq('user_id', user.id)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .limit(20),
+
+    supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .eq('id', user.id)
+      .maybeSingle(),
   ])
 
   const momentsData = momentsRes.data
   const momentsError = momentsRes.error
   const myMomentsData = myMomentsRes.data
 
+  const profileData = profileRes.data as {
+    id: string
+    username: string | null
+    full_name: string | null
+    avatar_url: string | null
+  } | null
+
+  const currentUser = {
+    id: user.id,
+    username: profileData?.username ?? (user.user_metadata?.username as string | undefined) ?? null,
+    full_name: profileData?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? null,
+    avatar_url: profileData?.avatar_url ?? (user.user_metadata?.avatar_url as string | undefined) ?? null,
+  }
+
   return (
     <MomentsClient
       initialMoments={(momentsData as MomentWithProfile[]) ?? []}
       myMoments={(myMomentsData as MyMoment[]) ?? []}
       userId={user.id}
+      currentUser={currentUser}
+      myInviteCode={myInviteCode}
       fetchError={momentsError?.message ?? null}
     />
   )

@@ -4,8 +4,6 @@ import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
-  Settings,
-  MessageCircle,
   Church,
   MapPin,
   X,
@@ -16,26 +14,24 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import type { Profile, Match } from '@/types/database'
-import { SEED_PROFILES, type SeedProfile } from '@/lib/seed-profiles'
+import { SEED_PROFILES } from '@/lib/seed-profiles'
 import FilterModal, { type FilterOptions } from './FilterModal'
-import SettingsModal from '@/components/devotion/SettingsModal'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-interface DiscoverProfile
-  extends Pick<
-    Profile,
-    | 'id'
-    | 'username'
-    | 'full_name'
-    | 'bio'
-    | 'avatar_url'
-    | 'date_of_birth'
-    | 'gender'
-    | 'location_text'
-    | 'church_name'
-    | 'interests'
-  > {}
+type DiscoverProfile = Pick<
+  Profile,
+  | 'id'
+  | 'username'
+  | 'full_name'
+  | 'bio'
+  | 'avatar_url'
+  | 'date_of_birth'
+  | 'gender'
+  | 'location_text'
+  | 'church_name'
+  | 'interests'
+>
 
 interface MatchWithConversation extends Match {
   conversations: { id: string }[] | null
@@ -81,13 +77,13 @@ export default function DatingClient({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const [swipeDir, setSwipeDir] = useState<'left' | 'right' | null>(null)
+  const [dragOffset, setDragOffset] = useState(0)
   const [matchList, setMatchList] = useState(matches)
   const [newMatch, setNewMatch] = useState<{ name: string; convId?: string } | null>(null)
   const [passedProfiles, setPassedProfiles] = useState<NormalizedCandidate[]>([])
 
   // Modals
   const [showFilterModal, setShowFilterModal] = useState(false)
-  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   // Filters
   const [filters, setFilters] = useState<FilterOptions>({
@@ -216,47 +212,29 @@ export default function DatingClient({
   }
 
   return (
-    <div className="flex flex-col min-h-dvh pb-28 max-w-md mx-auto">
+    <div className="flex flex-col h-[calc(100dvh-5.5rem)] max-w-md mx-auto overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-8 pb-3">
-        {/* Settings button */}
+      <header className="relative flex items-center justify-end px-5 pt-8 pb-3 min-h-[4rem]">
+        {/* Brand V O W */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
+          <p className="font-serif text-xl font-semibold tracking-[0.35em] text-gold select-none">
+            VOW
+          </p>
+        </div>
+
+        {/* Filter button */}
         <button
           type="button"
-          onClick={() => setShowSettingsModal(true)}
-          aria-label="Cài đặt"
+          onClick={() => setShowFilterModal(true)}
+          aria-label="Bộ lọc"
           className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-muted hover:text-cream transition active:scale-95 cursor-pointer border border-white/5"
         >
-          <Settings size={18} />
+          <SlidersHorizontal size={18} />
         </button>
-
-        {/* Brand V O W */}
-        <p className="font-serif text-xl font-semibold tracking-[0.35em] text-gold">
-          VOW
-        </p>
-
-        {/* Filter and Messages */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowFilterModal(true)}
-            aria-label="Bộ lọc"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-muted hover:text-cream transition active:scale-95 cursor-pointer border border-white/5"
-          >
-            <SlidersHorizontal size={18} />
-          </button>
-
-          <Link
-            href="/tin-nhan"
-            aria-label="Tin nhắn"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-muted hover:text-cream transition active:scale-95 cursor-pointer border border-white/5"
-          >
-            <MessageCircle size={18} />
-          </Link>
-        </div>
       </header>
 
       {/* Tabs Switcher: Khám phá / Tương hợp */}
-      <div className="flex px-5 gap-2 mb-4">
+      <div className="flex px-5 gap-2 mb-3 shrink-0">
         <button
           type="button"
           onClick={() => setTab('discover')}
@@ -283,9 +261,9 @@ export default function DatingClient({
 
       {/* === DISCOVER TAB === */}
       {tab === 'discover' && (
-        <div className="flex-1 flex flex-col items-center justify-between px-5">
+        <div className="flex-1 flex flex-col items-center justify-between px-5 min-h-0 overflow-hidden">
           {fetchError && (
-            <p className="text-rose-400 text-xs mb-2">Lỗi tải dữ liệu mạng. Hiển thị hồ sơ đề xuất.</p>
+            <p className="text-rose-400 text-xs mb-1 shrink-0">Lỗi tải dữ liệu mạng. Hiển thị hồ sơ đề xuất.</p>
           )}
 
           {/* If No More Profiles */}
@@ -317,36 +295,72 @@ export default function DatingClient({
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentProfile.id}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.7}
+                onDrag={(_e, info) => {
+                  setDragOffset(info.offset.x)
+                }}
+                onDragEnd={(_e, info) => {
+                  const offset = info.offset.x
+                  setDragOffset(0)
+                  if (offset > 100) {
+                    handleSwipe('like')
+                  } else if (offset < -100) {
+                    handleSwipe('pass')
+                  }
+                }}
                 initial={{ scale: 0.96, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                animate={{
+                  scale: 1,
+                  opacity: 1,
+                  rotate: dragOffset !== 0 ? dragOffset * 0.08 : 0,
+                }}
                 exit={{
                   x: swipeDir === 'right' ? 320 : swipeDir === 'left' ? -320 : 0,
                   opacity: 0,
                   rotate: swipeDir === 'right' ? 14 : swipeDir === 'left' ? -14 : 0,
                 }}
-                transition={{ duration: 0.25 }}
-                className="relative w-full rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-surface flex flex-col"
+                transition={{ duration: 0.22 }}
+                className="relative w-full max-h-[calc(100dvh-200px)] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-surface flex flex-col flex-1 min-h-0 cursor-grab active:cursor-grabbing touch-pan-y"
               >
                 {/* Swipe Stamp Badges */}
-                {swipeDir === 'right' && (
-                  <div className="absolute top-8 left-8 z-30 rounded-2xl border-4 border-emerald-400 px-4 py-1.5 -rotate-12 bg-black/40 backdrop-blur-sm">
+                {(swipeDir === 'right' || dragOffset > 25) && (
+                  <div
+                    style={{
+                      opacity:
+                        swipeDir === 'right'
+                          ? 1
+                          : Math.min(1, Math.max(0, (dragOffset - 25) / 75)),
+                    }}
+                    className="absolute top-6 left-6 z-30 rounded-2xl border-4 border-emerald-400 px-4 py-1.5 -rotate-12 bg-black/50 backdrop-blur-sm pointer-events-none transition-opacity"
+                  >
                     <span className="font-bold text-2xl text-emerald-400 tracking-wider">THÍCH</span>
                   </div>
                 )}
-                {swipeDir === 'left' && (
-                  <div className="absolute top-8 right-8 z-30 rounded-2xl border-4 border-rose-500 px-4 py-1.5 rotate-12 bg-black/40 backdrop-blur-sm">
+                {(swipeDir === 'left' || dragOffset < -25) && (
+                  <div
+                    style={{
+                      opacity:
+                        swipeDir === 'left'
+                          ? 1
+                          : Math.min(1, Math.max(0, (-dragOffset - 25) / 75)),
+                    }}
+                    className="absolute top-6 right-6 z-30 rounded-2xl border-4 border-rose-500 px-4 py-1.5 rotate-12 bg-black/50 backdrop-blur-sm pointer-events-none transition-opacity"
+                  >
                     <span className="font-bold text-2xl text-rose-500 tracking-wider">BỎ QUA</span>
                   </div>
                 )}
 
-                {/* Profile Portrait Image */}
-                <div className="relative w-full aspect-[4/5] bg-surface2 overflow-hidden">
+                {/* Profile Portrait Image: flex-1 object-cover responsive */}
+                <div className="relative w-full flex-1 min-h-[160px] bg-surface2 overflow-hidden select-none">
                   {currentProfile.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={currentProfile.avatarUrl}
                       alt={currentProfile.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover pointer-events-none"
+                      draggable={false}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted">
@@ -355,32 +369,32 @@ export default function DatingClient({
                   )}
 
                   {/* Gradient Shadow over bottom image */}
-                  <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface via-surface/60 to-transparent pointer-events-none" />
                 </div>
 
                 {/* Info Container */}
-                <div className="p-6 pt-2 flex flex-col gap-3">
+                <div className="p-5 pt-1.5 flex flex-col gap-2 shrink-0">
                   <div>
                     <h2 className="font-serif text-2xl font-bold text-cream">
                       {currentProfile.name}
                       {currentProfile.age && (
-                        <span className="font-light text-cream/70 ml-2">
+                        <span className="font-light text-cream/70 ml-2 text-xl">
                           {currentProfile.age}
                         </span>
                       )}
                     </h2>
 
                     {currentProfile.church && (
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted truncate">
                         <Church size={13} className="text-gold shrink-0" />
-                        <span>{currentProfile.church}</span>
+                        <span className="truncate">{currentProfile.church}</span>
                       </p>
                     )}
 
                     {currentProfile.area && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted truncate">
                         <MapPin size={13} className="text-gold shrink-0" />
-                        <span>{currentProfile.area}</span>
+                        <span className="truncate">{currentProfile.area}</span>
                       </p>
                     )}
                   </div>
@@ -388,10 +402,10 @@ export default function DatingClient({
                   {/* Interests Pills */}
                   {currentProfile.interests.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {currentProfile.interests.map((interest) => (
+                      {currentProfile.interests.slice(0, 5).map((interest) => (
                         <span
                           key={interest}
-                          className="rounded-full bg-surface2 px-3 py-1 text-xs text-cream/90 border border-white/5"
+                          className="rounded-full bg-surface2 px-2.5 py-0.5 text-xs text-cream/90 border border-white/5"
                         >
                           {interest}
                         </span>
@@ -401,7 +415,7 @@ export default function DatingClient({
 
                   {/* Bio */}
                   {currentProfile.bio && (
-                    <p className="text-xs leading-relaxed text-cream/80 line-clamp-3">
+                    <p className="text-xs leading-relaxed text-cream/80 line-clamp-2">
                       {currentProfile.bio}
                     </p>
                   )}
@@ -412,16 +426,16 @@ export default function DatingClient({
 
           {/* Action Buttons: Pass & Like */}
           {currentProfile && (
-            <div className="flex items-center justify-center gap-8 py-5">
+            <div className="flex items-center justify-center gap-8 py-3 shrink-0">
               {/* Pass / Decline Button */}
               <button
                 type="button"
                 onClick={() => handleSwipe('pass')}
                 disabled={swiping}
                 aria-label="Bỏ qua"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-surface border border-rose-500/30 text-rose-400 shadow-xl transition-all active:scale-90 hover:bg-rose-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
+                className="flex h-15 w-15 items-center justify-center rounded-full bg-surface border border-rose-500/30 text-rose-400 shadow-xl transition-all active:scale-90 hover:bg-rose-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
               >
-                <X size={28} strokeWidth={2.5} />
+                <X size={26} strokeWidth={2.5} />
               </button>
 
               {/* Like / Accept Button */}
@@ -430,9 +444,9 @@ export default function DatingClient({
                 onClick={() => handleSwipe('like')}
                 disabled={swiping}
                 aria-label="Thích"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-surface border border-emerald-500/30 text-emerald-400 shadow-xl transition-all active:scale-90 hover:bg-emerald-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
+                className="flex h-15 w-15 items-center justify-center rounded-full bg-surface border border-emerald-500/30 text-emerald-400 shadow-xl transition-all active:scale-90 hover:bg-emerald-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
               >
-                <Heart size={28} strokeWidth={2.5} fill="currentColor" />
+                <Heart size={26} strokeWidth={2.5} fill="currentColor" />
               </button>
             </div>
           )}
@@ -551,12 +565,6 @@ export default function DatingClient({
         onClose={() => setShowFilterModal(false)}
         currentFilters={filters}
         onApply={(f) => setFilters(f)}
-      />
-
-      {/* Settings Modal */}
-      <SettingsModal
-        open={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
       />
     </div>
   )

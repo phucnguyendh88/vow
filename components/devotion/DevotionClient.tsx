@@ -99,10 +99,15 @@ export default function DevotionClient({
   // Restore audio & theme preference
   useEffect(() => {
     try {
-      const savedTheme = localStorage.getItem('fc_devotion_theme')
+      const savedTheme = localStorage.getItem('vow_theme') || localStorage.getItem('fc_devotion_theme')
       if (savedTheme === 'light') {
         setIsLightMode(true)
+        document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('devotion-light')
+      } else {
+        setIsLightMode(false)
+        document.documentElement.classList.add('dark')
+        document.documentElement.classList.remove('devotion-light')
       }
 
       const savedMusic = localStorage.getItem('fc_music_on')
@@ -128,13 +133,17 @@ export default function DevotionClient({
     const next = !isLightMode
     setIsLightMode(next)
     if (next) {
+      document.documentElement.classList.remove('dark')
       document.documentElement.classList.add('devotion-light')
       try {
+        localStorage.setItem('vow_theme', 'light')
         localStorage.setItem('fc_devotion_theme', 'light')
       } catch {}
     } else {
+      document.documentElement.classList.add('dark')
       document.documentElement.classList.remove('devotion-light')
       try {
+        localStorage.setItem('vow_theme', 'dark')
         localStorage.setItem('fc_devotion_theme', 'dark')
       } catch {}
     }

@@ -30,7 +30,7 @@ export default function SettingsModal({ open, onClose, isAdmin = false }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center p-0 sm:p-4">
-      <div className="nice-scroll w-full max-w-sm rounded-t-3xl bg-surface p-6 sm:rounded-3xl border border-white/10 shadow-2xl">
+      <div className="nice-scroll w-full max-w-sm max-h-[85vh] sm:max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-surface p-6 pb-10 sm:p-6 sm:rounded-3xl border border-white/10 shadow-2xl">
         <div className="flex items-center justify-between pb-4 border-b border-white/5">
           <h2 className="font-serif text-xl font-semibold text-cream">Cài đặt</h2>
           <button
