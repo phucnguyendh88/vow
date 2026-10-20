@@ -46,7 +46,12 @@ export default async function KetNoiSauPage() {
     b.blocker_id === user.id ? [b.blocked_id] : [b.blocker_id]
   ) ?? []
 
-  const allExcludedIds = [...new Set([...excludedIds, ...blockedIds])]
+  const matchesData = (matchesRes.data as Array<{ user1_id: string; user2_id: string }> | null) ?? []
+  const matchedPartnerIds = matchesData.map((m) =>
+    m.user1_id === user.id ? m.user2_id : m.user1_id
+  )
+
+  const allExcludedIds = [...new Set([...excludedIds, ...blockedIds, ...matchedPartnerIds])]
 
   // Lấy profiles để khám phá (loại trừ đã swipe, bị chặn, bị ban, không đủ điều kiện)
   let query = supabase

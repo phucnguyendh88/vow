@@ -35,6 +35,15 @@ function formatRelativeTime(dateStr?: string | null): string {
 
 function formatMessagePreview(content?: string | null): string {
   if (!content) return 'Bắt đầu cuộc trò chuyện'
+  if (content.startsWith('[moment_reply:')) {
+    const body = content.replace(/^\[moment_reply:[^\]]*\]\s*/, '')
+    if (body.startsWith('[sticker:') && body.endsWith(']')) {
+      const key = body.slice(9, -1)
+      const found = STICKERS.find((s) => s.key === key)
+      return `[Khoảnh khắc] Nhãn dán ${found ? found.label : ''}`
+    }
+    return `[Khoảnh khắc] ${body || 'Đã gửi phản hồi'}`
+  }
   if (content.startsWith('[sticker:') && content.endsWith(']')) {
     const key = content.slice(9, -1)
     const found = STICKERS.find((s) => s.key === key)
@@ -116,6 +125,7 @@ export default async function TinNhanPage() {
     .select(`
       conversation_id,
       joined_at,
+      last_read_at,
       conversations (
         id,
         type,
@@ -201,6 +211,26 @@ export default async function TinNhanPage() {
     }
   }
 
+  const lastReadByConv = new Map<string, string | null>()
+  for (const m of (myMemberships ?? []) as any[]) {
+    if (m?.conversation_id) {
+      lastReadByConv.set(m.conversation_id, m.last_read_at ?? m.joined_at ?? null)
+    }
+  }
+
+  const unreadCountByConv = new Map<string, number>()
+  for (const msg of (messagesRes.data ?? []) as any[]) {
+    if (msg.sender_id !== user.id) {
+      const lastRead = lastReadByConv.get(msg.conversation_id)
+      if (!lastRead || msg.created_at > lastRead) {
+        unreadCountByConv.set(
+          msg.conversation_id,
+          (unreadCountByConv.get(msg.conversation_id) || 0) + 1
+        )
+      }
+    }
+  }
+
   const enrichedConversations = rawConvs
     .map((conv) => {
       const members = membersByConv.get(conv.id) || []
@@ -210,12 +240,14 @@ export default async function TinNhanPage() {
         conv.type === 'friend' ||
         conv.type === 'group' ||
         (peer ? friendIds.has(peer.id) : false)
+      const unreadCount = unreadCountByConv.get(conv.id) || 0
 
       return {
         id: conv.id,
         name: peer?.name || 'Người dùng VOW',
         photo: peer?.avatar || null,
         isFriendOrGroup,
+        unreadCount,
         lastMessage: formatMessagePreview(lastMsg?.content),
         lastMessageAt: lastMsg?.created_at || conv.created_at,
       }
@@ -251,19 +283,28 @@ export default async function TinNhanPage() {
                   <ConversationAvatar name={conv.name} photo={conv.photo} size={52} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate font-medium text-cream">{conv.name}</span>
+                      <span className={`truncate ${conv.unreadCount > 0 ? 'font-semibold text-white' : 'font-medium text-cream'}`}>
+                        {conv.name}
+                      </span>
                       {conv.isFriendOrGroup && (
                         <span className="shrink-0 text-muted">
                           <PeopleBadgeIcon size={16} />
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 truncate text-sm text-muted">{conv.lastMessage}</p>
+                    <p className={`mt-0.5 truncate text-sm ${conv.unreadCount > 0 ? 'font-medium text-white' : 'text-muted'}`}>
+                      {conv.lastMessage}
+                    </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <span className="text-xs text-muted">
                       {formatRelativeTime(conv.lastMessageAt)}
                     </span>
+                    {conv.unreadCount > 0 && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#E8D08D] px-1.5 text-[11px] font-bold text-black shadow-[0_0_8px_rgba(232,208,141,0.5)]">
+                        {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+                      </span>
+                    )}
                   </div>
                 </Link>
               </li>

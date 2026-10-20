@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import imageCompression from 'browser-image-compression'
 import type { Moment } from '@/types/database'
 import { STICKERS } from '@/lib/stickers'
+import { useUnreadCount } from '@/lib/hooks/useUnreadCount'
 
 interface MomentWithProfile extends Moment {
   profiles: {
@@ -816,6 +817,7 @@ export default function MomentsClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+  const { unreadCount } = useUnreadCount(userId)
 
   const [moments, setMoments] = useState<MomentWithProfile[]>(initialMoments)
   const [friends, setFriends] = useState<FriendItem[]>(initialFriends)
@@ -1417,7 +1419,13 @@ export default function MomentsClient({
         if (convErr) throw convErr
         const convId = convData as string
 
-        const content = stickerKey ? `[sticker:${stickerKey}]` : text
+        const thumb = moment.thumbnail_url || moment.media_url || ''
+        const cleanCaption = moment.caption
+          ? moment.caption.replace(/[\n\r|\]]/g, ' ').slice(0, 50)
+          : ''
+        const replyPrefix = `[moment_reply:${moment.id}|${thumb}|${cleanCaption}]`
+        const body = stickerKey ? `[sticker:${stickerKey}]` : text
+        const content = `${replyPrefix} ${body}`.trim()
         const { error: msgErr } = await (supabase.from('messages') as any).insert({
           conversation_id: convId,
           sender_id: userId,
@@ -1425,7 +1433,7 @@ export default function MomentsClient({
         })
         if (msgErr) throw msgErr
 
-        notify('Đã gửi trả lời')
+        notify('Đã gửi tin nhắn về khoảnh khắc')
       } catch (err: any) {
         notify(err?.message || 'Gửi trả lời thất bại', 'error')
       }
@@ -1517,9 +1525,14 @@ export default function MomentsClient({
             type="button"
             onClick={() => router.push('/tin-nhan')}
             aria-label="Tin nhắn"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95"
           >
             <ChatBubbleSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -2114,7 +2127,7 @@ export default function MomentsClient({
           </div>
 
           {/* History Section: "Lịch sử ⌄" using Elegant Gold Serif Font */}
-          <div className="mt-3 shrink-0 select-none pb-4 text-center">
+          <div className="mt-3 shrink-0 select-none pb-24 text-center">
             <button
               type="button"
               onClick={() => openHistory(null, null)}

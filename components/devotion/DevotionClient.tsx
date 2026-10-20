@@ -171,11 +171,32 @@ export default function DevotionClient({
   const [lightMode, setLightMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     try {
-      return localStorage.getItem('vow_devotion_light') === '1'
+      return (
+        localStorage.getItem('vow_theme') === 'light' ||
+        localStorage.getItem('vow_devotion_light') === '1'
+      )
     } catch {
       return false
     }
   })
+
+  useEffect(() => {
+    try {
+      const isLight =
+        localStorage.getItem('vow_theme') === 'light' ||
+        localStorage.getItem('vow_devotion_light') === '1'
+      setLightMode(isLight)
+      if (typeof document !== 'undefined') {
+        if (isLight) {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('devotion-light')
+        } else {
+          document.documentElement.classList.add('dark')
+          document.documentElement.classList.remove('devotion-light')
+        }
+      }
+    } catch {}
+  }, [])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const musicOnRef = useRef(musicOn)
@@ -235,6 +256,16 @@ export default function DevotionClient({
       const next = !prev
       try {
         localStorage.setItem('vow_devotion_light', next ? '1' : '0')
+        localStorage.setItem('vow_theme', next ? 'light' : 'dark')
+        if (typeof document !== 'undefined') {
+          if (next) {
+            document.documentElement.classList.remove('dark')
+            document.documentElement.classList.add('devotion-light')
+          } else {
+            document.documentElement.classList.add('dark')
+            document.documentElement.classList.remove('devotion-light')
+          }
+        }
       } catch {}
       return next
     })

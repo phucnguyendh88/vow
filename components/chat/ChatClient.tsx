@@ -218,6 +218,24 @@ function ReactionSvg({
 
 const REACTION_TYPES: Array<'heart' | 'laugh' | 'like'> = ['heart', 'laugh', 'like']
 
+interface MomentReplyData {
+  momentId: string
+  thumbUrl: string
+  caption: string
+  bodyText: string
+}
+
+function parseMomentReply(rawContent: string): MomentReplyData | null {
+  const match = rawContent.match(/^\[moment_reply:([^|]+)\|([^|]*)\|([^\]]*)\](?:\s*([\s\S]*))?$/)
+  if (!match) return null
+  return {
+    momentId: match[1],
+    thumbUrl: match[2],
+    caption: match[3],
+    bodyText: (match[4] || '').trim(),
+  }
+}
+
 export default function ChatClient({
   conversationId,
   currentUserId,
@@ -246,6 +264,39 @@ export default function ChatClient({
     }
   }, [messages])
 
+  // Đánh dấu đã đọc cuộc trò chuyện khi mở
+  useEffect(() => {
+    ;(supabase.rpc as any)('mark_conversation_read', { conv_id: conversationId }).catch(() => {})
+  }, [conversationId, supabase])
+
+  // Lấy danh sách cảm xúc hiện có cho các tin nhắn
+  useEffect(() => {
+    const msgIds = messages.map((m) => m.id)
+    if (msgIds.length === 0) return
+
+    ;(supabase.from('message_reactions') as any)
+      .select('message_id, user_id, reaction')
+      .in('message_id', msgIds)
+      .then(({ data, error }: any) => {
+        if (error || !data) return
+        setReactionsMap((prev) => {
+          const next = { ...prev }
+          for (const row of data) {
+            if (!next[row.message_id]) {
+              next[row.message_id] = { heart: [], laugh: [], like: [] }
+            }
+            const rType = row.reaction as 'heart' | 'laugh' | 'like'
+            if (next[row.message_id][rType] && !next[row.message_id][rType].includes(row.user_id)) {
+              next[row.message_id][rType] = [...next[row.message_id][rType], row.user_id]
+            }
+          }
+          return next
+        })
+      })
+      .catch(() => {})
+  }, [messages, supabase])
+
+  // Realtime subscription cho messages và message_reactions
   useEffect(() => {
     const channel = supabase
       .channel(`chat_${conversationId}`)
@@ -263,6 +314,47 @@ export default function ChatClient({
             if (prev.some((m) => m.id === newMsg.id)) return prev
             return [...prev, newMsg]
           })
+          ;(supabase.rpc as any)('mark_conversation_read', { conv_id: conversationId }).catch(() => {})
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'message_reactions',
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new as { message_id: string; user_id: string; reaction: 'heart' | 'laugh' | 'like' }
+            setReactionsMap((prev) => {
+              const msgReacts = prev[row.message_id] || { heart: [], laugh: [], like: [] }
+              const list = msgReacts[row.reaction] || []
+              if (list.includes(row.user_id)) return prev
+              return {
+                ...prev,
+                [row.message_id]: {
+                  ...msgReacts,
+                  [row.reaction]: [...list, row.user_id],
+                },
+              }
+            })
+          } else if (payload.eventType === 'DELETE') {
+            const oldRow = payload.old as { message_id?: string; user_id?: string; reaction?: 'heart' | 'laugh' | 'like' }
+            if (oldRow.message_id && oldRow.reaction && oldRow.user_id) {
+              setReactionsMap((prev) => {
+                const msgReacts = prev[oldRow.message_id!] || { heart: [], laugh: [], like: [] }
+                const list = msgReacts[oldRow.reaction!] || []
+                return {
+                  ...prev,
+                  [oldRow.message_id!]: {
+                    ...msgReacts,
+                    [oldRow.reaction!]: list.filter((u) => u !== oldRow.user_id),
+                  },
+                }
+              })
+            }
+          }
         }
       )
       .subscribe()
@@ -315,12 +407,15 @@ export default function ChatClient({
     void handleSendMessage(`[sticker:${stickerKey}]`)
   }
 
-  const handleToggleReaction = (msgId: string, kind: 'heart' | 'laugh' | 'like') => {
+  const handleToggleReaction = async (msgId: string, kind: 'heart' | 'laugh' | 'like') => {
     setActiveReactionMsgId(null)
+    const currentList = reactionsMap[msgId]?.[kind] || []
+    const exists = currentList.includes(currentUserId)
+
+    // Cập nhật giao diện tức thì (optimistic)
     setReactionsMap((prev) => {
       const msgReacts = prev[msgId] || { heart: [], laugh: [], like: [] }
       const list = msgReacts[kind] || []
-      const exists = list.includes(currentUserId)
       const nextList = exists
         ? list.filter((u) => u !== currentUserId)
         : [...list, currentUserId]
@@ -332,6 +427,21 @@ export default function ChatClient({
         },
       }
     })
+
+    // Lưu vào database
+    try {
+      if (exists) {
+        await (supabase.from('message_reactions') as any)
+          .delete()
+          .match({ message_id: msgId, user_id: currentUserId, reaction: kind })
+      } else {
+        await (supabase.from('message_reactions') as any).insert({
+          message_id: msgId,
+          user_id: currentUserId,
+          reaction: kind,
+        })
+      }
+    } catch {}
   }
 
   const partnerName = partner?.name ?? 'Cuộc trò chuyện'
@@ -385,9 +495,11 @@ export default function ChatClient({
 
               {group.items.map((msg) => {
                 const isMe = msg.sender_id === currentUserId
+                const replyData = parseMomentReply(msg.content)
+                const effectiveContent = replyData ? replyData.bodyText : msg.content
                 const isSticker =
-                  msg.content.startsWith('[sticker:') && msg.content.endsWith(']')
-                const stickerKey = isSticker ? msg.content.slice(9, -1) : null
+                  effectiveContent.startsWith('[sticker:') && effectiveContent.endsWith(']')
+                const stickerKey = isSticker ? effectiveContent.slice(9, -1) : null
                 const stickerObj = stickerKey
                   ? STICKERS.find((s) => s.key === stickerKey)
                   : null
@@ -460,7 +572,7 @@ export default function ChatClient({
                           isMe ? 'flex-row-reverse' : 'flex-row'
                         }`}
                       >
-                        {stickerObj ? (
+                        {!replyData && stickerObj ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={stickerObj.src}
@@ -474,7 +586,43 @@ export default function ChatClient({
                               isMe ? 'rounded-br-md' : 'rounded-bl-md'
                             }`}
                           >
-                            {msg.content}
+                            {replyData && (
+                              <div className="mb-2 flex items-center gap-2.5 rounded-xl border border-[rgba(232,208,141,0.25)] bg-black/50 p-2 backdrop-blur-sm">
+                                {replyData.thumbUrl && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={replyData.thumbUrl}
+                                    alt="Khoảnh khắc"
+                                    className="h-12 w-12 shrink-0 rounded-lg border border-[rgba(232,208,141,0.4)] object-cover shadow"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#E8D08D]">
+                                    Khoảnh khắc
+                                  </p>
+                                  {replyData.caption ? (
+                                    <p className="truncate text-xs italic text-white/80">
+                                      &ldquo;{replyData.caption}&rdquo;
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-white/50">Phản hồi khoảnh khắc</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {stickerObj ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={stickerObj.src}
+                                alt="Sticker"
+                                className="h-24 w-24 object-contain"
+                                loading="lazy"
+                              />
+                            ) : (
+                              effectiveContent && <div>{effectiveContent}</div>
+                            )}
+
                             <div
                               className={`mt-1 text-[11px] leading-none text-chattime ${
                                 isMe ? 'text-right' : 'text-left'

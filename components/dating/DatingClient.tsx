@@ -7,6 +7,7 @@ import FilterModal, { type FilterOptions } from './FilterModal'
 import SettingsModal from '@/components/devotion/SettingsModal'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useUnreadCount } from '@/lib/hooks/useUnreadCount'
 
 type DiscoverProfile = Pick<
   Profile,
@@ -211,10 +212,12 @@ const ACCEPT_IMG = '/assets/accept-BffwXBF5.png'
 
 export default function DatingClient({
   discoverProfiles,
+  matches = [],
   userId,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const { unreadCount } = useUnreadCount(userId)
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [swiping, setSwiping] = useState(false)
@@ -222,6 +225,15 @@ export default function DatingClient({
   const [dragX, setDragX] = useState(0)
   const [rediscoverMode, setRediscoverMode] = useState(false)
   const [swipedIds, setSwipedIds] = useState<string[]>([])
+  const [persistedSwipedIds, setPersistedSwipedIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = localStorage.getItem('vow_swiped_candidates')
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
   const [errorBanner, setErrorBanner] = useState<string | null>(null)
 
   const [showFilterModal, setShowFilterModal] = useState(false)
@@ -258,47 +270,68 @@ export default function DatingClient({
       )
   }, [supabase, userId])
 
-  const allCandidates: NormalizedCandidate[] = useMemo(() => {
-    const real: NormalizedCandidate[] = discoverProfiles.map((p) => ({
-      id: p.id,
-      name: p.full_name ?? p.username ?? 'Thành viên',
-      age: calculateAge(p.date_of_birth),
-      gender: p.gender === 'male' ? 'Nam' : p.gender === 'female' ? 'Nữ' : null,
-      church: p.church_name,
-      area: p.location_text,
-      bio: p.bio,
-      interests: p.interests ?? [],
-      avatarUrl: p.avatar_url,
-      isSeed: false,
-    }))
+  const matchedPartnerIds = useMemo(() => {
+    const list: string[] = []
+    for (const m of matches || []) {
+      const other = m.user1_id === userId ? m.user2_id : m.user1_id
+      if (other) list.push(other)
+    }
+    return list
+  }, [matches, userId])
 
-    const seeds: NormalizedCandidate[] = SEED_PROFILES.map((s) => ({
-      id: s.id,
-      name: s.name,
-      age: s.age,
-      gender: s.gender,
-      church: s.church,
-      area: s.area,
-      bio: s.bio,
-      interests: s.interests,
-      avatarUrl: s.avatarUrl,
-      isSeed: true,
-      likesBack: s.likesBack,
-    }))
+  const allCandidates: NormalizedCandidate[] = useMemo(() => {
+    const real: NormalizedCandidate[] = discoverProfiles
+      .filter(
+        (p) =>
+          !matchedPartnerIds.includes(p.id) &&
+          (rediscoverMode || !persistedSwipedIds.includes(p.id))
+      )
+      .map((p) => ({
+        id: p.id,
+        name: p.full_name ?? p.username ?? 'Thành viên',
+        age: calculateAge(p.date_of_birth),
+        gender: p.gender === 'male' ? 'Nam' : p.gender === 'female' ? 'Nữ' : null,
+        church: p.church_name,
+        area: p.location_text,
+        bio: p.bio,
+        interests: p.interests ?? [],
+        avatarUrl: p.avatar_url,
+        isSeed: false,
+      }))
+
+    const seeds: NormalizedCandidate[] = SEED_PROFILES
+      .filter(
+        (s) =>
+          !matchedPartnerIds.includes(s.id) &&
+          (rediscoverMode || !persistedSwipedIds.includes(s.id))
+      )
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        age: s.age,
+        gender: s.gender,
+        church: s.church,
+        area: s.area,
+        bio: s.bio,
+        interests: s.interests,
+        avatarUrl: s.avatarUrl,
+        isSeed: true,
+        likesBack: s.likesBack,
+      }))
 
     return [...real, ...seeds]
-  }, [discoverProfiles])
+  }, [discoverProfiles, matchedPartnerIds, persistedSwipedIds, rediscoverMode])
 
   const filteredCandidates = useMemo(() => {
     return allCandidates.filter((c) => {
       if (filters.gender !== 'all' && c.gender && c.gender !== filters.gender) return false
       if (c.age < filters.minAge || c.age > filters.maxAge) return false
       if (rediscoverMode) {
-        return swipedIds.includes(c.id) || c.isSeed
+        return swipedIds.includes(c.id) || persistedSwipedIds.includes(c.id) || c.isSeed
       }
       return !swipedIds.includes(c.id)
     })
-  }, [allCandidates, filters, rediscoverMode, swipedIds])
+  }, [allCandidates, filters, rediscoverMode, swipedIds, persistedSwipedIds])
 
   const currentCandidate = filteredCandidates[currentIndex]
 
@@ -339,7 +372,10 @@ export default function DatingClient({
                 id: target.id,
                 name: target.name,
                 photo: target.avatarUrl,
-                conversationId: data.match?.conversations?.[0]?.id,
+                conversationId:
+                  data.conversation_id ||
+                  data.match?.conversation_id ||
+                  data.match?.conversations?.[0]?.id,
               })
             }
           })
@@ -358,6 +394,14 @@ export default function DatingClient({
         setSwipeAction(null)
         setSwiping(false)
         setSwipedIds((prev) => (prev.includes(target.id) ? prev : [...prev, target.id]))
+        setPersistedSwipedIds((prev) => {
+          if (prev.includes(target.id)) return prev
+          const next = [...prev, target.id]
+          try {
+            localStorage.setItem('vow_swiped_candidates', JSON.stringify(next))
+          } catch {}
+          return next
+        })
         if (rediscoverMode) {
           setCurrentIndex((i) => i + 1)
         }
@@ -437,6 +481,11 @@ export default function DatingClient({
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           >
             <ChatBubbleSvg className="h-5 w-5 text-[#F0F0F0]" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           <button

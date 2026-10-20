@@ -101,6 +101,7 @@ export async function POST(request: Request) {
 
   // Kiểm tra xem đã tạo Match chưa (DB trigger xử lý, ta chỉ query kết quả)
   let match = null
+  let conversationId = null
   if (action === 'like') {
     const minId = user.id < swiped_id ? user.id : swiped_id
     const maxId = user.id < swiped_id ? swiped_id : user.id
@@ -110,15 +111,28 @@ export async function POST(request: Request) {
       .select('id, created_at, conversations(id)')
       .eq('user1_id', minId)
       .eq('user2_id', maxId)
-      .single()
+      .maybeSingle()
 
-    match = matchData
+    if (matchData) {
+      match = matchData
+      const convList = (matchData as any).conversations
+      conversationId = Array.isArray(convList) ? convList[0]?.id : convList?.id ?? null
+      if (!conversationId) {
+        try {
+          const { data: convRpc } = await (supabase.rpc as any)('get_or_create_direct_conversation', {
+            other_user: swiped_id,
+          })
+          conversationId = convRpc ?? null
+        } catch {}
+      }
+    }
   }
 
   return NextResponse.json({
     success: true,
     swipe,
     matched: !!match,
-    match: match ?? null,
+    match: match ? { ...match, conversation_id: conversationId } : null,
+    conversation_id: conversationId,
   })
 }
