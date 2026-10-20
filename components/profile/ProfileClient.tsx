@@ -66,15 +66,20 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
       })
 
       const path = `${userId}/avatar_${Date.now()}.jpg`
-      const { data, error } = await supabase.storage
-        .from('avatars')
+      let publicUrl = ''
+      const primary = await supabase.storage
+        .from('profile-images')
         .upload(path, compressed, { upsert: true })
 
-      if (error) throw error
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(data.path)
+      if (!primary.error && primary.data) {
+        publicUrl = supabase.storage.from('profile-images').getPublicUrl(primary.data.path).data.publicUrl
+      } else {
+        const fallback = await supabase.storage
+          .from('avatars')
+          .upload(path, compressed, { upsert: true })
+        if (fallback.error || !fallback.data) throw fallback.error || new Error('Upload failed')
+        publicUrl = supabase.storage.from('avatars').getPublicUrl(fallback.data.path).data.publicUrl
+      }
 
       setAvatarUrl(publicUrl)
       // Save directly

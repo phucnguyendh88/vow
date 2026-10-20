@@ -1,23 +1,12 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import toast from 'react-hot-toast'
-import {
-  Church,
-  MapPin,
-  X,
-  Heart,
-  User,
-  Sparkles,
-  SlidersHorizontal,
-  RotateCcw,
-} from 'lucide-react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import type { Profile, Match } from '@/types/database'
 import { SEED_PROFILES } from '@/lib/seed-profiles'
 import FilterModal, { type FilterOptions } from './FilterModal'
-import Link from 'next/link'
+import SettingsModal from '@/components/devotion/SettingsModal'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 type DiscoverProfile = Pick<
   Profile,
@@ -44,18 +33,17 @@ interface Props {
   fetchError: string | null
 }
 
-type TabView = 'discover' | 'matches'
-
-function calculateAge(dob: string | null): number | null {
-  if (!dob) return null
+function calculateAge(dob: string | null): number {
+  if (!dob) return 24
   const diff = Date.now() - new Date(dob).getTime()
-  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25))
+  const age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25))
+  return age >= 18 && age <= 80 ? age : 24
 }
 
 interface NormalizedCandidate {
   id: string
   name: string
-  age: number | null
+  age: number
   gender: string | null
   church: string | null
   area: string | null
@@ -66,34 +54,210 @@ interface NormalizedCandidate {
   likesBack?: boolean
 }
 
+/* --- Original VOW Icons --- */
+function SlidersSvg({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <line x1="21" x2="14" y1="4" y2="4" />
+      <line x1="10" x2="3" y1="4" y2="4" />
+      <line x1="21" x2="12" y1="12" y2="12" />
+      <line x1="8" x2="3" y1="12" y2="12" />
+      <line x1="21" x2="16" y1="20" y2="20" />
+      <line x1="12" x2="3" y1="20" y2="20" />
+      <line x1="14" x2="14" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="10" y2="14" />
+      <line x1="16" x2="16" y1="18" y2="22" />
+    </svg>
+  )
+}
+
+function ChatBubbleSvg({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" />
+    </svg>
+  )
+}
+
+function GearSvg({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+function RefreshSvg({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 16H3v5" />
+    </svg>
+  )
+}
+
+function HeartSvg({ className = 'h-8 w-8', filled = false }: { className?: string; filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </svg>
+  )
+}
+
+function CloseSvg({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  )
+}
+
+function ChurchBuildingSvg({ className = 'h-4 w-4 shrink-0 text-gold' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="m18 7 4 2v14H2V9l4-2" />
+      <path d="M14 22v-4a2 2 0 1 0-4 0v4" />
+      <path d="M18 7V4a2 2 0 0 0-2-2v5" />
+      <path d="M6 7V3a2 2 0 0 1 2-2v6" />
+    </svg>
+  )
+}
+
+function PinSvg({ className = 'h-4 w-4 shrink-0 text-gold' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
+const DECLINE_IMG = '/assets/decline-CDfCipDq.png'
+const ACCEPT_IMG = '/assets/accept-BffwXBF5.png'
+
 export default function DatingClient({
   discoverProfiles,
-  matches,
   userId,
-  fetchError,
 }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<TabView>('discover')
+  const supabase = createClient()
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [swiping, setSwiping] = useState(false)
-  const [swipeDir, setSwipeDir] = useState<'left' | 'right' | null>(null)
-  const [dragOffset, setDragOffset] = useState(0)
-  const [matchList, setMatchList] = useState(matches)
-  const [newMatch, setNewMatch] = useState<{ name: string; convId?: string } | null>(null)
-  const [passedProfiles, setPassedProfiles] = useState<NormalizedCandidate[]>([])
+  const [swipeAction, setSwipeAction] = useState<'like' | 'pass' | null>(null)
+  const [dragX, setDragX] = useState(0)
+  const [rediscoverMode, setRediscoverMode] = useState(false)
+  const [swipedIds, setSwipedIds] = useState<string[]>([])
+  const [errorBanner, setErrorBanner] = useState<string | null>(null)
 
-  // Modals
   const [showFilterModal, setShowFilterModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [ownAvatar, setOwnAvatar] = useState<string | null>(null)
 
-  // Filters
+  const [matchedModal, setMatchedModal] = useState<{
+    id: string
+    name: string
+    photo: string | null
+    conversationId?: string
+  } | null>(null)
+
   const [filters, setFilters] = useState<FilterOptions>({
     gender: 'all',
     minAge: 18,
-    maxAge: 45,
-    area: 'all',
+    maxAge: 60,
   })
 
-  // Normalize real and seed profiles
+  const draggingRef = useRef(false)
+  const startXRef = useRef(0)
+
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(
+        ({ data }) => {
+          if ((data as any)?.avatar_url) setOwnAvatar((data as any).avatar_url)
+        },
+        () => {}
+      )
+  }, [supabase, userId])
+
   const allCandidates: NormalizedCandidate[] = useMemo(() => {
     const real: NormalizedCandidate[] = discoverProfiles.map((p) => ({
       id: p.id,
@@ -122,290 +286,308 @@ export default function DatingClient({
       likesBack: s.likesBack,
     }))
 
-    // Combine real candidates first, then seeds
     return [...real, ...seeds]
   }, [discoverProfiles])
 
-  // Apply filters
   const filteredCandidates = useMemo(() => {
     return allCandidates.filter((c) => {
       if (filters.gender !== 'all' && c.gender && c.gender !== filters.gender) return false
-      if (c.age && (c.age < filters.minAge || c.age > filters.maxAge)) return false
-      if (filters.area !== 'all' && c.area && !c.area.includes(filters.area)) return false
-      return true
+      if (c.age < filters.minAge || c.age > filters.maxAge) return false
+      if (rediscoverMode) {
+        return swipedIds.includes(c.id) || c.isSeed
+      }
+      return !swipedIds.includes(c.id)
     })
-  }, [allCandidates, filters])
+  }, [allCandidates, filters, rediscoverMode, swipedIds])
 
-  const currentProfile = filteredCandidates[currentIndex]
+  const currentCandidate = filteredCandidates[currentIndex]
+
+  const toggleRediscover = useCallback(() => {
+    setRediscoverMode((prev) => {
+      const next = !prev
+      if (!next) {
+        setSwipedIds([])
+      }
+      setCurrentIndex(0)
+      return next
+    })
+  }, [])
 
   const handleSwipe = useCallback(
-    (action: 'like' | 'pass') => {
-      if (!currentProfile || swiping) return
+    async (action: 'like' | 'pass') => {
+      if (swiping || swipeAction || !currentCandidate || matchedModal) return
       setSwiping(true)
-      setSwipeDir(action === 'like' ? 'right' : 'left')
+      setSwipeAction(action)
+      setErrorBanner(null)
 
-      const profileSwiped = currentProfile
+      const target = currentCandidate
 
-      if (action === 'pass') {
-        setPassedProfiles((prev) => [...prev, profileSwiped])
-      }
-
-      // Optimistic instant advance: card exits and next appears within 200ms
-      setTimeout(() => {
-        setCurrentIndex((i) => i + 1)
-        setSwiping(false)
-        setSwipeDir(null)
-      }, 200)
-
-      // Background network sync
-      if (!profileSwiped.isSeed) {
+      if (!target.isSeed) {
         fetch('/api/swipe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            swiped_id: profileSwiped.id,
+            swiped_id: target.id,
             action,
             context: 'dating',
           }),
         })
           .then(async (res) => {
-            const data = await res.json()
-            if (!res.ok) {
-              toast.error(data.error ?? 'Đã xảy ra lỗi khi lưu thao tác')
-              return
-            }
-
-            if (data.matched && action === 'like') {
-              setNewMatch({
-                name: profileSwiped.name,
-                convId: data.match?.conversations?.[0]?.id,
+            const data = await res.json().catch(() => ({}))
+            if (res.ok && data.matched && action === 'like') {
+              setMatchedModal({
+                id: target.id,
+                name: target.name,
+                photo: target.avatarUrl,
+                conversationId: data.match?.conversations?.[0]?.id,
               })
-              if (data.match) {
-                setMatchList((prev) => [
-                  { ...data.match, conversations: data.match.conversations ?? [] },
-                  ...prev,
-                ])
-              }
             }
           })
-          .catch(() => {
-            toast.error('Lỗi kết nối khi gửi tương tác')
+          .catch(() => {})
+      } else if (action === 'like' && target.likesBack) {
+        window.setTimeout(() => {
+          setMatchedModal({
+            id: target.id,
+            name: target.name,
+            photo: target.avatarUrl,
           })
-      } else {
-        // Seed profile match simulation
-        if (action === 'like' && profileSwiped.likesBack) {
-          setTimeout(() => {
-            setNewMatch({
-              name: profileSwiped.name,
-            })
-          }, 250)
-        }
+        }, 340)
       }
+
+      window.setTimeout(() => {
+        setSwipeAction(null)
+        setSwiping(false)
+        setSwipedIds((prev) => (prev.includes(target.id) ? prev : [...prev, target.id]))
+        if (rediscoverMode) {
+          setCurrentIndex((i) => i + 1)
+        }
+      }, 320)
     },
-    [currentProfile, swiping]
+    [swiping, swipeAction, currentCandidate, matchedModal, rediscoverMode]
   )
 
-  const handleResetPassed = () => {
-    setCurrentIndex(0)
-    setPassedProfiles([])
-    toast.success('Đã tải lại danh sách khám phá')
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (swiping || swipeAction) return
+    draggingRef.current = true
+    startXRef.current = e.clientX
+    try {
+      ;(e.target as HTMLElement)?.setPointerCapture?.(e.pointerId)
+    } catch {}
   }
 
-  return (
-    <div className="flex flex-col h-[calc(100dvh-5.5rem)] max-w-md mx-auto overflow-hidden">
-      {/* Header */}
-      <header className="relative flex items-center justify-end px-5 pt-8 pb-3 min-h-[4rem]">
-        {/* Brand V O W */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
-          <p className="font-serif text-xl font-semibold tracking-[0.35em] text-gold select-none">
-            VOW
-          </p>
-        </div>
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current || swiping || swipeAction) return
+    setDragX(e.clientX - startXRef.current)
+  }
 
-        {/* Filter button */}
+  const handlePointerEnd = () => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    if (dragX > 90) {
+      void handleSwipe('like')
+    } else if (dragX < -90) {
+      void handleSwipe('pass')
+    }
+    setDragX(0)
+  }
+
+  const cardStyle: React.CSSProperties =
+    swipeAction === null
+      ? dragX === 0
+        ? {
+            transform: 'translateX(0) rotate(0)',
+            transition: 'transform 0.25s ease-out',
+          }
+        : {
+            transform: `translateX(${dragX}px) rotate(${dragX / 14}deg)`,
+            transition: 'none',
+          }
+      : {
+          transform: `translateX(${swipeAction === 'like' ? 420 : -420}px) rotate(${
+            swipeAction === 'like' ? 18 : -18
+          }deg)`,
+          opacity: 0,
+          transition: 'transform 0.32s ease-in, opacity 0.32s ease-in',
+        }
+
+  return (
+    <div className="flex h-[calc(100dvh-5rem)] min-h-0 flex-col bg-ink">
+      {/* Header (1:1 Original VOW) */}
+      <header className="flex items-center justify-between px-4 pt-3 pb-2">
         <button
           type="button"
           onClick={() => setShowFilterModal(true)}
           aria-label="Bộ lọc"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-muted hover:text-cream transition active:scale-95 cursor-pointer border border-white/5"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-cream transition active:scale-95"
         >
-          <SlidersHorizontal size={18} />
+          <SlidersSvg />
         </button>
+
+        <div className="flex items-center gap-2 text-gold">
+          <span className="font-serif text-2xl font-semibold tracking-[0.18em] uppercase">
+            VOW
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push('/tin-nhan')}
+            aria-label="Tin nhắn"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-surface text-cream transition active:scale-95"
+          >
+            <ChatBubbleSvg />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowSettingsModal(true)}
+            aria-label="Cài đặt"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-cream transition active:scale-95"
+          >
+            <GearSvg />
+          </button>
+        </div>
       </header>
 
-      {/* Tabs Switcher: Khám phá / Tương hợp */}
-      <div className="flex px-5 gap-2 mb-3 shrink-0">
-        <button
-          type="button"
-          onClick={() => setTab('discover')}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
-            tab === 'discover'
-              ? 'bg-gold text-ink shadow-md shadow-gold/20'
-              : 'bg-surface2 text-muted hover:text-cream'
-          }`}
-        >
-          Khám phá
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('matches')}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
-            tab === 'matches'
-              ? 'bg-gold text-ink shadow-md shadow-gold/20'
-              : 'bg-surface2 text-muted hover:text-cream'
-          }`}
-        >
-          Tương hợp ({matchList.length})
-        </button>
-      </div>
+      <main className="flex min-h-0 flex-1 flex-col px-4">
+        {errorBanner && (
+          <p className="mb-2 rounded-2xl bg-red-500/10 px-4 py-2.5 text-center text-sm text-red-400">
+            {errorBanner}
+          </p>
+        )}
 
-      {/* === DISCOVER TAB === */}
-      {tab === 'discover' && (
-        <div className="flex-1 flex flex-col items-center justify-between px-5 min-h-0 overflow-hidden">
-          {fetchError && (
-            <p className="text-rose-400 text-xs mb-1 shrink-0">Lỗi tải dữ liệu mạng. Hiển thị hồ sơ đề xuất.</p>
-          )}
+        {/* Rediscover Pill (Hiện lại hồ sơ đã quẹt) */}
+        <div className="mb-2 flex justify-center">
+          <button
+            type="button"
+            onClick={toggleRediscover}
+            aria-pressed={rediscoverMode}
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95 ${
+              rediscoverMode ? 'bg-gold text-ink' : 'bg-surface text-muted'
+            }`}
+          >
+            <RefreshSvg className="h-4 w-4" />
+            {rediscoverMode ? 'Đang xem lại · Bấm để tắt' : 'Hiện lại hồ sơ đã quẹt'}
+          </button>
+        </div>
 
-          {/* If No More Profiles */}
-          {!currentProfile && (
-            <div className="w-full flex-1 flex flex-col items-center justify-center rounded-3xl bg-surface border border-surface2 p-8 text-center my-auto">
-              <div className="h-16 w-16 rounded-full bg-surface2 flex items-center justify-center text-gold mb-3">
-                <Sparkles size={28} />
-              </div>
-              <h3 className="font-serif text-xl font-semibold text-cream">Đã xem hết hồ sơ!</h3>
-              <p className="mt-2 text-sm text-muted max-w-xs">
-                Bạn đã xem hết các hồ sơ phù hợp với bộ lọc hiện tại.
-              </p>
-
-              {passedProfiles.length > 0 && (
+        {!currentCandidate ? (
+          <div className="flex flex-1 flex-col items-center justify-center rounded-[2rem] bg-surface px-8 text-center">
+            <div className="flex h-28 w-28 items-center justify-center rounded-full bg-goldsoft">
+              <HeartSvg className="h-12 w-12 text-gold" />
+            </div>
+            <h2 className="mt-6 font-serif text-4xl text-cream">
+              {rediscoverMode ? 'Đã xem hết' : 'Hết người phù hợp'}
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              {rediscoverMode
+                ? 'Không còn hồ sơ nào đã bỏ qua để xem lại.'
+                : 'Thử mở rộng bộ lọc hoặc xem lại những người đã bỏ qua.'}
+            </p>
+            <div className="mt-8 flex gap-3">
+              {!rediscoverMode && (
                 <button
                   type="button"
-                  onClick={handleResetPassed}
-                  className="mt-6 flex items-center gap-2 rounded-full bg-surface2 px-5 py-2.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-surface3 transition active:scale-95 cursor-pointer"
+                  onClick={() => setShowFilterModal(true)}
+                  className="rounded-full bg-surface2 px-7 py-3 font-medium text-cream transition active:scale-95"
                 >
-                  <RotateCcw size={14} />
-                  <span>Xem lại {passedProfiles.length} người đã bỏ qua</span>
+                  Bộ lọc
                 </button>
               )}
-            </div>
-          )}
-
-          {/* Active Profile Card */}
-          {currentProfile && (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentProfile.id}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.7}
-                onDrag={(_e, info) => {
-                  setDragOffset(info.offset.x)
-                }}
-                onDragEnd={(_e, info) => {
-                  const offset = info.offset.x
-                  setDragOffset(0)
-                  if (offset > 100) {
-                    handleSwipe('like')
-                  } else if (offset < -100) {
-                    handleSwipe('pass')
-                  }
-                }}
-                initial={{ scale: 0.96, opacity: 0 }}
-                animate={{
-                  scale: 1,
-                  opacity: 1,
-                  rotate: dragOffset !== 0 ? dragOffset * 0.08 : 0,
-                }}
-                exit={{
-                  x: swipeDir === 'right' ? 320 : swipeDir === 'left' ? -320 : 0,
-                  opacity: 0,
-                  rotate: swipeDir === 'right' ? 14 : swipeDir === 'left' ? -14 : 0,
-                }}
-                transition={{ duration: 0.22 }}
-                className="relative w-full max-h-[calc(100dvh-200px)] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-surface flex flex-col flex-1 min-h-0 cursor-grab active:cursor-grabbing touch-pan-y"
+              <button
+                type="button"
+                onClick={toggleRediscover}
+                className="flex items-center gap-2 rounded-full bg-gold px-7 py-3 font-semibold text-ink transition active:scale-95"
               >
-                {/* Swipe Stamp Badges */}
-                {(swipeDir === 'right' || dragOffset > 25) && (
+                <RefreshSvg />
+                {rediscoverMode ? 'Về khám phá mới' : 'Xem lại'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              className="relative flex min-h-0 flex-1 touch-none select-none"
+              style={{ perspective: 800 }}
+            >
+              <div
+                className="flex w-full min-h-0 flex-col overflow-hidden rounded-[2rem] bg-surface shadow-2xl"
+                style={cardStyle}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerEnd}
+                onPointerCancel={handlePointerEnd}
+              >
+                {dragX > 20 && (
                   <div
+                    className="pointer-events-none absolute top-6 left-6 z-10 rounded-lg border-4 border-success px-3 py-1 font-bold tracking-widest text-success"
                     style={{
-                      opacity:
-                        swipeDir === 'right'
-                          ? 1
-                          : Math.min(1, Math.max(0, (dragOffset - 25) / 75)),
+                      opacity: Math.min(dragX / 120, 1),
+                      transform: 'rotate(-12deg)',
                     }}
-                    className="absolute top-6 left-6 z-30 rounded-2xl border-4 border-emerald-400 px-4 py-1.5 -rotate-12 bg-black/50 backdrop-blur-sm pointer-events-none transition-opacity"
                   >
-                    <span className="font-bold text-2xl text-emerald-400 tracking-wider">THÍCH</span>
-                  </div>
-                )}
-                {(swipeDir === 'left' || dragOffset < -25) && (
-                  <div
-                    style={{
-                      opacity:
-                        swipeDir === 'left'
-                          ? 1
-                          : Math.min(1, Math.max(0, (-dragOffset - 25) / 75)),
-                    }}
-                    className="absolute top-6 right-6 z-30 rounded-2xl border-4 border-rose-500 px-4 py-1.5 rotate-12 bg-black/50 backdrop-blur-sm pointer-events-none transition-opacity"
-                  >
-                    <span className="font-bold text-2xl text-rose-500 tracking-wider">BỎ QUA</span>
+                    THÍCH
                   </div>
                 )}
 
-                {/* Profile Portrait Image: flex-1 object-cover responsive */}
-                <div className="relative w-full flex-1 min-h-[160px] bg-surface2 overflow-hidden select-none">
-                  {currentProfile.avatarUrl ? (
+                {dragX < -20 && (
+                  <div
+                    className="pointer-events-none absolute top-6 right-6 z-10 rounded-lg border-4 border-danger px-3 py-1 font-bold tracking-widest text-danger"
+                    style={{
+                      opacity: Math.min(-dragX / 120, 1),
+                      transform: 'rotate(12deg)',
+                    }}
+                  >
+                    BỎ QUA
+                  </div>
+                )}
+
+                <div className="relative shrink-0">
+                  {currentCandidate.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={currentProfile.avatarUrl}
-                      alt={currentProfile.name}
-                      className="h-full w-full object-cover pointer-events-none"
+                      src={currentCandidate.avatarUrl}
+                      alt={currentCandidate.name}
                       draggable={false}
+                      className="h-72 w-full object-cover sm:h-80"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted">
-                      <User size={64} />
+                    <div className="flex h-72 w-full items-center justify-center bg-gradient-to-br from-surface2 to-surface sm:h-80">
+                      <span className="font-serif text-7xl text-gold/70">
+                        {(currentCandidate.name || '?').charAt(0).toUpperCase()}
+                      </span>
                     </div>
                   )}
-
-                  {/* Gradient Shadow over bottom image */}
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface via-surface/60 to-transparent pointer-events-none" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-surface to-transparent" />
                 </div>
 
-                {/* Info Container */}
-                <div className="p-5 pt-1.5 flex flex-col gap-2 shrink-0">
-                  <div>
-                    <h2 className="font-serif text-2xl font-bold text-cream">
-                      {currentProfile.name}
-                      {currentProfile.age && (
-                        <span className="font-light text-cream/70 ml-2 text-xl">
-                          {currentProfile.age}
-                        </span>
-                      )}
-                    </h2>
+                <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                  <h2 className="font-serif text-3xl text-cream">
+                    {currentCandidate.name}, {currentCandidate.age}
+                  </h2>
 
-                    {currentProfile.church && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted truncate">
-                        <Church size={13} className="text-gold shrink-0" />
-                        <span className="truncate">{currentProfile.church}</span>
-                      </p>
+                  <div className="mt-2 space-y-1.5 text-sm text-muted">
+                    {currentCandidate.church && (
+                      <div className="flex items-center gap-2">
+                        <ChurchBuildingSvg className="h-4 w-4 shrink-0 text-gold" />
+                        <span>{currentCandidate.church}</span>
+                      </div>
                     )}
-
-                    {currentProfile.area && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted truncate">
-                        <MapPin size={13} className="text-gold shrink-0" />
-                        <span className="truncate">{currentProfile.area}</span>
-                      </p>
+                    {currentCandidate.area && (
+                      <div className="flex items-center gap-2">
+                        <PinSvg className="h-4 w-4 shrink-0 text-gold" />
+                        <span>{currentCandidate.area}</span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Interests Pills */}
-                  {currentProfile.interests.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {currentProfile.interests.slice(0, 5).map((interest) => (
+                  {currentCandidate.interests.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {currentCandidate.interests.map((interest) => (
                         <span
                           key={interest}
-                          className="rounded-full bg-surface2 px-2.5 py-0.5 text-xs text-cream/90 border border-white/5"
+                          className="rounded-full bg-surface2 px-3 py-1 text-xs text-cream"
                         >
                           {interest}
                         </span>
@@ -413,159 +595,181 @@ export default function DatingClient({
                     </div>
                   )}
 
-                  {/* Bio */}
-                  {currentProfile.bio && (
-                    <p className="text-xs leading-relaxed text-cream/80 line-clamp-2">
-                      {currentProfile.bio}
+                  {currentCandidate.bio && (
+                    <p className="mt-3 text-sm leading-relaxed text-cream/90">
+                      {currentCandidate.bio}
                     </p>
                   )}
                 </div>
-              </motion.div>
-            </AnimatePresence>
-          )}
-
-          {/* Action Buttons: Pass & Like */}
-          {currentProfile && (
-            <div className="flex items-center justify-center gap-8 py-3 shrink-0">
-              {/* Pass / Decline Button */}
-              <button
-                type="button"
-                onClick={() => handleSwipe('pass')}
-                disabled={swiping}
-                aria-label="Bỏ qua"
-                className="flex h-15 w-15 items-center justify-center rounded-full bg-surface border border-rose-500/30 text-rose-400 shadow-xl transition-all active:scale-90 hover:bg-rose-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
-              >
-                <X size={26} strokeWidth={2.5} />
-              </button>
-
-              {/* Like / Accept Button */}
-              <button
-                type="button"
-                onClick={() => handleSwipe('like')}
-                disabled={swiping}
-                aria-label="Thích"
-                className="flex h-15 w-15 items-center justify-center rounded-full bg-surface border border-emerald-500/30 text-emerald-400 shadow-xl transition-all active:scale-90 hover:bg-emerald-500/10 touch-manipulation cursor-pointer disabled:opacity-40"
-              >
-                <Heart size={26} strokeWidth={2.5} fill="currentColor" />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* === MATCHES TAB === */}
-      {tab === 'matches' && (
-        <div className="flex-1 px-5 overflow-y-auto nice-scroll">
-          {matchList.length === 0 ? (
-            <div className="py-20 text-center flex flex-col items-center justify-center">
-              <div className="h-16 w-16 rounded-full bg-surface2 flex items-center justify-center text-muted mb-4">
-                <Heart size={28} />
               </div>
-              <p className="font-serif text-lg font-semibold text-cream">Chưa có tương hợp nào</p>
-              <p className="mt-1 text-xs text-muted max-w-xs">
-                Tiếp tục khám phá và bấm Thích những người bạn cùng đức tin nhé!
-              </p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {matchList.map((m) => {
-                const convId = m.conversations?.[0]?.id
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-3.5 rounded-2xl bg-surface p-3.5 border border-white/5 shadow-md"
-                  >
-                    <div className="h-12 w-12 rounded-full overflow-hidden bg-surface2 flex items-center justify-center">
-                      <User size={22} className="text-muted" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-cream truncate">Kết nối mới</p>
-                      <p className="text-xs text-muted">
-                        {new Date(m.created_at).toLocaleDateString('vi-VN')}
-                      </p>
-                    </div>
-                    {convId && (
-                      <Link
-                        href={`/tin-nhan/${convId}`}
-                        className="rounded-full bg-gold px-3.5 py-1.5 text-xs font-semibold text-ink shadow-sm hover:brightness-105 active:scale-95 transition"
-                      >
-                        Nhắn tin
-                      </Link>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Modal Match Celebration ("Hai bạn đã kết nối!") */}
-      <AnimatePresence>
-        {newMatch && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
-            onClick={() => setNewMatch(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-[2.5rem] bg-surface border border-gold/30 p-8 text-center shadow-2xl"
-            >
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold/20 text-gold mb-4">
-                <Sparkles size={32} />
-              </div>
-              <h2 className="font-serif text-2xl font-bold text-cream">
-                Hai bạn đã kết nối!
-              </h2>
-              <p className="mt-2 text-sm text-cream/90 leading-relaxed">
-                Bạn và <span className="font-semibold text-gold">{newMatch.name}</span> đã cùng bày tỏ sự quan tâm.
-              </p>
-              <p className="mt-1 text-xs text-muted italic">
-                “Chào bạn! Mình rất vui vì chúng ta đã ghép đôi. Cảm ơn Chúa vì sự kết nối này!”
-              </p>
-
-              <div className="mt-6 flex flex-col gap-2.5">
+            {/* Glossy 3D Action Buttons (TỪ CHỐI / CHẤP NHẬN) */}
+            <div className="flex items-center justify-center gap-10 bg-[#0a0a0f] py-6">
+              <div className="flex flex-col items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const conv = newMatch.convId
-                    setNewMatch(null)
-                    if (conv) {
-                      router.push(`/tin-nhan/${conv}`)
-                    } else {
-                      setTab('matches')
-                    }
-                  }}
-                  className="w-full rounded-full bg-gold py-3.5 text-sm font-semibold text-ink shadow-lg shadow-gold/20 hover:brightness-105 active:scale-95 transition cursor-pointer"
+                  onClick={() => void handleSwipe('pass')}
+                  disabled={swiping}
+                  aria-label="Từ chối"
+                  className="h-[70px] w-[70px] transition active:scale-90 disabled:opacity-40"
                 >
-                  Nhắn tin ngay
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={DECLINE_IMG}
+                    alt="Từ chối"
+                    className="h-full w-full object-contain"
+                  />
                 </button>
+                <span className="text-[11px] font-medium tracking-[0.2em] text-danger">
+                  TỪ CHỐI
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setNewMatch(null)}
-                  className="w-full rounded-full bg-surface2 py-3 text-xs font-semibold text-muted hover:text-cream active:scale-95 transition cursor-pointer"
+                  onClick={() => void handleSwipe('like')}
+                  disabled={swiping}
+                  aria-label="Chấp nhận"
+                  className="h-[70px] w-[70px] transition active:scale-90 disabled:opacity-40"
                 >
-                  Để sau
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={ACCEPT_IMG}
+                    alt="Chấp nhận"
+                    className="h-full w-full object-contain"
+                  />
                 </button>
+                <span className="text-[11px] font-medium tracking-[0.2em] text-success">
+                  CHẤP NHẬN
+                </span>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </>
         )}
-      </AnimatePresence>
+      </main>
 
       {/* Filter Modal */}
       <FilterModal
         open={showFilterModal}
         onClose={() => setShowFilterModal(false)}
         currentFilters={filters}
-        onApply={(f) => setFilters(f)}
+        onApply={(next) => {
+          setFilters(next)
+          setCurrentIndex(0)
+        }}
       />
+
+      {/* Match Modal (1:1 Original VOW) */}
+      {matchedModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Kết nối thành công"
+        >
+          <div className="relative w-full max-w-sm rounded-[2rem] bg-surface p-8 text-center">
+            <button
+              type="button"
+              onClick={() => setMatchedModal(null)}
+              aria-label="Để sau"
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-muted active:scale-95"
+            >
+              <CloseSvg className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-start justify-center">
+              <div className="flex w-24 flex-col items-center">
+                {ownAvatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={ownAvatar}
+                    alt="Bạn"
+                    className="h-20 w-20 rounded-full border-2 border-gold object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold bg-ink font-serif text-3xl text-gold">
+                    B
+                  </div>
+                )}
+                <span className="mt-2 w-full truncate text-sm font-medium text-cream">
+                  Bạn
+                </span>
+              </div>
+
+              <div className="mx-2 mt-5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink">
+                <HeartSvg className="h-5 w-5" filled />
+              </div>
+
+              <div className="flex w-24 flex-col items-center">
+                {matchedModal.photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={matchedModal.photo}
+                    alt={matchedModal.name}
+                    className="h-20 w-20 rounded-full border-2 border-gold object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold bg-ink font-serif text-3xl text-gold">
+                    {(matchedModal.name.trim().charAt(0) || '?').toUpperCase()}
+                  </div>
+                )}
+                <span className="mt-2 w-full truncate text-sm font-medium text-cream">
+                  {matchedModal.name}
+                </span>
+              </div>
+            </div>
+
+            <h2 className="mt-5 font-serif text-3xl text-cream">Hai bạn đã kết nối!</h2>
+            <p className="mt-2 text-sm text-muted">Hãy bắt đầu bằng một lời chào nhé.</p>
+
+            <button
+              type="button"
+              onClick={() => {
+                const cid = matchedModal.conversationId
+                setMatchedModal(null)
+                if (cid) {
+                  router.push(`/tin-nhan/${cid}`)
+                } else {
+                  router.push('/tin-nhan')
+                }
+              }}
+              className="mt-7 w-full rounded-full bg-gold py-3.5 font-semibold text-ink transition active:scale-[0.98]"
+            >
+              Nhắn tin ngay
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const id = matchedModal.id
+                const name = matchedModal.name
+                setMatchedModal(null)
+                router.push(
+                  `/khoang-khac?locket=${encodeURIComponent(id)}&name=${encodeURIComponent(
+                    name
+                  )}`
+                )
+              }}
+              className="mt-2 w-full rounded-full bg-surface2 py-3.5 font-semibold text-cream transition active:scale-[0.98]"
+            >
+              Xem Locket
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMatchedModal(null)}
+              className="mt-2 w-full rounded-full py-2.5 text-sm text-muted"
+            >
+              Để sau
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      <SettingsModal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
     </div>
   )
 }

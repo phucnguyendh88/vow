@@ -64,8 +64,8 @@ export async function middleware(request: NextRequest) {
     return createRedirectResponse(new URL('/dang-nhap', request.url))
   }
 
-  // Nếu đã đăng nhập và vào trang login thì redirect vào app
-  if (pathname === '/dang-nhap' && user) {
+  // Nếu đã đăng nhập tài khoản chính thức (không phải Guest) và vào trang login thì redirect vào app
+  if (pathname === '/dang-nhap' && user && !user.is_anonymous) {
     return createRedirectResponse(new URL('/tim-chua-truoc', request.url))
   }
 

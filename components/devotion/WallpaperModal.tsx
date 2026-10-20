@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Download } from 'lucide-react'
 
 export interface WallpaperVerse {
   reference: string
@@ -10,8 +9,44 @@ export interface WallpaperVerse {
 
 export const SAMPLE_VERSES: WallpaperVerse[] = [
   {
-    reference: 'I Giăng 4:19',
-    text: 'Chúng ta yêu, vì Chúa đã yêu chúng ta trước.',
+    reference: 'Giăng 3:16',
+    text: 'Vì Đức Chúa Trời yêu thương thế gian, đến nỗi đã ban Con một của Ngài, hầu cho hễ ai tin Con ấy không bị hư mất mà được sự sống đời đời.',
+  },
+  {
+    reference: 'Phi-líp 4:13',
+    text: 'Tôi làm được mọi sự nhờ Đấng ban thêm sức cho tôi.',
+  },
+  {
+    reference: 'Giê-rê-mi 29:11',
+    text: 'Đức Giê-hô-va phán: Vì ta biết ý tưởng ta nghĩ đối cùng các ngươi, là ý tưởng bình an, không phải tai họa, để cho các ngươi được sự trông cậy trong lúc cuối cùng của mình.',
+  },
+  {
+    reference: 'Thi Thiên 23:1',
+    text: 'Đức Giê-hô-va là Đấng chăn giữ tôi: tôi sẽ chẳng thiếu thốn gì.',
+  },
+  {
+    reference: 'Châm Ngôn 3:5',
+    text: 'Hãy hết lòng tin cậy Đức Giê-hô-va, Chớ nương cậy nơi sự thông sáng của con;',
+  },
+  {
+    reference: 'Ê-sai 41:10',
+    text: 'Đừng sợ, vì ta ở với ngươi; chớ kinh khiếp, vì ta là Đức Chúa Trời ngươi! Ta sẽ bổ sức cho ngươi; phải, ta sẽ giúp đỡ ngươi, lấy tay hữu công bình ta mà nâng đỡ ngươi.',
+  },
+  {
+    reference: 'Ma-thi-ơ 11:28',
+    text: 'Hỡi những kẻ mệt mỏi và gánh nặng, hãy đến cùng ta, ta sẽ cho các ngươi được yên nghỉ.',
+  },
+  {
+    reference: 'Giô-suê 1:9',
+    text: 'Ta há không có phán dặn ngươi sao? Hãy vững lòng bền chí, chớ run sợ, chớ kinh khủng; vì Giê-hô-va Đức Chúa Trời ngươi vẫn ở cùng ngươi trong mọi nơi ngươi đi.',
+  },
+  {
+    reference: 'Thi Thiên 46:1',
+    text: 'Đức Chúa Trời là nơi nương náu và sức lực của chúng tôi, Ngài sẵn giúp đỡ trong cơn gian truân.',
+  },
+  {
+    reference: 'I Cô-rinh 13:4',
+    text: 'Tình yêu thương hay nhịn nhục; tình yêu thương hay nhân từ; tình yêu thương chẳng ghen tị, chẳng khoe mình, chẳng lên mình kiêu ngạo,',
   },
   {
     reference: 'Ma-thi-ơ 6:33',
@@ -110,11 +145,28 @@ function drawCoverImage(
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = reject
     img.src = src
   })
+}
+
+function CloseIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function DownloadIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" />
+      <path d="m7 10 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 15V3" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 interface Props {
@@ -122,8 +174,7 @@ interface Props {
   onClose: () => void
 }
 
-export default function WallpaperModal({ currentVerse, onClose }: Props) {
-  const verseList = currentVerse ? [currentVerse, ...SAMPLE_VERSES] : SAMPLE_VERSES
+export default function WallpaperModal({ onClose }: Props) {
   const [selectedVerseIndex, setSelectedVerseIndex] = useState(0)
   const [selectedWallpaperIndex, setSelectedWallpaperIndex] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -136,10 +187,15 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const verse = verseList[selectedVerseIndex] || verseList[0]
+    const verse = SAMPLE_VERSES[selectedVerseIndex] || SAMPLE_VERSES[0]
     const wallpaper = WALLPAPERS[selectedWallpaperIndex] || WALLPAPERS[0]
 
-    // 1. Draw Background Image
+    try {
+      await document.fonts.load('600 64px "Playfair Display"')
+      await document.fonts.load('italic 500 64px "Playfair Display"')
+      await document.fonts.load('600 44px "Be Vietnam Pro"')
+    } catch {}
+
     try {
       const img = await loadImage(wallpaper.src)
       drawCoverImage(ctx, img, CANVAS_WIDTH, CANVAS_HEIGHT)
@@ -148,7 +204,6 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
     }
 
-    // 2. Draw Subtle Overlay Gradients
     const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT)
     gradient.addColorStop(0, 'rgba(0,0,0,0.25)')
     gradient.addColorStop(0.5, 'rgba(0,0,0,0.45)')
@@ -156,17 +211,14 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
-    // 3. Compute Font Size & Wrapped Lines
     let fontSize = 60
     let lines: string[] = []
-    const maxWidth = 840
-    const maxHeight = 520
-
-    while (fontSize > 32) {
-      ctx.font = `500 italic ${fontSize}px "Playfair Display", "Cormorant Garamond", Georgia, serif`
-      lines = wrapText(ctx, verse.text, maxWidth)
-      const lineHeight = fontSize * 1.42
-      if (lines.length * lineHeight <= maxHeight) break
+    while (
+      fontSize > 32 &&
+      ((ctx.font = `500 italic ${fontSize}px "Playfair Display", Georgia, serif`),
+      (lines = wrapText(ctx, verse.text, 840)),
+      !(lines.length * fontSize * 1.42 <= 520))
+    ) {
       fontSize -= 4
     }
 
@@ -175,7 +227,6 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
     const centerY = CANVAS_HEIGHT * 0.58
     const startY = centerY - totalTextHeight / 2 + lineHeight / 2
 
-    // 4. Subtle Radial Gradient Backing for Text
     const radial = ctx.createRadialGradient(
       CANVAS_WIDTH / 2,
       centerY,
@@ -187,9 +238,8 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
     radial.addColorStop(0, 'rgba(0,0,0,0.42)')
     radial.addColorStop(1, 'rgba(0,0,0,0)')
     ctx.fillStyle = radial
-    ctx.fillRect(0, centerY - 350, CANVAS_WIDTH, 700)
+    ctx.fillRect(0, 553.6, CANVAS_WIDTH, 1120)
 
-    // 5. Draw Scripture Text
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.shadowColor = 'rgba(0,0,0,0.55)'
@@ -199,24 +249,24 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
       ctx.fillText(line, CANVAS_WIDTH / 2, startY + idx * lineHeight)
     })
 
-    // 6. Draw Reference
     ctx.shadowBlur = 10
     ctx.font = '600 40px "Be Vietnam Pro", sans-serif'
     ctx.fillStyle = '#f5b301'
-    const refY = startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 52
-    ctx.fillText(verse.reference, CANVAS_WIDTH / 2, refY)
+    ctx.fillText(
+      verse.reference,
+      CANVAS_WIDTH / 2,
+      startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 52
+    )
 
-    // 7. Draw Gold Accent Bar
-    const barY = refY + 48
+    const barY = startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 100
     ctx.fillStyle = 'rgba(245,179,1,0.7)'
     ctx.fillRect(CANVAS_WIDTH / 2 - 60, barY, 120, 3)
 
-    // 8. Draw Brand Name "V O W"
     ctx.font = '600 28px "Be Vietnam Pro", sans-serif'
     ctx.fillStyle = 'rgba(255,255,255,0.75)'
     ctx.fillText('V O W', CANVAS_WIDTH / 2, 1810)
     ctx.shadowBlur = 0
-  }, [verseList, selectedVerseIndex, selectedWallpaperIndex])
+  }, [selectedVerseIndex, selectedWallpaperIndex])
 
   useEffect(() => {
     drawWallpaper()
@@ -239,9 +289,8 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center p-0 sm:p-4">
-      <div className="nice-scroll max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-surface p-5 sm:rounded-3xl border border-white/10 shadow-2xl">
-        {/* Header */}
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center">
+      <div className="nice-scroll max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-surface p-5 sm:rounded-3xl">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-2xl font-semibold text-cream">
             Tạo hình nền
@@ -251,69 +300,61 @@ export default function WallpaperModal({ currentVerse, onClose }: Props) {
               type="button"
               onClick={handleDownload}
               aria-label="Tải hình nền xuống"
-              className="rounded-full bg-gold p-2.5 text-ink transition active:scale-95 shadow-md shadow-gold/20 hover:brightness-105 cursor-pointer"
+              className="rounded-full bg-gold p-2.5 text-ink transition active:scale-95"
             >
-              <Download size={18} />
+              <DownloadIcon className="h-5 w-5" />
             </button>
             <button
               type="button"
               onClick={onClose}
               aria-label="Đóng"
-              className="rounded-full bg-surface2 p-2 text-muted hover:text-cream transition active:scale-95 cursor-pointer"
+              className="rounded-full bg-surface2 p-2 text-muted"
             >
-              <X size={20} />
+              <CloseIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Canvas Preview */}
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg">
-          <canvas ref={canvasRef} className="w-full aspect-[9/16] object-cover" />
-        </div>
+        <canvas ref={canvasRef} className="mt-4 w-full rounded-2xl" />
 
-        {/* Choose Verse */}
-        <div className="mt-4">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-muted">
-            Câu gốc
-          </label>
-          <select
-            value={selectedVerseIndex}
-            onChange={(e) => setSelectedVerseIndex(Number(e.target.value))}
-            className="mt-2 w-full rounded-xl border border-surface2 bg-surface2 px-3 py-2.5 text-sm text-cream outline-none focus:border-gold"
-          >
-            {verseList.map((v, idx) => (
-              <option key={idx} value={idx}>
-                {v.reference} — {v.text.slice(0, 38)}...
-              </option>
-            ))}
-          </select>
-        </div>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-muted">
+          Câu gốc
+        </p>
+        <select
+          value={selectedVerseIndex}
+          onChange={(e) => setSelectedVerseIndex(Number(e.target.value))}
+          className="mt-2 w-full rounded-xl border border-surface2 bg-ink px-3 py-2.5 text-sm text-cream"
+        >
+          {SAMPLE_VERSES.map((v, idx) => (
+            <option key={v.reference} value={idx}>
+              {v.reference}
+            </option>
+          ))}
+        </select>
 
-        {/* Choose Wallpaper Grid */}
-        <div className="mt-4">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-muted">
-            Hình nền ({WALLPAPERS.length})
-          </label>
-          <div className="mt-2 grid grid-cols-4 gap-2">
-            {WALLPAPERS.map((wp, idx) => (
-              <button
-                key={wp.name}
-                type="button"
-                onClick={() => setSelectedWallpaperIndex(idx)}
-                className={`group relative aspect-[9/16] overflow-hidden rounded-lg border-2 transition active:scale-95 cursor-pointer ${
-                  selectedWallpaperIndex === idx
-                    ? 'border-gold ring-2 ring-gold/40'
-                    : 'border-transparent opacity-75 hover:opacity-100'
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={wp.src} alt={wp.name} className="h-full w-full object-cover" />
-                <span className="absolute inset-x-0 bottom-0 bg-black/60 px-0.5 py-0.5 text-center text-[10px] text-white">
-                  {wp.name}
-                </span>
-              </button>
-            ))}
-          </div>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-muted">
+          Phong cảnh
+        </p>
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {WALLPAPERS.map((wp, idx) => (
+            <button
+              key={wp.src}
+              type="button"
+              onClick={() => setSelectedWallpaperIndex(idx)}
+              className={`overflow-hidden rounded-xl border-2 ${
+                selectedWallpaperIndex === idx ? 'border-gold' : 'border-transparent'
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={wp.src}
+                alt={wp.name}
+                className="aspect-[9/16] w-full object-cover"
+                loading="lazy"
+              />
+              <p className="bg-ink py-1 text-[10px] text-cream">{wp.name}</p>
+            </button>
+          ))}
         </div>
       </div>
     </div>

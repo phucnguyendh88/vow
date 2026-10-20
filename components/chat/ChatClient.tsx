@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Send, Smile, User } from 'lucide-react'
 import { STICKERS } from '@/lib/stickers'
-import toast from 'react-hot-toast'
 
 interface ChatMessage {
   id: string
@@ -34,6 +32,192 @@ interface Props {
   partner: ConversationMember | null
 }
 
+function computeAvatarGradient(name: string): { background: string; initial: string } {
+  let hash = 0
+  const trimmed = name.trim()
+  for (let i = 0; i < trimmed.length; i++) {
+    hash = (hash * 31 + trimmed.charCodeAt(i)) >>> 0
+  }
+  const hue = hash % 360
+  return {
+    background: `linear-gradient(135deg, hsl(${hue}, 62%, 44%) 0%, hsl(${
+      (hue + 55) % 360
+    }, 66%, 26%) 100%)`,
+    initial: (trimmed.charAt(0) || '?').toUpperCase(),
+  }
+}
+
+function MemberAvatar({
+  name,
+  photo,
+  size = 40,
+}: {
+  name: string
+  photo?: string | null
+  size?: number
+}) {
+  if (photo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photo}
+        alt={name}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  const { background, initial } = computeAvatarGradient(name)
+  return (
+    <div
+      aria-hidden="true"
+      className="flex shrink-0 items-center justify-center rounded-full text-cream"
+      style={{ width: size, height: size, background }}
+    >
+      <span className="font-serif font-semibold" style={{ fontSize: size * 0.42 }}>
+        {initial}
+      </span>
+    </div>
+  )
+}
+
+function formatDayLabel(dateStr: string): string {
+  const d = new Date(dateStr)
+  const now = new Date()
+  const startOfDay = (x: Date) => {
+    const c = new Date(x)
+    c.setHours(0, 0, 0, 0)
+    return c.getTime()
+  }
+  const diff = startOfDay(now) - startOfDay(d)
+  if (diff === 0) return 'Hôm nay'
+  if (diff === 86400000) return 'Hôm qua'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return d.getFullYear() === now.getFullYear() ? `${dd}/${mm}` : `${dd}/${mm}/${d.getFullYear()}`
+}
+
+function formatTimeHHMM(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function BackArrowIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </svg>
+  )
+}
+
+function SendPaperPlaneIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
+    </svg>
+  )
+}
+
+function MoreDotsIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
+  )
+}
+
+function ReactionSvg({
+  kind,
+  size = 20,
+  filled = false,
+}: {
+  kind: 'heart' | 'laugh' | 'like'
+  size?: number
+  filled?: boolean
+}) {
+  if (kind === 'heart') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />
+      </svg>
+    )
+  }
+  if (kind === 'laugh') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 14.5s1.6 2.5 4 2.5 4-2.5 4-2.5" />
+        <path d="M9 9.5h.01" />
+        <path d="M15 9.5h.01" />
+      </svg>
+    )
+  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 10v12" />
+      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+    </svg>
+  )
+}
+
+const REACTION_TYPES: Array<'heart' | 'laugh' | 'like'> = ['heart', 'laugh', 'like']
+
 export default function ChatClient({
   conversationId,
   currentUserId,
@@ -45,19 +229,23 @@ export default function ChatClient({
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [showStickers, setShowStickers] = useState(false)
+  const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null)
+  const [reactionsMap, setReactionsMap] = useState<
+    Record<string, Record<'heart' | 'laugh' | 'like', string[]>>
+  >({})
+  const [sendError, setSendError] = useState<string | null>(null)
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const streamRef = useRef<HTMLDivElement | null>(null)
+  const longPressTimerRef = useRef<number | null>(null)
   const supabase = createClient()
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
-    scrollToBottom()
+    const el = streamRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
   }, [messages])
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`chat_${conversationId}`)
@@ -84,10 +272,11 @@ export default function ChatClient({
     }
   }, [conversationId, supabase])
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const text = (textToSend ?? inputText).trim()
+  const handleSendMessage = async (textOverride?: string) => {
+    const text = (textOverride ?? inputText).trim()
     if (!text || sending) return
     setSending(true)
+    setSendError(null)
 
     try {
       const res = await fetch('/api/messages', {
@@ -101,7 +290,7 @@ export default function ChatClient({
       })
 
       if (!res.ok) {
-        toast.error('Gửi tin nhắn thất bại')
+        setSendError('Gửi tin nhắn thất bại. Thử lại.')
         return
       }
 
@@ -112,175 +301,318 @@ export default function ChatClient({
           return [...prev, message]
         })
       }
-      if (!textToSend) setInputText('')
+      if (!textOverride) setInputText('')
       setShowStickers(false)
     } catch {
-      toast.error('Lỗi mạng. Vui lòng thử lại.')
+      setSendError('Gửi tin nhắn thất bại. Thử lại.')
     } finally {
       setSending(false)
     }
   }
 
   const handleSendSticker = (stickerKey: string) => {
-    handleSendMessage(`[sticker:${stickerKey}]`)
+    setShowStickers(false)
+    void handleSendMessage(`[sticker:${stickerKey}]`)
   }
 
-  const renderMessageContent = (content: string) => {
-    if (content.startsWith('[sticker:') && content.endsWith(']')) {
-      const key = content.slice(9, -1)
-      const sticker = STICKERS.find((s) => s.key === key)
-      if (sticker) {
-        return (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={sticker.src}
-            alt={sticker.label}
-            className="h-28 w-28 object-contain"
-            loading="lazy"
-          />
-        )
+  const handleToggleReaction = (msgId: string, kind: 'heart' | 'laugh' | 'like') => {
+    setActiveReactionMsgId(null)
+    setReactionsMap((prev) => {
+      const msgReacts = prev[msgId] || { heart: [], laugh: [], like: [] }
+      const list = msgReacts[kind] || []
+      const exists = list.includes(currentUserId)
+      const nextList = exists
+        ? list.filter((u) => u !== currentUserId)
+        : [...list, currentUserId]
+      return {
+        ...prev,
+        [msgId]: {
+          ...msgReacts,
+          [kind]: nextList,
+        },
       }
+    })
+  }
+
+  const partnerName = partner?.name ?? 'Cuộc trò chuyện'
+  const partnerPhoto = partner?.avatarUrl ?? null
+
+  // Group messages by day
+  const dayGroups: Array<{ day: string; items: ChatMessage[] }> = []
+  for (const m of messages) {
+    const day = formatDayLabel(m.created_at)
+    const last = dayGroups[dayGroups.length - 1]
+    if (last && last.day === day) {
+      last.items.push(m)
+    } else {
+      dayGroups.push({ day, items: [m] })
     }
-    return <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{content}</p>
   }
 
   return (
-    <div className="flex flex-col h-dvh bg-ink text-cream max-w-md mx-auto">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-surface/80 backdrop-blur-md">
+    <div className="flex h-dvh flex-col bg-ink">
+      <header className="flex items-center gap-2 border-b border-white/5 px-2 py-2.5">
         <button
           type="button"
           onClick={() => router.push('/tin-nhan')}
-          aria-label="Quay lại"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-cream hover:bg-surface2 transition active:scale-95 cursor-pointer"
+          aria-label="Quay lại danh sách tin nhắn"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-cream transition active:bg-surface2"
         >
-          <ArrowLeft size={20} />
+          <BackArrowIcon />
         </button>
 
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="h-10 w-10 overflow-hidden rounded-full bg-surface2 flex items-center justify-center shrink-0">
-            {partner?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={partner.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <User size={20} className="text-muted" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm text-cream truncate">
-              {partner?.name ?? 'Cuộc trò chuyện'}
-            </p>
-            <p className="text-[11px] text-emerald-400">Đang hoạt động</p>
-          </div>
+        <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          <MemberAvatar name={partnerName} photo={partnerPhoto} size={40} />
+          <span className="min-w-0">
+            <span className="block truncate font-medium text-cream">{partnerName}</span>
+          </span>
         </div>
       </header>
 
-      {/* Messages Stream */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 nice-scroll flex flex-col gap-3">
-        {messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-muted">
-            <p className="text-sm">Chưa có tin nhắn nào.</p>
-            <p className="text-xs mt-1">Hãy gửi lời chào đầu tiên bằng tình yêu thương nhé!</p>
-          </div>
+      <div ref={streamRef} className="nice-scroll flex-1 overflow-y-auto px-3 py-4">
+        {dayGroups.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted">
+            Chưa có tin nhắn. Gửi lời chào đầu tiên nhé.
+          </p>
         ) : (
-          messages.map((msg) => {
-            const isMe = msg.sender_id === currentUserId
-            const isSticker = msg.content.startsWith('[sticker:')
-
-            return (
-              <div
-                key={msg.id}
-                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[78%] ${
-                    isSticker
-                      ? 'p-0 bg-transparent'
-                      : `rounded-2xl px-4 py-2.5 ${
-                          isMe
-                            ? 'bg-gold text-ink rounded-br-sm shadow-md'
-                            : 'bg-surface2 text-cream rounded-bl-sm border border-white/5'
-                        }`
-                  }`}
-                >
-                  {renderMessageContent(msg.content)}
-                  <span
-                    className={`block text-[10px] mt-1 ${
-                      isSticker
-                        ? 'text-muted'
-                        : isMe
-                        ? 'text-ink/60 text-right'
-                        : 'text-muted/70'
-                    }`}
-                  >
-                    {new Date(msg.created_at).toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
+          dayGroups.map((group) => (
+            <div key={group.day + group.items[0].id}>
+              <div className="my-3 flex justify-center">
+                <span className="rounded-full bg-surface2 px-3 py-1 text-xs text-muted">
+                  {group.day}
+                </span>
               </div>
-            )
-          })
+
+              {group.items.map((msg) => {
+                const isMe = msg.sender_id === currentUserId
+                const isSticker =
+                  msg.content.startsWith('[sticker:') && msg.content.endsWith(']')
+                const stickerKey = isSticker ? msg.content.slice(9, -1) : null
+                const stickerObj = stickerKey
+                  ? STICKERS.find((s) => s.key === stickerKey)
+                  : null
+                const msgReactions = reactionsMap[msg.id] || {}
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`group mb-2 flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className="relative max-w-[78%]"
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        setActiveReactionMsgId(msg.id)
+                      }}
+                      onTouchStart={() => {
+                        if (longPressTimerRef.current)
+                          window.clearTimeout(longPressTimerRef.current)
+                        longPressTimerRef.current = window.setTimeout(
+                          () => setActiveReactionMsgId(msg.id),
+                          500
+                        )
+                      }}
+                      onTouchEnd={() => {
+                        if (longPressTimerRef.current) {
+                          window.clearTimeout(longPressTimerRef.current)
+                          longPressTimerRef.current = null
+                        }
+                      }}
+                      onTouchMove={() => {
+                        if (longPressTimerRef.current) {
+                          window.clearTimeout(longPressTimerRef.current)
+                          longPressTimerRef.current = null
+                        }
+                      }}
+                    >
+                      {activeReactionMsgId === msg.id && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="Đóng"
+                            className="fixed inset-0 z-40 cursor-default"
+                            onClick={() => setActiveReactionMsgId(null)}
+                          />
+                          <div
+                            className={`absolute -top-12 z-50 flex items-center gap-1 rounded-full border border-white/10 bg-surface px-2 py-1.5 shadow-xl ${
+                              isMe ? 'right-0' : 'left-0'
+                            }`}
+                            role="dialog"
+                            aria-label="Chọn cảm xúc"
+                          >
+                            {REACTION_TYPES.map((rt) => (
+                              <button
+                                key={rt}
+                                type="button"
+                                aria-label={rt}
+                                onClick={() => handleToggleReaction(msg.id, rt)}
+                                className="flex h-9 w-9 items-center justify-center rounded-full text-gold transition active:scale-90 active:bg-goldsoft"
+                              >
+                                <ReactionSvg kind={rt} filled={rt === 'heart'} size={22} />
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      <div
+                        className={`flex items-center gap-1 ${
+                          isMe ? 'flex-row-reverse' : 'flex-row'
+                        }`}
+                      >
+                        {stickerObj ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={stickerObj.src}
+                            alt="Sticker"
+                            className="h-28 w-28 object-contain"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div
+                            className={`rounded-2xl bg-chatbubble px-3.5 pb-1.5 pt-2.5 font-chat text-[15px] font-medium leading-relaxed text-white ${
+                              isMe ? 'rounded-br-md' : 'rounded-bl-md'
+                            }`}
+                          >
+                            {msg.content}
+                            <div
+                              className={`mt-1 text-[11px] leading-none text-chattime ${
+                                isMe ? 'text-right' : 'text-left'
+                              }`}
+                            >
+                              {formatTimeHHMM(msg.created_at)}
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          aria-label="Thả cảm xúc"
+                          onClick={() =>
+                            setActiveReactionMsgId(
+                              activeReactionMsgId === msg.id ? null : msg.id
+                            )
+                          }
+                          className="shrink-0 rounded-full p-1 text-muted opacity-0 transition group-hover:opacity-100 focus:opacity-100"
+                        >
+                          <MoreDotsIcon />
+                        </button>
+                      </div>
+
+                      {Object.keys(msgReactions).length > 0 && (
+                        <div
+                          className={`mt-1 flex flex-wrap gap-1 ${
+                            isMe ? 'justify-end' : 'justify-start'
+                          }`}
+                        >
+                          {REACTION_TYPES.map((rt) => {
+                            const users = msgReactions[rt] || []
+                            if (users.length === 0) return null
+                            const mine = users.includes(currentUserId)
+                            return (
+                              <button
+                                key={rt}
+                                type="button"
+                                onClick={() => handleToggleReaction(msg.id, rt)}
+                                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition active:scale-95 ${
+                                  mine
+                                    ? 'border-gold/60 bg-goldsoft text-gold'
+                                    : 'border-white/10 bg-surface2 text-cream'
+                                }`}
+                              >
+                                <ReactionSvg kind={rt} filled size={13} />
+                                <span>{users.length}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ))
         )}
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* Stickers Drawer */}
-      {showStickers && (
-        <div className="border-t border-white/5 bg-surface p-3 grid grid-cols-4 gap-2">
-          {STICKERS.map((st) => (
-            <button
-              key={st.key}
-              type="button"
-              onClick={() => handleSendSticker(st.key)}
-              className="flex flex-col items-center gap-1 rounded-xl p-2 hover:bg-surface2 transition active:scale-95 cursor-pointer"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={st.src} alt={st.label} className="h-14 w-14 object-contain" />
-              <span className="text-[10px] text-muted truncate w-full text-center">
-                {st.label}
-              </span>
-            </button>
-          ))}
-        </div>
+      {sendError && (
+        <p className="border-t border-white/5 px-4 pt-2 text-xs text-red-400">{sendError}</p>
       )}
 
-      {/* Input bar */}
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          handleSendMessage()
+          void handleSendMessage()
         }}
-        className="flex items-center gap-2 p-3 bg-surface/90 border-t border-white/5"
+        className={`flex items-center gap-2 px-3 py-3 ${
+          sendError ? '' : 'border-t border-white/5'
+        }`}
       >
         <button
           type="button"
-          onClick={() => setShowStickers(!showStickers)}
+          onClick={() => setShowStickers((v) => !v)}
           aria-label="Chọn sticker"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface2 text-muted hover:text-cream transition active:scale-95 cursor-pointer"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface2 text-cream transition active:scale-95"
         >
-          <Smile size={20} />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className="h-5 w-5"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path
+              strokeLinecap="round"
+              d="M8.5 14.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5M9 9.5h.01M15 9.5h.01"
+            />
+          </svg>
         </button>
 
         <input
-          type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Nhắn tin…"
           maxLength={1000}
-          className="flex-1 rounded-full bg-surface2 px-4 py-2.5 text-sm text-cream placeholder:text-muted/60 outline-none focus:ring-1 focus:ring-gold/60"
+          aria-label="Nhắn tin"
+          className="flex-1 rounded-full bg-surface2 px-4 py-2.5 text-[15px] text-cream outline-none placeholder:text-muted focus:ring-1 focus:ring-gold/60"
         />
 
         <button
           type="submit"
           disabled={!inputText.trim() || sending}
-          aria-label="Gửi"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink shadow-md shadow-gold/20 transition active:scale-95 disabled:opacity-40 cursor-pointer"
+          aria-label="Gửi tin nhắn"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink transition active:scale-95 disabled:opacity-40"
         >
-          <Send size={16} />
+          <SendPaperPlaneIcon />
         </button>
       </form>
+
+      {showStickers && (
+        <div className="border-t border-white/5 bg-surface px-4 py-3">
+          <div className="grid grid-cols-4 gap-2">
+            {STICKERS.map((st) => (
+              <button
+                key={st.key}
+                type="button"
+                onClick={() => handleSendSticker(st.key)}
+                aria-label={st.label}
+                title={st.label}
+                className="flex items-center justify-center rounded-xl bg-surface2 p-2 transition active:scale-95 hover:bg-white/10"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={st.src}
+                  alt={st.label}
+                  className="h-16 w-16 object-contain"
+                  loading="lazy"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

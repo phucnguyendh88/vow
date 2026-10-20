@@ -7,9 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 function IconWrap({ children }: { children: React.ReactNode }) {
   return (
     <svg
-      width="24"
-      height="24"
-      className="h-6 w-6 shrink-0"
+      className="h-6 w-6"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -49,14 +47,6 @@ function HeartIcon() {
   )
 }
 
-function ChatIcon() {
-  return (
-    <IconWrap>
-      <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" />
-    </IconWrap>
-  )
-}
-
 const navTabs = [
   { href: '/tim-chua-truoc', label: 'Tìm Chúa trước', icon: <DevotionIcon /> },
   { href: '/khoang-khac', label: 'Khoảnh khắc', icon: <CameraIcon /> },
@@ -66,14 +56,12 @@ const navTabs = [
 export default function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
-  // Optimistic active tab state for 0ms visual feedback
   const [optimisticTab, setOptimisticTab] = useState(pathname)
 
   useEffect(() => {
     setOptimisticTab(pathname)
   }, [pathname])
 
-  // Warm up and prefetch all main tabs in router cache for 0ms instant transition
   useEffect(() => {
     navTabs.forEach((tab) => {
       try {
@@ -85,23 +73,16 @@ export default function BottomNav() {
     } catch {}
   }, [router])
 
-  const handleTabClick = (href: string) => {
-    setOptimisticTab(href)
-  }
-
-  const handlePrefetch = (href: string) => {
-    try {
-      router.prefetch(href)
-    } catch {}
-  }
+  // Hide bottom nav when inside a specific chat conversation (/tin-nhan/[convId])
+  const isInChatRoom = /^\/tin-nhan\/[^/]+/.test(pathname)
+  if (isInChatRoom) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex items-end justify-center gap-3 px-6 w-full max-w-[430px]">
-      {/* 3 Main Tabs Pill */}
-      <nav
-        aria-label="Điều hướng chính"
-        className="pointer-events-auto flex items-center gap-1 rounded-full bg-[#1c1c1e]/95 px-2 py-2 shadow-2xl shadow-black/60 backdrop-blur border border-white/5"
-      >
+    <nav
+      aria-label="Điều hướng chính"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-ink/95 backdrop-blur border-t border-surface2 z-40"
+    >
+      <div className="grid grid-cols-3">
         {navTabs.map((tab) => {
           const isActive = optimisticTab.startsWith(tab.href)
           return (
@@ -109,40 +90,19 @@ export default function BottomNav() {
               key={tab.href}
               href={tab.href}
               prefetch={true}
-              aria-label={tab.label}
-              title={tab.label}
-              onClick={() => handleTabClick(tab.href)}
-              onMouseEnter={() => handlePrefetch(tab.href)}
-              onTouchStart={() => handlePrefetch(tab.href)}
-              className={`flex h-12 w-14 items-center justify-center rounded-full transition-all duration-150 active:scale-90 touch-manipulation cursor-pointer ${
-                isActive
-                  ? 'bg-white/15 text-gold shadow-inner'
-                  : 'text-white/55 hover:text-white'
+              onClick={() => setOptimisticTab(tab.href)}
+              className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                isActive ? 'text-gold' : 'text-muted hover:text-cream'
               }`}
             >
               {tab.icon}
+              <span>{tab.label}</span>
+              {isActive && <span className="h-1 w-1 rounded-full bg-gold" />}
             </Link>
           )
         })}
-      </nav>
-
-      {/* Floating Chat / Messages Button */}
-      <Link
-        href="/tin-nhan"
-        prefetch={true}
-        aria-label="Tin nhắn"
-        title="Tin nhắn"
-        onClick={() => handleTabClick('/tin-nhan')}
-        onMouseEnter={() => handlePrefetch('/tin-nhan')}
-        onTouchStart={() => handlePrefetch('/tin-nhan')}
-        className={`pointer-events-auto relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1c1c1e]/95 shadow-2xl shadow-black/60 backdrop-blur transition-all duration-150 active:scale-90 touch-manipulation cursor-pointer border border-white/5 ${
-          optimisticTab.startsWith('/tin-nhan')
-            ? 'bg-white/15 text-gold shadow-inner'
-            : 'text-white/80 hover:text-white'
-        }`}
-      >
-        <ChatIcon />
-      </Link>
-    </div>
+      </div>
+      <div className="h-[env(safe-area-inset-bottom)]" />
+    </nav>
   )
 }

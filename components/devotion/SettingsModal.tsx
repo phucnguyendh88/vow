@@ -1,9 +1,37 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, User, Shield, Home, LogOut } from 'lucide-react'
-import toast from 'react-hot-toast'
+
+const ADMIN_EMAIL = 'phucnguyendh88@gmail.com'
+
+function UserIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" strokeLinecap="round" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  )
+}
+
+function LogoutIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" />
+      <path d="m16 17 5-5-5-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M21 12H9" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
 
 interface Props {
   open: boolean
@@ -11,108 +39,139 @@ interface Props {
   isAdmin?: boolean
 }
 
-export default function SettingsModal({ open, onClose, isAdmin = false }: Props) {
+export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = false }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const [isAdmin, setIsAdmin] = useState(initialAdmin)
+  const [isGuest, setIsGuest] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => {
+        if (!active) return
+        setIsAdmin(
+          initialAdmin ||
+            (user?.email?.trim().toLowerCase() ?? '') === ADMIN_EMAIL ||
+            user?.app_metadata?.role === 'admin'
+        )
+        setIsGuest(Boolean(user?.is_anonymous))
+      })
+      .catch(() => {
+        if (!active) return
+        setIsAdmin(initialAdmin)
+        setIsGuest(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [open, initialAdmin, supabase])
 
   if (!open) return null
 
-  const handleSignOut = async () => {
+  const handleGoProfile = () => {
+    onClose()
+    router.push('/ho-so')
+  }
+
+  const handleGoAdmin = () => {
+    onClose()
+    router.push('/admin')
+  }
+
+  const handleSignOutOrExit = async () => {
     try {
-      await supabase.auth.signOut()
-      toast.success('Đã đăng xuất')
-      router.push('/')
-      router.refresh()
-    } catch {
-      toast.error('Đăng xuất thất bại')
-    }
+      // If Guest, keep guest session on device and return to landing/login as in original VOW
+      if (!isGuest) {
+        await supabase.auth.signOut()
+      }
+    } catch {}
+    onClose()
+    router.replace('/')
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center p-0 sm:p-4">
-      <div className="nice-scroll w-full max-w-sm max-h-[85vh] sm:max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-surface p-6 pb-10 sm:p-6 sm:rounded-3xl border border-white/10 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-white/5">
-          <h2 className="font-serif text-xl font-semibold text-cream">Cài đặt</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        aria-label="Đóng cài đặt"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60"
+      />
+      <div className="relative w-full max-w-md rounded-t-[2rem] bg-surface p-5 pb-8">
+        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-surface2" />
+        <div className="flex items-center justify-between">
+          <h3 className="font-serif text-xl font-semibold text-cream">Cài đặt</h3>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Đóng cài đặt"
-            className="rounded-full bg-surface2 p-2 text-muted hover:text-cream transition active:scale-95 cursor-pointer"
+            aria-label="Đóng"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface2 text-cream active:scale-95"
           >
-            <X size={18} />
+            <CloseIcon />
           </button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-2">
-          {/* My Profile */}
+        <div className="mt-4 space-y-2">
           <button
             type="button"
-            onClick={() => {
-              onClose()
-              router.push('/ho-so')
-            }}
-            className="flex w-full items-center gap-3.5 rounded-2xl bg-surface2/60 p-3.5 text-left text-sm font-medium text-cream hover:bg-surface2 transition active:scale-[0.99] cursor-pointer"
+            onClick={handleGoProfile}
+            className="flex w-full items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-cream active:scale-[0.99]"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-gold">
-              <User size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-cream">Hồ sơ của tôi</p>
-              <p className="text-xs text-muted">Chỉnh sửa thông tin, hội thánh, ảnh</p>
-            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-goldsoft text-gold">
+              <UserIcon />
+            </span>
+            <span className="font-medium">Hồ sơ của tôi</span>
           </button>
 
-          {/* Admin panel (if admin) */}
           {isAdmin && (
             <button
               type="button"
-              onClick={() => {
-                onClose()
-                router.push('/admin')
-              }}
-              className="flex w-full items-center gap-3.5 rounded-2xl bg-surface2/60 p-3.5 text-left text-sm font-medium text-cream hover:bg-surface2 transition active:scale-[0.99] cursor-pointer"
+              onClick={handleGoAdmin}
+              className="flex w-full items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-cream active:scale-[0.99]"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-amber-400">
-                <Shield size={18} />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-cream">Quản trị</p>
-                <p className="text-xs text-muted">Báo cáo, kiểm duyệt và quản lý</p>
-              </div>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-goldsoft text-gold">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-4z"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <span className="font-medium">Quản trị</span>
             </button>
           )}
 
-          {/* Home */}
           <button
             type="button"
-            onClick={() => {
-              onClose()
-              router.push('/')
-            }}
-            className="flex w-full items-center gap-3.5 rounded-2xl bg-surface2/60 p-3.5 text-left text-sm font-medium text-cream hover:bg-surface2 transition active:scale-[0.99] cursor-pointer"
+            onClick={() => void handleSignOutOrExit()}
+            className="flex w-full items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-danger active:scale-[0.99]"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-cream/70">
-              <Home size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-cream">Thoát về màn hình chính</p>
-            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger/10">
+              <LogoutIcon />
+            </span>
+            <span className="font-medium">
+              {isGuest ? 'Thoát về màn hình chính' : 'Đăng xuất'}
+            </span>
           </button>
 
-          {/* Sign Out */}
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="mt-2 flex w-full items-center gap-3.5 rounded-2xl bg-rose-500/10 p-3.5 text-left text-sm font-medium text-rose-400 hover:bg-rose-500/15 transition active:scale-[0.99] cursor-pointer"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500/20 text-rose-400">
-              <LogOut size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold">Đăng xuất</p>
-              <p className="text-xs text-rose-400/70">Rời khỏi phiên làm việc hiện tại</p>
-            </div>
-          </button>
+          {isGuest && (
+            <p className="mt-2 px-1 text-xs leading-relaxed text-muted/70">
+              Tài khoản Khách được lưu trên thiết bị này. Người dùng chung thiết bị có thể truy cập tài khoản này.
+            </p>
+          )}
         </div>
       </div>
     </div>
