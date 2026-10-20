@@ -411,41 +411,41 @@ export default function DatingClient({
         }
 
   return (
-    <div className="flex h-[calc(100dvh-5rem)] min-h-0 flex-col bg-ink">
-      {/* Header (1:1 Original VOW) */}
-      <header className="flex items-center justify-between px-4 pt-3 pb-2">
+    <div className="flex h-[calc(100dvh-5rem)] min-h-0 flex-col bg-[#050505]">
+      {/* Top Navigation: Minimalist Luxury */}
+      <header className="flex items-center justify-between px-5 pt-3 pb-2">
         <button
           type="button"
           onClick={() => setShowFilterModal(true)}
           aria-label="Bộ lọc"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-cream transition active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
         >
-          <SlidersSvg />
+          <SlidersSvg className="h-5 w-5 text-[#E8D08D]" />
         </button>
 
-        <div className="flex items-center gap-2 text-gold">
-          <span className="font-serif text-2xl font-semibold tracking-[0.18em] uppercase">
+        <div className="flex items-center gap-1.5">
+          <span className="font-serif text-2xl font-bold tracking-[0.25em] gold-gradient-text uppercase">
             VOW
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => router.push('/tin-nhan')}
             aria-label="Tin nhắn"
-            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-surface text-cream transition active:scale-95"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           >
-            <ChatBubbleSvg />
+            <ChatBubbleSvg className="h-5 w-5 text-[#F0F0F0]" />
           </button>
 
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
             aria-label="Cài đặt"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-cream transition active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           >
-            <GearSvg />
+            <GearSvg className="h-5 w-5 text-[#F0F0F0]" />
           </button>
         </div>
       </header>
@@ -457,40 +457,42 @@ export default function DatingClient({
           </p>
         )}
 
-        {/* Rediscover Pill (Hiện lại hồ sơ đã quẹt) */}
-        <div className="mb-2 flex justify-center">
+        {/* Rediscover Pill (Hiện lại hồ sơ đã quét) */}
+        <div className="mb-3 flex justify-center">
           <button
             type="button"
             onClick={toggleRediscover}
             aria-pressed={rediscoverMode}
-            className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95 ${
-              rediscoverMode ? 'bg-gold text-ink' : 'bg-surface text-muted'
+            className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-medium tracking-wide transition-all active:scale-95 ${
+              rediscoverMode
+                ? 'bg-[#E8D08D] text-black font-semibold shadow-[0_0_15px_rgba(232,208,141,0.4)]'
+                : 'border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.04)] text-[#E8D08D] backdrop-blur-lg shadow-[0_4px_16px_rgba(0,0,0,0.4)]'
             }`}
           >
-            <RefreshSvg className="h-4 w-4" />
-            {rediscoverMode ? 'Đang xem lại · Bấm để tắt' : 'Hiện lại hồ sơ đã quẹt'}
+            <RefreshSvg className="h-3.5 w-3.5" />
+            <span>{rediscoverMode ? 'Đang xem lại · Bấm để tắt' : 'Hiện lại hồ sơ đã quét'}</span>
           </button>
         </div>
 
         {!currentCandidate ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-[2rem] bg-surface px-8 text-center">
-            <div className="flex h-28 w-28 items-center justify-center rounded-full bg-goldsoft">
-              <HeartSvg className="h-12 w-12 text-gold" />
+          <div className="flex flex-1 flex-col items-center justify-center rounded-[2.5rem] border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.02)] px-8 text-center backdrop-blur-xl shadow-2xl">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(232,208,141,0.08)] shadow-[0_0_25px_rgba(232,208,141,0.2)]">
+              <HeartSvg className="h-10 w-10 text-[#E8D08D]" />
             </div>
-            <h2 className="mt-6 font-serif text-4xl text-cream">
+            <h2 className="mt-6 font-serif text-3xl font-semibold text-[#F0F0F0]">
               {rediscoverMode ? 'Đã xem hết' : 'Hết người phù hợp'}
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-muted">
+            <p className="mt-2 text-sm leading-relaxed text-[#9E9E9E]">
               {rediscoverMode
                 ? 'Không còn hồ sơ nào đã bỏ qua để xem lại.'
                 : 'Thử mở rộng bộ lọc hoặc xem lại những người đã bỏ qua.'}
             </p>
-            <div className="mt-8 flex gap-3">
+            <div className="mt-6 flex gap-3">
               {!rediscoverMode && (
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(true)}
-                  className="rounded-full bg-surface2 px-7 py-3 font-medium text-cream transition active:scale-95"
+                  className="rounded-full border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.05)] px-6 py-2.5 text-sm font-medium text-[#F0F0F0] backdrop-blur transition active:scale-95"
                 >
                   Bộ lọc
                 </button>
@@ -498,21 +500,22 @@ export default function DatingClient({
               <button
                 type="button"
                 onClick={toggleRediscover}
-                className="flex items-center gap-2 rounded-full bg-gold px-7 py-3 font-semibold text-ink transition active:scale-95"
+                className="flex items-center gap-2 rounded-full bg-[#E8D08D] px-6 py-2.5 text-sm font-semibold text-black shadow-[0_0_15px_rgba(232,208,141,0.3)] transition active:scale-95"
               >
-                <RefreshSvg />
+                <RefreshSvg className="h-4 w-4" />
                 {rediscoverMode ? 'Về khám phá mới' : 'Xem lại'}
               </button>
             </div>
           </div>
         ) : (
           <>
+            {/* The Core Element: Luxury Dark Glassmorphism Profile Card */}
             <div
               className="relative flex min-h-0 flex-1 touch-none select-none"
               style={{ perspective: 800 }}
             >
               <div
-                className="flex w-full min-h-0 flex-col overflow-hidden rounded-[2rem] bg-surface shadow-2xl"
+                className="flex w-full min-h-0 flex-col overflow-hidden rounded-[2.2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(20,20,22,0.65)] backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(232,208,141,0.25)]"
                 style={cardStyle}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
@@ -521,28 +524,29 @@ export default function DatingClient({
               >
                 {dragX > 20 && (
                   <div
-                    className="pointer-events-none absolute top-6 left-6 z-10 rounded-lg border-4 border-success px-3 py-1 font-bold tracking-widest text-success"
+                    className="pointer-events-none absolute top-6 left-6 z-10 rounded-xl border border-[#E8D08D] bg-black/60 px-4 py-1.5 font-serif font-bold tracking-widest text-[#E8D08D] shadow-[0_0_20px_rgba(232,208,141,0.5)] backdrop-blur"
                     style={{
                       opacity: Math.min(dragX / 120, 1),
                       transform: 'rotate(-12deg)',
                     }}
                   >
-                    THÍCH
+                    CHẤP NHẬN
                   </div>
                 )}
 
                 {dragX < -20 && (
                   <div
-                    className="pointer-events-none absolute top-6 right-6 z-10 rounded-lg border-4 border-danger px-3 py-1 font-bold tracking-widest text-danger"
+                    className="pointer-events-none absolute top-6 right-6 z-10 rounded-xl border border-[rgba(244,114,114,0.8)] bg-black/60 px-4 py-1.5 font-serif font-bold tracking-widest text-[#F47272] shadow-[0_0_20px_rgba(244,114,114,0.4)] backdrop-blur"
                     style={{
                       opacity: Math.min(-dragX / 120, 1),
                       transform: 'rotate(12deg)',
                     }}
                   >
-                    BỎ QUA
+                    TỪ CHỐI
                   </div>
                 )}
 
+                {/* Top Half: High-quality portrait with soft dark gradient fade at the bottom */}
                 <div className="relative shrink-0">
                   {currentCandidate.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -550,44 +554,47 @@ export default function DatingClient({
                       src={currentCandidate.avatarUrl}
                       alt={currentCandidate.name}
                       draggable={false}
-                      className="h-72 w-full object-cover sm:h-80"
+                      className="h-80 w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-72 w-full items-center justify-center bg-gradient-to-br from-surface2 to-surface sm:h-80">
-                      <span className="font-serif text-7xl text-gold/70">
+                    <div className="flex h-80 w-full items-center justify-center bg-gradient-to-br from-[#1c1c24] to-[#0a0a0d]">
+                      <span className="font-serif text-7xl text-[#E8D08D]/60 drop-shadow-[0_0_20px_rgba(232,208,141,0.3)]">
                         {(currentCandidate.name || '?').charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-surface to-transparent" />
+                  {/* Subtle dark gradient overlay to blend portrait into info glass area */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[rgba(15,15,18,0.95)] via-[rgba(15,15,18,0.5)] to-transparent" />
                 </div>
 
-                <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                  <h2 className="font-serif text-3xl text-cream">
+                {/* Bottom Half: Inside the glassmorphism card info area */}
+                <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                  <h2 className="font-serif text-3xl font-semibold text-[#F0F0F0] tracking-wide">
                     {currentCandidate.name}, {currentCandidate.age}
                   </h2>
 
-                  <div className="mt-2 space-y-1.5 text-sm text-muted">
+                  <div className="mt-2.5 space-y-1.5 text-[13px] text-[#A0A0A5]">
                     {currentCandidate.church && (
                       <div className="flex items-center gap-2">
-                        <ChurchBuildingSvg className="h-4 w-4 shrink-0 text-gold" />
-                        <span>{currentCandidate.church}</span>
+                        <ChurchBuildingSvg className="h-4 w-4 shrink-0 text-[#E8D08D]" />
+                        <span className="font-normal">{currentCandidate.church}</span>
                       </div>
                     )}
                     {currentCandidate.area && (
                       <div className="flex items-center gap-2">
-                        <PinSvg className="h-4 w-4 shrink-0 text-gold" />
-                        <span>{currentCandidate.area}</span>
+                        <PinSvg className="h-4 w-4 shrink-0 text-[#E8D08D]" />
+                        <span className="font-normal">{currentCandidate.area}</span>
                       </div>
                     )}
                   </div>
 
+                  {/* 3 small pill-shaped tags with thin gold borders */}
                   {currentCandidate.interests.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3.5 flex flex-wrap gap-2">
                       {currentCandidate.interests.map((interest) => (
                         <span
                           key={interest}
-                          className="rounded-full bg-surface2 px-3 py-1 text-xs text-cream"
+                          className="rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(255,255,255,0.04)] px-3.5 py-1 text-xs text-[#E8D08D] backdrop-blur-md"
                         >
                           {interest}
                         </span>
@@ -596,7 +603,7 @@ export default function DatingClient({
                   )}
 
                   {currentCandidate.bio && (
-                    <p className="mt-3 text-sm leading-relaxed text-cream/90">
+                    <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#D0D0D5] font-light">
                       {currentCandidate.bio}
                     </p>
                   )}
@@ -604,44 +611,36 @@ export default function DatingClient({
               </div>
             </div>
 
-            {/* Glossy 3D Action Buttons (TỪ CHỐI / CHẤP NHẬN) */}
-            <div className="flex items-center justify-center gap-10 bg-[#0a0a0f] py-6">
+            {/* Action Buttons: Dark glass circles with metallic Rose-Gold and Champagne-Gold borders */}
+            <div className="flex items-center justify-center gap-14 py-5">
+              {/* Left Button (Reject): Rose-Gold border, white X */}
               <div className="flex flex-col items-center gap-2">
                 <button
                   type="button"
                   onClick={() => void handleSwipe('pass')}
                   disabled={swiping}
                   aria-label="Từ chối"
-                  className="h-[70px] w-[70px] transition active:scale-90 disabled:opacity-40"
+                  className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[rgba(224,155,140,0.45)] bg-[rgba(255,255,255,0.03)] text-white shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_0_16px_rgba(224,155,140,0.1)] backdrop-blur-xl transition active:scale-90 disabled:opacity-40"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={DECLINE_IMG}
-                    alt="Từ chối"
-                    className="h-full w-full object-contain"
-                  />
+                  <CloseSvg className="h-7 w-7 text-[#F0F0F0]" />
                 </button>
-                <span className="text-[11px] font-medium tracking-[0.2em] text-danger">
+                <span className="text-[11px] font-medium tracking-[0.2em] text-[rgba(224,155,140,0.9)]">
                   TỪ CHỐI
                 </span>
               </div>
 
+              {/* Right Button (Accept): Champagne-Gold border, gold heart */}
               <div className="flex flex-col items-center gap-2">
                 <button
                   type="button"
                   onClick={() => void handleSwipe('like')}
                   disabled={swiping}
                   aria-label="Chấp nhận"
-                  className="h-[70px] w-[70px] transition active:scale-90 disabled:opacity-40"
+                  className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[rgba(232,208,141,0.55)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_0_20px_rgba(232,208,141,0.15)] backdrop-blur-xl transition active:scale-90 disabled:opacity-40"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={ACCEPT_IMG}
-                    alt="Chấp nhận"
-                    className="h-full w-full object-contain"
-                  />
+                  <HeartSvg className="h-7 w-7 text-[#E8D08D]" filled={true} />
                 </button>
-                <span className="text-[11px] font-medium tracking-[0.2em] text-success">
+                <span className="text-[11px] font-semibold tracking-[0.2em] text-[#E8D08D]">
                   CHẤP NHẬN
                 </span>
               </div>

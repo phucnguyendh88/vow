@@ -80,9 +80,9 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-ink/95 backdrop-blur border-t border-surface2 z-40"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-[#050505]/85 backdrop-blur-xl border-t border-[rgba(232,208,141,0.2)] shadow-[0_-10px_25px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(232,208,141,0.15)] z-40"
     >
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-3 py-1">
         {navTabs.map((tab) => {
           const isActive = optimisticTab.startsWith(tab.href)
           return (
@@ -91,13 +91,19 @@ export default function BottomNav() {
               href={tab.href}
               prefetch={true}
               onClick={() => setOptimisticTab(tab.href)}
-              className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
-                isActive ? 'text-gold' : 'text-muted hover:text-cream'
+              className={`flex flex-col items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-all ${
+                isActive ? 'text-[#E8D08D]' : 'text-neutral-400 hover:text-[#F0F0F0]'
               }`}
             >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {isActive && <span className="h-1 w-1 rounded-full bg-gold" />}
+              <div className={`relative ${isActive ? 'drop-shadow-[0_0_8px_rgba(232,208,141,0.5)]' : ''}`}>
+                {tab.icon}
+              </div>
+              <span className={`tracking-wide ${isActive ? 'font-semibold text-[#E8D08D]' : 'font-normal'}`}>
+                {tab.label}
+              </span>
+              {isActive && (
+                <span className="h-1.5 w-1.5 rounded-full bg-[#E8D08D] shadow-[0_0_8px_#E8D08D]" />
+              )}
             </Link>
           )
         })}

@@ -1480,14 +1480,15 @@ export default function MomentsClient({
   ).toUpperCase()
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-6rem)] w-full max-w-md flex-col bg-black">
-      {/* Top Bar (1:1 Original VOW) */}
-      <div className="flex shrink-0 items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto flex min-h-[calc(100dvh-6rem)] w-full max-w-md flex-col bg-[#050505]">
+      {/* Top Bar (Luxury Dark Glassmorphism) */}
+      <div className="flex shrink-0 items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))]">
+        {/* Left: User avatar in a perfect circle with a crisp 1px gold border */}
         <button
           type="button"
           onClick={() => router.push('/ho-so')}
           aria-label="Hồ sơ của tôi"
-          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#1c1c1e] text-[17px] font-bold text-white/70 transition active:scale-95"
+          className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.5)] bg-[rgba(255,255,255,0.03)] text-[16px] font-bold text-[#E8D08D] shadow-[0_0_12px_rgba(232,208,141,0.2)] transition active:scale-95"
         >
           {currentUser?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1501,36 +1502,42 @@ export default function MomentsClient({
           )}
         </button>
 
-        <div className="flex items-center gap-3">
+        {/* Center: Two minimalist icons (App Grid and Chat bubble) with thin gold outlines */}
+        <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => setShowGridModal(true)}
             aria-label="Xem tất cả khoảnh khắc dạng lưới"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1c1c1e] text-white transition active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95"
           >
-            <GridFourSvg className="h-6 w-6" />
+            <GridFourSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
           </button>
 
           <button
             type="button"
             onClick={() => router.push('/tin-nhan')}
             aria-label="Tin nhắn"
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#1c1c1e] text-white transition active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95"
           >
-            <ChatBubbleSvg className="h-6 w-6" />
+            <ChatBubbleSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
           </button>
         </div>
 
+        {/* Right: Glassmorphism pill button displaying a user icon and "2 Bạn" with 1px gold border, sparkling gold accents */}
         <button
           type="button"
           onClick={() => setShowFriendsDialog((v) => !v)}
           aria-label="Mở danh sách bạn bè"
-          className="relative flex h-14 shrink-0 items-center gap-2 rounded-full bg-[#1c1c1e] px-6 text-white transition active:scale-95"
+          className="relative flex h-11 shrink-0 items-center gap-2 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-5 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95"
         >
-          <UsersSvg className="h-5 w-5" />
-          <span className="text-[17px] font-semibold">{friends.length} Bạn</span>
+          {/* Subtle sparkling gold lens flare dot */}
+          <span className="absolute -top-1 -right-0.5 h-2 w-2 rounded-full bg-white shadow-[0_0_8px_#FFF,0_0_12px_#E8D08D]" />
+          <UsersSvg className="h-4.5 w-4.5 text-[#E8D08D]" />
+          <span className="text-[15px] font-semibold tracking-wide text-[#F0F0F0]">
+            {friends.length} Bạn
+          </span>
           {incoming.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-gold px-1 text-xs font-bold text-ink">
+            <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_10px_#E8D08D]">
               {incoming.length}
             </span>
           )}
@@ -1931,8 +1938,8 @@ export default function MomentsClient({
             }
           }}
         >
-          {/* Camera Viewfinder */}
-          <div className="relative mt-3 min-h-[180px] flex-1 overflow-hidden rounded-[3rem] bg-[#1c1c1e]">
+          {/* Camera Viewfinder (Large dark rectangle with smooth rounded corners & 1px gold focal bracket lines) */}
+          <div className="relative mt-3 min-h-[180px] flex-1 overflow-hidden rounded-[2.5rem] border border-[rgba(232,208,141,0.25)] bg-[#0c0c0e] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(232,208,141,0.2)]">
             {cameraErrorKind ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-8 text-center">
                 <CameraOutlineSvg className="h-14 w-14 text-white/40" />
@@ -1945,7 +1952,7 @@ export default function MomentsClient({
                 <button
                   type="button"
                   onClick={() => void startCamera(facingMode)}
-                  className="mt-1 rounded-full bg-white/10 px-6 py-2.5 text-sm font-semibold text-white active:scale-95"
+                  className="mt-1 rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(255,255,255,0.08)] px-6 py-2.5 text-sm font-semibold text-[#E8D08D] active:scale-95"
                 >
                   Thử lại
                 </button>
@@ -1964,14 +1971,30 @@ export default function MomentsClient({
               />
             )}
 
-            {/* Top-left Flash button inside viewfinder (⚡) */}
+            {/* 4 Viewfinder Focal Marks: Thin 1px gold right-angle bracket lines */}
+            {!cameraErrorKind && (
+              <div className="pointer-events-none absolute inset-5">
+                {/* Top-Left */}
+                <div className="absolute top-0 left-0 h-10 w-10 border-t border-l border-[rgba(232,208,141,0.65)]" />
+                {/* Top-Right */}
+                <div className="absolute top-0 right-0 h-10 w-10 border-t border-r border-[rgba(232,208,141,0.65)]" />
+                {/* Bottom-Left */}
+                <div className="absolute bottom-0 left-0 h-10 w-10 border-b border-l border-[rgba(232,208,141,0.65)]" />
+                {/* Bottom-Right */}
+                <div className="absolute bottom-0 right-0 h-10 w-10 border-b border-r border-[rgba(232,208,141,0.65)]" />
+              </div>
+            )}
+
+            {/* Top-left Flash button inside viewfinder (⚡ Sleek Gold Lightning Bolt) */}
             {!cameraErrorKind && (
               <button
                 type="button"
                 onClick={() => void handleToggleTorch()}
                 aria-label={torchOn ? 'Tắt flash' : 'Bật flash'}
-                className={`absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition active:scale-95 ${
-                  torchOn ? 'bg-gold text-ink' : 'bg-black/30 text-white'
+                className={`absolute left-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] backdrop-blur-md transition active:scale-95 ${
+                  torchOn
+                    ? 'bg-[#E8D08D] text-black shadow-[0_0_15px_#E8D08D]'
+                    : 'bg-black/40 text-[#E8D08D]'
                 }`}
               >
                 <FlashBoltSvg off={!torchOn} />
@@ -1979,57 +2002,63 @@ export default function MomentsClient({
             )}
 
             {isRecordingVideo && (
-              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-red-600/80 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+              <div className="absolute right-5 top-5 flex items-center gap-1.5 rounded-full bg-red-600/80 px-3 py-1 text-xs font-bold text-white backdrop-blur">
                 <span className="h-2 w-2 rounded-full bg-white animate-ping" />
                 REC 3s
               </div>
             )}
           </div>
 
-          {/* Zoom Selector Row (1x / 2x) */}
+          {/* Zoom Controls: Glassmorphism pill with metallic gold active circle */}
           {!cameraErrorKind && facingMode !== 'user' && (
-            <div className="mt-3 flex shrink-0 items-center justify-center gap-2">
-              {availableZooms.map((z) => (
-                <button
-                  key={z}
-                  type="button"
-                  onClick={() => void handleSetZoom(z)}
-                  aria-label={`Zoom ${z}x`}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition active:scale-95 ${
-                    Math.abs(zoom - z) < 0.001
-                      ? 'bg-[#a3e635] text-ink'
-                      : 'bg-black/30 text-white backdrop-blur'
-                  }`}
-                >
-                  {z}x
-                </button>
-              ))}
+            <div className="mt-3 flex shrink-0 items-center justify-center">
+              <div className="flex items-center gap-1 rounded-full border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.04)] p-1 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+                {availableZooms.map((z) => {
+                  const isActive = Math.abs(zoom - z) < 0.001
+                  return (
+                    <button
+                      key={z}
+                      type="button"
+                      onClick={() => void handleSetZoom(z)}
+                      aria-label={`Zoom ${z}x`}
+                      className={`h-8 min-w-[36px] rounded-full px-3 text-xs font-bold transition-all active:scale-95 ${
+                        isActive
+                          ? 'bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#B38C3B] text-black shadow-[0_0_12px_rgba(232,208,141,0.5)]'
+                          : 'text-[#E8D08D]/50 hover:text-[#E8D08D]'
+                      }`}
+                    >
+                      {z}x
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
 
-          {/* Capture Controls Row */}
-          <div className="mt-4 flex shrink-0 items-center justify-between px-10">
+          {/* Camera Actions: Shutter Row */}
+          <div className="mt-3.5 flex shrink-0 items-center justify-between px-8">
+            {/* Left: Gallery Thumbnail encased in 1px gold border with elegant tiny PREMIUM tag */}
             <button
               type="button"
               onClick={handleClickGallery}
               aria-label="Chọn ảnh từ thư viện (VOW Premium)"
-              className="relative active:scale-90"
+              className="group relative flex flex-col items-center transition active:scale-90"
             >
+              {!premiumActive && (
+                <span className="absolute -top-3 z-10 rounded-md border border-[rgba(232,208,141,0.4)] bg-black/80 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-[#E8D08D] shadow-[0_0_8px_rgba(232,208,141,0.3)] backdrop-blur-md">
+                  PREMIUM
+                </span>
+              )}
               {latestThumb ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={latestThumb}
                   alt="Ảnh gần nhất"
-                  className="h-14 w-14 -rotate-6 rounded-2xl border border-white/20 object-cover"
+                  className="h-13 w-13 rounded-2xl border border-[rgba(232,208,141,0.4)] object-cover shadow-[0_4px_15px_rgba(0,0,0,0.5)]"
                 />
               ) : (
-                <span className="flex h-14 w-14 items-center justify-center text-white">
+                <span className="flex h-13 w-13 items-center justify-center rounded-2xl border border-[rgba(232,208,141,0.3)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
                   <GalleryAddSvg />
-                </span>
-              )}
-              {!premiumActive && (
-                <span className="absolute -right-2 -top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[8px] font-semibold tracking-[0.14em] text-[#a3e635] backdrop-blur">
-                  PREMIUM
                 </span>
               )}
             </button>
@@ -2042,50 +2071,65 @@ export default function MomentsClient({
               onChange={handleFileChange}
             />
 
+            {/* Center: Shutter Button - Crucial 3D Metallic Champagne-Gold Bezel with Glowing Radiant Flares */}
             <button
               type="button"
               onPointerDown={handleShutterPointerDown}
               onPointerUp={handleShutterPointerUp}
               disabled={cameraErrorKind !== null}
               aria-label="Chụp"
-              className={`flex h-[84px] w-[84px] items-center justify-center rounded-full border-[5px] ${
-                isRecordingVideo ? 'border-red-500 scale-105' : 'border-[#a3e635]'
-              } bg-black disabled:opacity-40 active:scale-95 transition`}
+              className={`relative flex h-[86px] w-[86px] items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40 ${
+                isRecordingVideo ? 'scale-105' : ''
+              }`}
             >
+              {/* Outer 3D metallic champagne-gold jewelry bezel */}
+              <div
+                className={`absolute inset-0 rounded-full ${
+                  isRecordingVideo
+                    ? 'bg-red-500 shadow-[0_0_25px_rgba(239,68,68,0.7)]'
+                    : 'bg-gradient-to-br from-[#FFF8E7] via-[#E8D08D] to-[#99732B] shadow-[0_0_30px_rgba(232,208,141,0.55),0_0_60px_rgba(232,208,141,0.25)]'
+                }`}
+              />
+              {/* Subtle inner dark bezel ring */}
+              <div className="absolute inset-[3.5px] rounded-full bg-[#121214]" />
+              {/* Solid White Center Core */}
               <span
-                className={`h-16 w-16 rounded-full ${
-                  isRecordingVideo ? 'bg-red-500 scale-75' : 'bg-white'
-                } transition`}
+                className={`relative z-10 rounded-full transition-all ${
+                  isRecordingVideo
+                    ? 'h-11 w-11 bg-red-500'
+                    : 'h-14 w-14 bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_0_12px_rgba(255,255,255,0.8)]'
+                }`}
               />
             </button>
 
+            {/* Right: Switch Camera - Minimal gold camera flip icon */}
             <button
               type="button"
               onClick={() => setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'))}
               aria-label="Đổi camera"
-              className="text-white active:scale-90"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition active:scale-90"
             >
               <FlipCameraSvg />
             </button>
           </div>
 
-          {/* Bottom History Trigger (Lịch sử ⌄) */}
+          {/* History Section: "Lịch sử ⌄" using Elegant Gold Serif Font */}
           <div className="mt-3 shrink-0 select-none pb-4 text-center">
             <button
               type="button"
               onClick={() => openHistory(null, null)}
-              className="mx-auto flex items-center gap-1.5 text-[17px] font-semibold text-white active:scale-95"
+              className="mx-auto flex items-center gap-1.5 font-serif text-[19px] font-semibold tracking-wide text-[#E8D08D] active:scale-95 hover:text-[#FFF1CA]"
             >
-              Lịch sử
-              <ChevronDownSvg />
+              <span>Lịch sử</span>
+              <ChevronDownSvg className="h-4 w-4 stroke-[2.2] text-[#E8D08D]" />
             </button>
             {sortedMoments.length > 0 ? (
-              <p className="mt-1.5 text-xs text-white/40">
+              <p className="mt-1 text-xs text-[#9E9E9E] font-light">
                 {sortedMoments.length} khoảnh khắc · mới nhất{' '}
                 {timeAgoVi(sortedMoments[0].created_at)}
               </p>
             ) : (
-              <p className="mt-1.5 text-xs text-white/40">Vuốt lên để xem khoảnh khắc</p>
+              <p className="mt-1 text-xs text-[#9E9E9E] font-light">Vuốt lên để xem khoảnh khắc</p>
             )}
           </div>
         </section>

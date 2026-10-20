@@ -3,33 +3,34 @@
 
 
 :root {
-  /* Core palette */
-  --color-ink: #0b0b0f;
-  --color-surface: #141419;
-  --color-surface2: #1d1d24;
-  --color-surface3: #26262f;
-  --color-gold: #f5b301;
-  --color-goldsoft: #f5b30124;
-  --color-cream: #f5f5f4;
-  --color-muted: #a1a1aa;
-  --color-danger: #f87171;
+  /* Core Luxury Palette */
+  --color-ink: #050505;
+  --color-surface: rgba(255, 255, 255, 0.03);
+  --color-surface2: rgba(255, 255, 255, 0.06);
+  --color-surface3: rgba(255, 255, 255, 0.1);
+  --color-gold: #E8D08D;
+  --color-goldsoft: rgba(232, 208, 141, 0.15);
+  --color-cream: #F0F0F0;
+  --color-muted: #9E9E9E;
+  --color-danger: #F47272;
   --color-success: #34d399;
 
   /* Alias vars used across components */
-  --background: #0b0b0f;
-  --foreground: #f5f5f4;
-  --surface: #141419;
-  --surface-2: #1d1d24;
-  --surface-3: #26262f;
-  --gold: #f5b301;
-  --text-muted: #a1a1aa;
-  --border: rgba(255, 255, 255, 0.08);
-  --ink: #0b0b0f;
+  --background: #050505;
+  --foreground: #F0F0F0;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-3: rgba(255, 255, 255, 0.1);
+  --gold: #E8D08D;
+  --text-muted: #9E9E9E;
+  --border: rgba(232, 208, 141, 0.25);
+  --ink: #050505;
 
-  /* Tailwind token bridge (used by design-system components) */
-  --color-primary: #f5b301;
-  --color-background: #0b0b0f;
+  /* Tailwind token bridge */
+  --color-primary: #E8D08D;
+  --color-background: #050505;
 }
+
 
 html:not(.dark),
 .devotion-light {
@@ -90,19 +91,19 @@ body {
 
 /* Vàng gold kim loại cao cấp */
 .text-gold {
-  color: var(--color-gold);
+  color: #E8D08D;
 }
 
 .bg-gold {
-  background-color: var(--color-gold);
+  background-color: #E8D08D;
 }
 
 .bg-surface {
-  background-color: var(--color-surface);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .border-surface2 {
-  border-color: var(--color-surface2);
+  border-color: rgba(232, 208, 141, 0.2);
 }
 
 .text-muted {
@@ -113,6 +114,44 @@ body {
   color: var(--color-cream);
 }
 
+/* Luxury Glassmorphism & Metallic Gold Effects */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(232, 208, 141, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 16px rgba(232, 208, 141, 0.03);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 208, 141, 0.28);
+}
+
+.border-gold-subtle {
+  border: 1px solid rgba(232, 208, 141, 0.28);
+}
+
+.border-rose-gold {
+  border: 1px solid rgba(224, 155, 140, 0.35);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #FFF1CA 0%, #E8D08D 50%, #C8A252 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-glow {
+  box-shadow: 0 0 20px rgba(232, 208, 141, 0.35);
+}
+
+.gold-glow-lg {
+  box-shadow: 0 0 35px rgba(232, 208, 141, 0.45);
+}
+
 /* Bottom nav safe area */
 .bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 12px);
@@ -121,4 +160,5 @@ body {
 ::-webkit-scrollbar {
   display: none;
 }
+
 

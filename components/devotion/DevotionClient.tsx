@@ -267,10 +267,10 @@ export default function DevotionClient({
   const prayerText = lesson?.loi_cau_nguyen || ''
 
   return (
-    <div className={`pb-28 ${lightMode ? 'devotion-light bg-white' : ''}`}>
-      <header className="px-5 pt-8">
+    <div className={`mx-auto flex min-h-dvh w-full max-w-md flex-col pb-28 ${lightMode ? 'devotion-light bg-surface' : 'bg-[#050505]'}`}>
+      <header className="px-5 pt-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#E8D08D]">
             {headerDateStr}
           </p>
           <div className="flex shrink-0 gap-2">
@@ -279,9 +279,9 @@ export default function DevotionClient({
               onClick={() => setMusicOn((prev) => !prev)}
               aria-label={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
               title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
-              className={`${iconBtnClass} ${musicOn ? 'text-gold' : 'text-muted'}`}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
             >
-              {musicOn ? <MusicOnIcon className="h-5 w-5" /> : <MusicOffIcon className="h-5 w-5" />}
+              {musicOn ? <MusicOnIcon className="h-4.5 w-4.5 text-[#E8D08D]" /> : <MusicOffIcon className="h-4.5 w-4.5 text-neutral-400" />}
             </button>
 
             <button
@@ -289,9 +289,9 @@ export default function DevotionClient({
               onClick={toggleLightMode}
               aria-label={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
               title={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
-              className={`${iconBtnClass} ${lightMode ? 'text-gold' : 'text-muted'}`}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
             >
-              {lightMode ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
+              {lightMode ? <MoonIcon className="h-4.5 w-4.5 text-[#E8D08D]" /> : <SunIcon className="h-4.5 w-4.5 text-neutral-400" />}
             </button>
 
             <button
@@ -299,9 +299,9 @@ export default function DevotionClient({
               onClick={() => setShowWallpaperModal(true)}
               aria-label="Tạo hình nền"
               title="Tạo hình nền"
-              className={iconBtnClass}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
             >
-              <PictureIcon className="h-5 w-5" />
+              <PictureIcon className="h-4.5 w-4.5 text-neutral-300" />
             </button>
 
             <button
@@ -309,51 +309,56 @@ export default function DevotionClient({
               onClick={() => setShowSettingsModal(true)}
               aria-label="Cài đặt"
               title="Cài đặt"
-              className={iconBtnClass}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
             >
-              <GearIcon className="h-5 w-5" />
+              <GearIcon className="h-4.5 w-4.5 text-neutral-300" />
             </button>
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <h1 className="min-w-0 flex-1 truncate font-serif text-[clamp(1rem,4.4vw,1.25rem)] font-semibold leading-snug text-cream">
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <h1 className="min-w-0 flex-1 truncate font-serif text-[clamp(1.15rem,4.8vw,1.45rem)] font-bold leading-snug text-[#F0F0F0] tracking-wide">
             Chào {getGreeting(now.getHours())}
             {userName ? `, ${userName}.` : '.'}
           </h1>
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-goldsoft px-3 py-1.5">
-            <FlameIcon className="h-4 w-4 text-gold" />
-            <span className="whitespace-nowrap text-sm font-semibold text-gold">
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(232,208,141,0.12)] px-3.5 py-1.5 shadow-[0_0_15px_rgba(232,208,141,0.25)] backdrop-blur-md">
+            <FlameIcon className="h-4 w-4 text-[#E8D08D]" />
+            <span className="whitespace-nowrap text-xs font-semibold text-[#E8D08D]">
               {currentStreak} ngày
             </span>
           </div>
         </div>
 
-        <p className="mt-1.5 whitespace-nowrap text-[clamp(0.8rem,3.9vw,0.95rem)] text-muted">
+        <p className="mt-1 text-sm text-[#A0A0A5] font-light">
           Hãy dành 5 phút tìm kiếm Chúa trước nhé
         </p>
 
-        <div className="mt-4 flex items-start justify-between px-1">
+        {/* Weekly Tracker (T2 to CN) */}
+        <div className="mt-5 flex items-start justify-between px-1">
           {DAYS.map((day, idx) => {
             const dateStr = weekDates[idx]
             const isRead = readStreaks.includes(dateStr) || (idx === dayIndex && todayRead)
             const isToday = idx === dayIndex
             return (
               <div key={day} className="flex flex-col items-center gap-2">
-                <span className={`text-xs font-medium ${isToday ? 'text-gold' : 'text-muted'}`}>
+                <span className={`text-xs font-medium tracking-wide ${isToday ? 'font-bold text-[#E8D08D]' : 'text-neutral-400'}`}>
                   {day}
                 </span>
-                <div
-                  className={`flex h-11 w-11 items-center justify-center rounded-full ${
-                    isRead
-                      ? 'bg-gold'
-                      : isToday
-                      ? 'border-2 border-gold bg-transparent'
-                      : 'bg-surface2'
-                  }`}
-                >
-                  {isRead && <CheckIcon className="h-5 w-5 text-ink" />}
-                </div>
+                {isToday ? (
+                  /* Current Active Day (Crucial): prominent 3D metallic champagne-gold gradient circle with outer gold glow */
+                  <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#B38C3B] shadow-[0_0_22px_rgba(232,208,141,0.5),inset_0_1px_2px_rgba(255,255,255,0.7)]">
+                    <CheckIcon className="h-5 w-5 text-black stroke-[3]" />
+                    <span className="absolute -top-1 -right-0.5 h-2 w-2 rounded-full bg-white shadow-[0_0_6px_#fff]" />
+                  </div>
+                ) : isRead ? (
+                  /* Past completed days: Soft gold circle with a black checkmark */
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E8D08D] shadow-[0_2px_8px_rgba(0,0,0,0.4)]">
+                    <CheckIcon className="h-5 w-5 text-black stroke-[2.5]" />
+                  </div>
+                ) : (
+                  /* Inactive days: Dark empty circles with a thin, dim 1px border */
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.02)] backdrop-blur-sm" />
+                )}
               </div>
             )
           })}
@@ -362,32 +367,34 @@ export default function DevotionClient({
 
       {verseText ? (
         <>
-          <section className="relative mx-5 mt-7 overflow-hidden rounded-3xl bg-surface p-6">
-            <QuoteWatermark className="absolute right-4 top-4 h-16 w-16 text-gold opacity-10" />
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold">
-              01 · Câu gốc
+          {/* Card 1: 01 · CÂU GỐC */}
+          <section className="relative mx-5 mt-7 overflow-hidden rounded-[2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] p-6 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]">
+            <QuoteWatermark className="absolute right-4 top-4 h-16 w-16 text-[#E8D08D] opacity-15" />
+            <p className="font-sans text-xs font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
+              01 · CÂU GỐC
             </p>
-            <p className="mt-4 text-[1.25rem] font-normal leading-relaxed text-cream/90">
+            <p className="mt-4 font-serif text-[1.4rem] font-medium leading-relaxed text-[#F0F0F0] tracking-wide">
               {verseText}
             </p>
-            <p className="mt-5 text-lg font-semibold text-gold">{verseRef}</p>
+            <p className="mt-5 text-lg font-bold text-[#E8D08D] tracking-wide">{verseRef}</p>
           </section>
 
-          <section className="mx-5 mt-6 rounded-3xl bg-surface p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold">
-              02 · Suy ngẫm
+          {/* Card 2: 02 · SUY NGẪM */}
+          <section className="mx-5 mt-6 rounded-[2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] p-6 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]">
+            <p className="font-sans text-xs font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
+              02 · SUY NGẪM
             </p>
-            <p className="mt-4 text-[1.05rem] leading-relaxed text-cream/90">
+            <p className="mt-4 text-[1.05rem] font-light leading-relaxed text-[#D8D8DC]">
               {meditationText}
             </p>
           </section>
 
           {prayerText && (
-            <section className="mx-5 mt-6 rounded-3xl bg-surface p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold">
-                03 · Cầu nguyện
+            <section className="mx-5 mt-6 rounded-[2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] p-6 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]">
+              <p className="font-sans text-xs font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
+                03 · CẦU NGUYỆN
               </p>
-              <p className="mt-4 font-serif text-[1.15rem] italic leading-relaxed text-cream/90">
+              <p className="mt-4 font-serif text-[1.15rem] italic leading-relaxed text-[#D8D8DC]">
                 {prayerText}
               </p>
             </section>
@@ -398,20 +405,20 @@ export default function DevotionClient({
               type="button"
               onClick={handleMarkRead}
               disabled={todayRead}
-              className={`flex w-full items-center justify-center gap-2 rounded-full border-2 py-3 font-semibold ${
+              className={`flex w-full items-center justify-center gap-2 rounded-full border py-3.5 text-sm font-semibold tracking-wide transition-all ${
                 todayRead
-                  ? 'border-gold bg-goldsoft text-gold'
-                  : 'border-gold bg-transparent text-gold'
+                  ? 'border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] text-[#E8D08D] shadow-[0_0_15px_rgba(232,208,141,0.2)]'
+                  : 'border-[#E8D08D] bg-[#E8D08D] text-black shadow-[0_0_20px_rgba(232,208,141,0.3)] active:scale-95'
               }`}
             >
-              {todayRead && <CheckIcon className="h-5 w-5" />}
+              {todayRead && <CheckIcon className="h-5 w-5 text-[#E8D08D]" />}
               {todayRead ? 'Đã đọc hôm nay' : 'Đánh dấu đã đọc'}
             </button>
           </div>
         </>
       ) : (
-        <div className="mx-5 mt-7 flex items-center justify-center rounded-3xl bg-surface p-10">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-surface2 border-t-gold" />
+        <div className="mx-5 mt-7 flex items-center justify-center rounded-[2rem] border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.02)] p-10">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[rgba(232,208,141,0.2)] border-t-[#E8D08D]" />
         </div>
       )}
 
