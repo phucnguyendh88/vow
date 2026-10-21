@@ -33,17 +33,17 @@ export default function FilterModal({ open, onClose, currentFilters, onApply }: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Bộ lọc"
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-surface p-6 pb-8 sm:rounded-3xl border border-white/10 shadow-2xl"
+        className="w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0A0A0A] p-6 pb-8 shadow-2xl sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-surface2" />
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/10" />
         <h2 className="font-serif text-2xl text-cream">Bộ lọc</h2>
 
         <p className="mt-6 text-sm text-muted">Giới tính</p>

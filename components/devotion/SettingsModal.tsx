@@ -102,17 +102,17 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
         type="button"
         aria-label="Đóng cài đặt"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
       />
-      <div className="relative w-full max-w-md rounded-t-[2rem] bg-surface p-5 pb-8">
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-surface2" />
+      <div className="relative w-full max-w-md rounded-t-[2rem] border-t border-x border-white/10 bg-[#0A0A0A] p-5 pb-8 shadow-2xl">
+        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/10" />
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-xl font-semibold text-cream">Cài đặt</h3>
           <button
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface2 text-cream active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-cream active:scale-95 cursor-pointer"
           >
             <CloseIcon />
           </button>
@@ -122,7 +122,7 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
           <button
             type="button"
             onClick={handleGoProfile}
-            className="flex w-full items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-cream active:scale-[0.99]"
+            className="flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-[#141418] px-4 py-3.5 text-left text-cream active:scale-[0.99] cursor-pointer hover:border-white/15"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-goldsoft text-gold">
               <UserIcon />
@@ -134,7 +134,7 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
             <button
               type="button"
               onClick={handleGoAdmin}
-              className="flex w-full items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-cream active:scale-[0.99]"
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-[#141418] px-4 py-3.5 text-left text-cream active:scale-[0.99] cursor-pointer hover:border-white/15"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-goldsoft text-gold">
                 <svg
@@ -157,7 +157,7 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
           <button
             type="button"
             onClick={() => void handleSignOutOrExit()}
-            className="flex w-full items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-danger active:scale-[0.99]"
+            className="flex w-full items-center gap-3 rounded-2xl border border-danger/10 bg-[#141418] px-4 py-3.5 text-left text-danger active:scale-[0.99] cursor-pointer hover:border-danger/25"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger/10">
               <LogoutIcon />

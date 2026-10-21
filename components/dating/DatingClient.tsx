@@ -725,12 +725,12 @@ export default function DatingClient({
       {/* Match Modal (1:1 Original VOW) */}
       {matchedModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md px-6"
           role="dialog"
           aria-modal="true"
           aria-label="Kết nối thành công"
         >
-          <div className="relative w-full max-w-sm rounded-[2rem] bg-surface p-8 text-center">
+          <div className="relative w-full max-w-sm rounded-[2rem] border border-white/10 bg-[#0A0A0A] p-8 text-center shadow-2xl">
             <button
               type="button"
               onClick={() => setMatchedModal(null)}

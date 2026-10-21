@@ -80,8 +80,8 @@ export default function FriendsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center p-0 sm:p-4">
-      <div className="nice-scroll max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-surface p-6 sm:rounded-3xl border border-white/10 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center p-0 sm:p-4">
+      <div className="nice-scroll max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0A0A0A] p-6 shadow-2xl sm:rounded-3xl">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/5">
           <h2 className="font-serif text-xl font-semibold text-cream">

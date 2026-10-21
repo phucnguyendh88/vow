@@ -33,6 +33,15 @@ interface Props {
   partner: ConversationMember | null
 }
 
+function safeUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID()
+    } catch {}
+  }
+  return 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12)
+}
+
 function computeAvatarGradient(name: string): { background: string; initial: string } {
   let hash = 0
   const trimmed = name.trim()
@@ -379,7 +388,7 @@ export default function ChatClient({
         body: JSON.stringify({
           conversation_id: conversationId,
           content: text,
-          idempotency_key: crypto.randomUUID(),
+          idempotency_key: safeUUID(),
         }),
       })
 

@@ -289,8 +289,8 @@ export default function WallpaperModal({ onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center">
-      <div className="nice-scroll max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-surface p-5 sm:rounded-3xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center">
+      <div className="nice-scroll max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0E0E12] p-5 shadow-2xl sm:rounded-3xl">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-2xl font-semibold text-cream">
             Tạo hình nền
@@ -300,7 +300,7 @@ export default function WallpaperModal({ onClose }: Props) {
               type="button"
               onClick={handleDownload}
               aria-label="Tải hình nền xuống"
-              className="rounded-full bg-gold p-2.5 text-ink transition active:scale-95"
+              className="rounded-full bg-gold p-2.5 text-ink transition active:scale-95 cursor-pointer hover:brightness-105"
             >
               <DownloadIcon className="h-5 w-5" />
             </button>
@@ -308,7 +308,7 @@ export default function WallpaperModal({ onClose }: Props) {
               type="button"
               onClick={onClose}
               aria-label="Đóng"
-              className="rounded-full bg-surface2 p-2 text-muted"
+              className="rounded-full bg-white/10 p-2 text-muted hover:text-white transition active:scale-95 cursor-pointer"
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -323,7 +323,7 @@ export default function WallpaperModal({ onClose }: Props) {
         <select
           value={selectedVerseIndex}
           onChange={(e) => setSelectedVerseIndex(Number(e.target.value))}
-          className="mt-2 w-full rounded-xl border border-surface2 bg-ink px-3 py-2.5 text-sm text-cream"
+          className="mt-2 w-full rounded-xl border border-white/10 bg-[#141418] px-3 py-2.5 text-sm text-cream cursor-pointer"
         >
           {SAMPLE_VERSES.map((v, idx) => (
             <option key={v.reference} value={idx}>

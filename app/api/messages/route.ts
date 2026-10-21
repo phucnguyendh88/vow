@@ -110,7 +110,27 @@ export async function POST(request: Request) {
   })
 
   if (!isMember) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Kiểm tra nếu cuộc trò chuyện thuộc về match của user thì tự động đảm bảo ghi nhận thành viên
+    const { data: conv } = await (supabase
+      .from('conversations') as any)
+      .select('id, match_id, matches(user1_id, user2_id)')
+      .eq('id', conversation_id)
+      .maybeSingle()
+
+    const matchInfo = (conv as any)?.matches
+    if (matchInfo && (matchInfo.user1_id === user.id || matchInfo.user2_id === user.id)) {
+      try {
+        await (supabase.from('conversation_members') as any).upsert(
+          [
+            { conversation_id, user_id: matchInfo.user1_id },
+            { conversation_id, user_id: matchInfo.user2_id },
+          ],
+          { onConflict: 'conversation_id,user_id' }
+        )
+      } catch {}
+    } else {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   // Nếu có idempotency_key, kiểm tra xem message đã được tạo chưa
@@ -119,7 +139,7 @@ export async function POST(request: Request) {
       .from('messages')
       .select('id, conversation_id, content, created_at')
       .eq('idempotency_key', idempotency_key)
-      .single()
+      .maybeSingle()
 
     if (existingMsg) {
       // Message đã tồn tại — return nó (idempotent response)

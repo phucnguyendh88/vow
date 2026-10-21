@@ -1,6 +1,6 @@
 export default function MainLoading() {
   return (
-    <div className="flex flex-col min-h-dvh max-w-md mx-auto px-5 pt-8 pb-32 animate-pulse">
+    <div className="flex flex-col min-h-screen max-w-md mx-auto px-5 pt-8 pb-32 animate-pulse bg-black">
       {/* Top Header skeleton */}
       <div className="flex items-center justify-between pb-6">
         <div className="h-4 w-32 bg-white/10 rounded-full" />

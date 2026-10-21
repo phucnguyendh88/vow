@@ -115,6 +115,16 @@ export async function POST(request: Request) {
 
     if (matchData) {
       match = matchData
+
+      // Tự động kết bạn khi Match: đảm bảo có bản ghi trong bảng friendships
+      try {
+        await (supabase.from('friendships') as any)
+          .upsert(
+            { user1_id: minId, user2_id: maxId },
+            { onConflict: 'user1_id,user2_id' }
+          )
+      } catch {}
+
       const convList = (matchData as any).conversations
       conversationId = Array.isArray(convList) ? convList[0]?.id : convList?.id ?? null
       if (!conversationId) {

@@ -308,9 +308,13 @@ export default function DevotionClient({
               onClick={() => setMusicOn((prev) => !prev)}
               aria-label={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
               title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+                lightMode
+                  ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
+                  : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+              }`}
             >
-              {musicOn ? <MusicOnIcon className="h-4.5 w-4.5 text-[#E8D08D]" /> : <MusicOffIcon className="h-4.5 w-4.5 text-neutral-400" />}
+              {musicOn ? <MusicOnIcon className="h-4.5 w-4.5 text-[#E8D08D]" /> : <MusicOffIcon className={`h-4.5 w-4.5 ${lightMode ? 'text-neutral-500' : 'text-neutral-400'}`} />}
             </button>
 
             <button
@@ -318,9 +322,13 @@ export default function DevotionClient({
               onClick={toggleLightMode}
               aria-label={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
               title={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+                lightMode
+                  ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
+                  : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+              }`}
             >
-              {lightMode ? <MoonIcon className="h-4.5 w-4.5 text-[#E8D08D]" /> : <SunIcon className="h-4.5 w-4.5 text-neutral-400" />}
+              {lightMode ? <MoonIcon className="h-4.5 w-4.5 text-[#E8D08D]" /> : <SunIcon className={`h-4.5 w-4.5 ${lightMode ? 'text-neutral-500' : 'text-neutral-400'}`} />}
             </button>
 
             <button
@@ -328,9 +336,13 @@ export default function DevotionClient({
               onClick={() => setShowWallpaperModal(true)}
               aria-label="Tạo hình nền"
               title="Tạo hình nền"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+                lightMode
+                  ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
+                  : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+              }`}
             >
-              <PictureIcon className="h-4.5 w-4.5 text-neutral-300" />
+              <PictureIcon className={`h-4.5 w-4.5 ${lightMode ? 'text-neutral-600' : 'text-neutral-300'}`} />
             </button>
 
             <button
@@ -338,15 +350,21 @@ export default function DevotionClient({
               onClick={() => setShowSettingsModal(true)}
               aria-label="Cài đặt"
               title="Cài đặt"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] backdrop-blur-md transition active:scale-95 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+                lightMode
+                  ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
+                  : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+              }`}
             >
-              <GearIcon className="h-4.5 w-4.5 text-neutral-300" />
+              <GearIcon className="h-4.5 w-4.5 text-neutral-400" />
             </button>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <h1 className="min-w-0 flex-1 truncate font-serif text-lg sm:text-xl font-medium leading-snug text-[#F0F0F0] tracking-normal">
+          <h1 className={`min-w-0 flex-1 truncate font-serif text-lg sm:text-xl font-medium leading-snug tracking-normal ${
+            lightMode ? 'text-neutral-900' : 'text-[#F0F0F0]'
+          }`}>
             Chào {getGreeting(now.getHours())}
             {userName ? `, ${userName}.` : '.'}
           </h1>
@@ -358,7 +376,7 @@ export default function DevotionClient({
           </div>
         </div>
 
-        <p className="mt-1 text-sm text-[#A0A0A5] font-light">
+        <p className={`mt-1 text-sm font-light ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
           Hãy dành 5 phút tìm kiếm Chúa trước nhé
         </p>
 
@@ -370,7 +388,7 @@ export default function DevotionClient({
             const isToday = idx === dayIndex
             return (
               <div key={day} className="flex flex-col items-center gap-2">
-                <span className={`text-xs font-medium tracking-wide ${isToday ? 'font-bold text-[#E8D08D]' : 'text-neutral-400'}`}>
+                <span className={`text-xs font-medium tracking-wide ${isToday ? 'font-bold text-[#E8D08D]' : lightMode ? 'text-neutral-500' : 'text-neutral-400'}`}>
                   {day}
                 </span>
                 {isToday ? (
@@ -386,7 +404,9 @@ export default function DevotionClient({
                   </div>
                 ) : (
                   /* Inactive days: Dark empty circles with a thin, dim 1px border */
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.02)] backdrop-blur-sm" />
+                  <div className={`flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-sm ${
+                    lightMode ? 'border-neutral-200 bg-neutral-100' : 'border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.02)]'
+                  }`} />
                 )}
               </div>
             )
@@ -397,33 +417,51 @@ export default function DevotionClient({
       {verseText ? (
         <>
           {/* Card 1: 01 · CÂU GỐC */}
-          <section className="relative mx-5 mt-7 overflow-hidden rounded-[2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] p-6 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]">
+          <section className={`relative mx-5 mt-7 overflow-hidden rounded-[2rem] border p-6 backdrop-blur-2xl ${
+            lightMode
+              ? 'border-neutral-200 bg-white/95 shadow-md'
+              : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
+          }`}>
             <QuoteWatermark className="absolute right-4 top-4 h-16 w-16 text-[#E8D08D] opacity-15" />
             <p className="font-sans text-xs font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
               01 · CÂU GỐC
             </p>
-            <p className="mt-4 font-serif text-[1.4rem] font-medium leading-relaxed text-[#F0F0F0] tracking-wide">
+            <p className={`mt-4 font-serif text-[1.4rem] font-medium leading-relaxed tracking-wide ${
+              lightMode ? 'text-neutral-900' : 'text-[#F0F0F0]'
+            }`}>
               {verseText}
             </p>
             <p className="mt-5 text-lg font-bold text-[#E8D08D] tracking-wide">{verseRef}</p>
           </section>
 
           {/* Card 2: 02 · SUY NGẪM */}
-          <section className="mx-5 mt-6 rounded-[2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] p-6 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]">
+          <section className={`mx-5 mt-6 rounded-[2rem] border p-6 backdrop-blur-2xl ${
+            lightMode
+              ? 'border-neutral-200 bg-white/95 shadow-md'
+              : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
+          }`}>
             <p className="font-sans text-xs font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
               02 · SUY NGẪM
             </p>
-            <p className="mt-4 text-[1.05rem] font-light leading-relaxed text-[#D8D8DC]">
+            <p className={`mt-4 text-[1.05rem] font-light leading-relaxed ${
+              lightMode ? 'text-neutral-800' : 'text-[#D8D8DC]'
+            }`}>
               {meditationText}
             </p>
           </section>
 
           {prayerText && (
-            <section className="mx-5 mt-6 rounded-[2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] p-6 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]">
+            <section className={`mx-5 mt-6 rounded-[2rem] border p-6 backdrop-blur-2xl ${
+              lightMode
+                ? 'border-neutral-200 bg-white/95 shadow-md'
+                : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
+            }`}>
               <p className="font-sans text-xs font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
                 03 · CẦU NGUYỆN
               </p>
-              <p className="mt-4 font-serif text-[1.15rem] italic leading-relaxed text-[#D8D8DC]">
+              <p className={`mt-4 font-serif text-[1.15rem] italic leading-relaxed ${
+                lightMode ? 'text-neutral-800' : 'text-[#D8D8DC]'
+              }`}>
                 {prayerText}
               </p>
             </section>

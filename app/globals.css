@@ -51,6 +51,42 @@ html:not(.dark),
   --color-background: #ffffff;
 }
 
+/* Bảo đảm tương phản tuyệt đối cho Light Mode: không bao giờ để chữ trắng trên nền sáng */
+.devotion-light,
+html:not(.dark) {
+  background-color: #f8f7f4 !important;
+  color: #1c1917 !important;
+}
+
+.devotion-light .text-\[\#F0F0F0\],
+html:not(.dark) .text-\[\#F0F0F0\] {
+  color: #1c1917 !important;
+}
+
+.devotion-light .text-\[\#D8D8DC\],
+html:not(.dark) .text-\[\#D8D8DC\] {
+  color: #292524 !important;
+}
+
+.devotion-light .text-\[\#A0A0A5\],
+html:not(.dark) .text-\[\#A0A0A5\] {
+  color: #57534e !important;
+}
+
+.devotion-light .bg-\[rgba\(255\,255\,255\,0\.03\)\],
+html:not(.dark) .bg-\[rgba\(255\,255\,255\,0\.03\)\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+.devotion-light .bg-\[rgba\(255\,255\,255\,0\.02\)\],
+html:not(.dark) .bg-\[rgba\(255\,255\,255\,0\.02\)\] {
+  background-color: #f4f2ec !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+
 * {
   box-sizing: border-box;
 }

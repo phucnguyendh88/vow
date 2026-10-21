@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
+import imageCompression from 'browser-image-compression'
+
 const GENDER_OPTIONS = ['Nam', 'Nữ']
 
 export default function OnboardingPage() {
@@ -21,6 +23,8 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState('Nam')
   const [church, setChurch] = useState('')
   const [area, setArea] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -31,6 +35,14 @@ export default function OnboardingPage() {
       }
     })
   }, [supabase, router])
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarFile(file)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,13 +65,56 @@ export default function OnboardingPage() {
 
     setLoading(true)
     try {
-      if (!userId) throw new Error('Chưa đăng nhập')
+      // Bảo đảm có UID kể cả khi state chưa kịp set (chống race condition)
+      let currentUid = userId
+      if (!currentUid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        currentUid = user?.id ?? null
+      }
+      if (!currentUid) {
+        router.push('/dang-nhap')
+        throw new Error('Chưa đăng nhập')
+      }
+
+      // Upload avatar nếu có file
+      let uploadedAvatarUrl: string | null = null
+      if (avatarFile) {
+        try {
+          const compressed = await imageCompression(avatarFile, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 800,
+            useWebWorker: true,
+          })
+          const path = `${currentUid}/avatar_${Date.now()}.jpg`
+          const primary = await supabase.storage
+            .from('profile-images')
+            .upload(path, compressed, { upsert: true })
+
+          if (!primary.error && primary.data) {
+            uploadedAvatarUrl = supabase.storage
+              .from('profile-images')
+              .getPublicUrl(primary.data.path).data.publicUrl
+          } else {
+            const fallback = await supabase.storage
+              .from('avatars')
+              .upload(path, compressed, { upsert: true })
+            if (fallback.data) {
+              uploadedAvatarUrl = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fallback.data.path).data.publicUrl
+            }
+          }
+        } catch {
+          // Nếu upload avatar lỗi, vẫn tiếp tục lưu hồ sơ để không block user
+        }
+      }
 
       const dob = `${year}-01-01`
       const genderDb = gender === 'Nam' ? 'male' : 'female'
 
-      const { error } = await (supabase.from('profiles') as any).upsert({
-        id: userId,
+      // Gom toàn bộ payload và update duy nhất 1 lần
+      const profilePayload: Record<string, any> = {
+        id: currentUid,
         full_name: name.trim(),
         username: name.trim().toLowerCase().replace(/\s+/g, '_') + '_' + Math.floor(Math.random() * 1000),
         date_of_birth: dob,
@@ -68,7 +123,13 @@ export default function OnboardingPage() {
         location_text: area.trim() || null,
         is_complete: true,
         updated_at: new Date().toISOString(),
-      })
+      }
+
+      if (uploadedAvatarUrl) {
+        profilePayload.avatar_url = uploadedAvatarUrl
+      }
+
+      const { error } = await (supabase.from('profiles') as any).upsert(profilePayload)
 
       if (error) throw error
 
@@ -124,6 +185,31 @@ export default function OnboardingPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+          {/* Avatar upload (tùy chọn) */}
+          <div className="flex flex-col items-center pb-2">
+            <label className="relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[#E8D08D]/50 bg-surface2/60 transition hover:border-[#E8D08D]">
+              {avatarPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center text-center p-2">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-7 w-7 text-[#E8D08D]">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <span className="mt-1 text-[10px] font-medium text-cream/70">Tải ảnh</span>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarSelect}
+                className="hidden"
+              />
+            </label>
+            <span className="mt-1.5 text-xs text-muted">Ảnh đại diện (tùy chọn)</span>
+          </div>
+
           <label className="block">
             <span className="mb-1.5 block text-sm text-cream/80">
               Tên hiển thị <span className="text-gold">*</span>
