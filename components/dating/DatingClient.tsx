@@ -256,6 +256,9 @@ export default function DatingClient({
 
   const draggingRef = useRef(false)
   const startXRef = useRef(0)
+  const startYRef = useRef(0)
+  const gestureDirectionRef = useRef<'horizontal' | 'vertical' | null>(null)
+  const capturedTargetRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     supabase
@@ -415,24 +418,56 @@ export default function DatingClient({
     if (swiping || swipeAction) return
     draggingRef.current = true
     startXRef.current = e.clientX
-    try {
-      ;(e.target as HTMLElement)?.setPointerCapture?.(e.pointerId)
-    } catch {}
+    startYRef.current = e.clientY
+    gestureDirectionRef.current = null
+    capturedTargetRef.current = e.currentTarget
   }
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!draggingRef.current || swiping || swipeAction) return
-    setDragX(e.clientX - startXRef.current)
+
+    const deltaX = e.clientX - startXRef.current
+    const deltaY = e.clientY - startYRef.current
+
+    // Determine direction on first noticeable movement (> 8px)
+    if (!gestureDirectionRef.current) {
+      if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+        if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+          gestureDirectionRef.current = 'horizontal'
+          try {
+            capturedTargetRef.current?.setPointerCapture?.(e.pointerId)
+          } catch {}
+        } else {
+          // Vertical movement: let the browser scroll the info container
+          gestureDirectionRef.current = 'vertical'
+          draggingRef.current = false
+          setDragX(0)
+          return
+        }
+      } else {
+        return
+      }
+    }
+
+    if (gestureDirectionRef.current === 'horizontal') {
+      setDragX(deltaX)
+    }
   }
 
-  const handlePointerEnd = () => {
-    if (!draggingRef.current) return
-    draggingRef.current = false
-    if (dragX > 90) {
-      void handleSwipe('like')
-    } else if (dragX < -90) {
-      void handleSwipe('pass')
+  const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (gestureDirectionRef.current === 'horizontal') {
+      try {
+        capturedTargetRef.current?.releasePointerCapture?.(e.pointerId)
+      } catch {}
+      if (dragX > 90) {
+        void handleSwipe('like')
+      } else if (dragX < -90) {
+        void handleSwipe('pass')
+      }
     }
+    draggingRef.current = false
+    gestureDirectionRef.current = null
+    capturedTargetRef.current = null
     setDragX(0)
   }
 
@@ -456,7 +491,7 @@ export default function DatingClient({
         }
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#050505] overscroll-none pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-20 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#050505] overscroll-none pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
       {/* Top Navigation: Minimalist Luxury */}
       <header className="relative shrink-0 flex items-center justify-between px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <button
@@ -525,7 +560,7 @@ export default function DatingClient({
         </div>
 
         {!currentCandidate ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-[2.5rem] border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.02)] px-8 text-center backdrop-blur-xl shadow-2xl">
+          <div className="flex flex-1 flex-col items-center justify-center rounded-[2.5rem] border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.02)] px-8 text-center backdrop-blur-xl shadow-2xl mb-3 sm:mb-4">
             <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(232,208,141,0.08)] shadow-[0_0_25px_rgba(232,208,141,0.2)]">
               <HeartSvg className="h-10 w-10 text-[#E8D08D]" />
             </div>
@@ -561,11 +596,11 @@ export default function DatingClient({
           <>
             {/* The Core Element: Luxury Dark Glassmorphism Profile Card */}
             <div
-              className="relative flex min-h-0 flex-1 touch-none select-none"
+              className="relative flex min-h-0 flex-1 select-none mb-3 sm:mb-4"
               style={{ perspective: 800 }}
             >
               <div
-                className="flex w-full min-h-0 flex-col overflow-hidden rounded-[2.2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(20,20,22,0.65)] backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(232,208,141,0.25)]"
+                className="flex w-full min-h-0 flex-col overflow-hidden rounded-[2.2rem] border border-[rgba(232,208,141,0.28)] bg-[rgba(20,20,22,0.65)] backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(232,208,141,0.25)] touch-pan-y"
                 style={cardStyle}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
@@ -597,7 +632,7 @@ export default function DatingClient({
                 )}
 
                 {/* Top Half: High-quality portrait with soft dark gradient fade at the bottom */}
-                <div className="relative shrink-0 h-[48%] max-h-72 min-h-44">
+                <div className="relative shrink-0 h-[44%] max-h-64 sm:max-h-72 min-h-36">
                   {currentCandidate.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -618,7 +653,7 @@ export default function DatingClient({
                 </div>
 
                 {/* Bottom Half: Inside the glassmorphism card info area */}
-                <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-5 py-3 overscroll-y-contain">
+                <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-5 py-3 overscroll-y-contain touch-pan-y">
                   <div className="flex items-center justify-between gap-2">
                     <h2
                       onClick={() => setViewProfileId(currentCandidate.id)}
@@ -674,7 +709,7 @@ export default function DatingClient({
             </div>
 
             {/* Action Buttons: Dark glass circles with metallic Rose-Gold and Champagne-Gold borders */}
-            <div className="shrink-0 flex items-center justify-center gap-12 py-2.5">
+            <div className="shrink-0 flex items-center justify-center gap-14 pt-1 pb-3">
               {/* Left Button (Reject): Rose-Gold border, white X */}
               <div className="flex flex-col items-center gap-1.5">
                 <button
@@ -682,7 +717,7 @@ export default function DatingClient({
                   onClick={() => void handleSwipe('pass')}
                   disabled={swiping}
                   aria-label="Từ chối"
-                  className="flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(224,155,140,0.45)] bg-[rgba(255,255,255,0.03)] text-white shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_0_16px_rgba(224,155,140,0.1)] backdrop-blur-xl transition active:scale-90 disabled:opacity-40"
+                  className="flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(224,155,140,0.45)] bg-[rgba(255,255,255,0.03)] text-white shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_0_16px_rgba(224,155,140,0.1)] backdrop-blur-xl transition hover:border-[rgba(224,155,140,0.8)] hover:scale-105 active:scale-90 disabled:opacity-40"
                 >
                   <CloseSvg className="h-6 w-6 text-[#F0F0F0]" />
                 </button>
@@ -698,7 +733,7 @@ export default function DatingClient({
                   onClick={() => void handleSwipe('like')}
                   disabled={swiping}
                   aria-label="Chấp nhận"
-                  className="flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(232,208,141,0.55)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_0_20px_rgba(232,208,141,0.15)] backdrop-blur-xl transition active:scale-90 disabled:opacity-40"
+                  className="flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(232,208,141,0.55)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_0_20px_rgba(232,208,141,0.15)] backdrop-blur-xl transition hover:border-[#E8D08D] hover:scale-105 active:scale-90 disabled:opacity-40"
                 >
                   <HeartSvg className="h-6 w-6 text-[#E8D08D]" filled={true} />
                 </button>
