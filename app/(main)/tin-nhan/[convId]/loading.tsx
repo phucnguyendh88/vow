@@ -1,8 +1,8 @@
 export default function ConversationLoading() {
   return (
-    <div className="flex h-dvh flex-col bg-[#050505] text-cream">
+    <div className="fixed inset-0 z-50 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#050505] overscroll-none text-cream">
       {/* Header Skeleton */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/5 bg-[#0a0a0a]/90 px-3 backdrop-blur-md">
+      <header className="shrink-0 flex items-center justify-between border-b border-white/10 bg-[#050505]/95 backdrop-blur-md px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full text-muted">
             <svg
@@ -32,7 +32,7 @@ export default function ConversationLoading() {
       </header>
 
       {/* Messages Area Skeleton */}
-      <div className="flex-1 space-y-3 overflow-hidden p-4">
+      <div className="flex-1 min-h-0 space-y-3 overflow-hidden p-4">
         {/* Left message skeleton */}
         <div className="flex items-end gap-2">
           <div className="h-7 w-7 animate-pulse rounded-full bg-white/10" />
@@ -63,7 +63,7 @@ export default function ConversationLoading() {
       </div>
 
       {/* Input Bar Skeleton */}
-      <footer className="border-t border-white/5 bg-[#0a0a0a] p-3">
+      <footer className="shrink-0 w-full bg-[#050505] border-t border-white/10 px-3 pt-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-2">
           <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/5" />
           <div className="h-10 flex-1 animate-pulse rounded-full bg-white/5" />

@@ -408,6 +408,7 @@ export default function ChatClient({
   const [showPartnerProfile, setShowPartnerProfile] = useState(false)
 
   const streamRef = useRef<HTMLDivElement | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const longPressTimerRef = useRef<number | null>(null)
   const supabase = createClient()
 
@@ -779,8 +780,9 @@ export default function ChatClient({
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-ink">
-      <header className="flex items-center gap-2 border-b border-white/5 px-2 py-2.5">
+    <div className="fixed inset-0 z-50 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#050505] overscroll-none text-cream">
+      {/* Khối 1 — Header cuộc trò chuyện (Cố định ở trên cùng) */}
+      <header className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#050505]/95 backdrop-blur-md border-b border-white/10 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           type="button"
           onClick={() => {
@@ -791,7 +793,7 @@ export default function ChatClient({
             }
           }}
           aria-label="Quay lại danh sách tin nhắn"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-cream transition duration-75 active:scale-95 active:bg-white/10"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-cream transition duration-75 active:scale-95 active:bg-white/10"
         >
           <BackArrowIcon />
         </button>
@@ -809,7 +811,11 @@ export default function ChatClient({
         </button>
       </header>
 
-      <div ref={streamRef} className="nice-scroll flex-1 overflow-y-auto px-3 py-4">
+      {/* Khối 2 — Danh sách tin nhắn (Vùng duy nhất được cuộn) */}
+      <div
+        ref={streamRef}
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 overscroll-y-contain nice-scroll"
+      >
         {dayGroups.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">
             Chưa có tin nhắn. Gửi lời chào đầu tiên nhé.
@@ -1028,88 +1034,90 @@ export default function ChatClient({
             </div>
           ))
         )}
+        <div ref={messagesEndRef} className="h-2 shrink-0" />
       </div>
 
-      {sendError && (
-        <p className="border-t border-white/5 px-4 pt-2 text-xs text-red-400">{sendError}</p>
-      )}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          void handleSendMessage()
-        }}
-        className={`flex items-center gap-2 px-3 py-3 ${
-          sendError ? '' : 'border-t border-white/5'
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => setShowStickers((v) => !v)}
-          aria-label="Chọn sticker"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface2 text-cream transition active:scale-95"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className="h-5 w-5"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path
-              strokeLinecap="round"
-              d="M8.5 14.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5M9 9.5h.01M15 9.5h.01"
-            />
-          </svg>
-        </button>
-
-        <input
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Nhắn tin…"
-          maxLength={1000}
-          aria-label="Nhắn tin"
-          className="flex-1 rounded-full bg-surface2 px-4 py-2.5 text-[15px] text-cream outline-none placeholder:text-muted focus:ring-1 focus:ring-gold/60"
-        />
-
-        <button
-          type="submit"
-          disabled={!inputText.trim() || sending}
-          aria-label="Gửi tin nhắn"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink transition active:scale-95 disabled:opacity-40"
-        >
-          <SendPaperPlaneIcon />
-        </button>
-      </form>
-
-      {showStickers && (
-        <div className="border-t border-white/5 bg-surface px-4 py-3">
-          <div className="grid grid-cols-4 gap-2">
-            {STICKERS.map((st) => (
-              <button
-                key={st.key}
-                type="button"
-                onClick={() => handleSendSticker(st.key)}
-                aria-label={st.label}
-                title={st.label}
-                className="flex items-center justify-center rounded-xl bg-surface2 p-2 transition active:scale-95 hover:bg-white/10"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={st.src}
-                  alt={st.label}
-                  className="h-16 w-16 object-contain"
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              </button>
-            ))}
+      {/* Khối 3 — Thanh nhập tin nhắn & Sticker tray (Cố định sát đáy màn hình) */}
+      <footer className="shrink-0 w-full bg-[#050505] border-t border-white/10">
+        {showStickers && (
+          <div className="border-b border-white/10 bg-surface px-4 py-3 max-h-48 overflow-y-auto nice-scroll">
+            <div className="grid grid-cols-4 gap-2">
+              {STICKERS.map((st) => (
+                <button
+                  key={st.key}
+                  type="button"
+                  onClick={() => handleSendSticker(st.key)}
+                  aria-label={st.label}
+                  title={st.label}
+                  className="flex items-center justify-center rounded-xl bg-surface2 p-2 transition duration-75 active:scale-95 hover:bg-white/10"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={st.src}
+                    alt={st.label}
+                    className="h-16 w-16 object-contain"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {sendError && (
+          <p className="px-4 pt-2 text-xs text-red-400">{sendError}</p>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            void handleSendMessage()
+          }}
+          className="flex items-center gap-2 px-3 pt-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))]"
+        >
+          <button
+            type="button"
+            onClick={() => setShowStickers((v) => !v)}
+            aria-label="Chọn sticker"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface2 text-cream transition duration-75 active:scale-95"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="h-5 w-5"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path
+                strokeLinecap="round"
+                d="M8.5 14.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5M9 9.5h.01M15 9.5h.01"
+              />
+            </svg>
+          </button>
+
+          <input
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Nhắn tin…"
+            maxLength={1000}
+            aria-label="Nhắn tin"
+            className="flex-1 rounded-full bg-surface2 px-4 py-2.5 text-[15px] text-cream outline-none placeholder:text-muted focus:ring-1 focus:ring-gold/60"
+          />
+
+          <button
+            type="submit"
+            disabled={!inputText.trim() || sending}
+            aria-label="Gửi tin nhắn"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink transition duration-75 active:scale-95 disabled:opacity-40"
+          >
+            <SendPaperPlaneIcon />
+          </button>
+        </form>
+      </footer>
 
       {/* Profile Modal */}
       <UserProfileModal
