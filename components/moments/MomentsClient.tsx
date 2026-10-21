@@ -403,9 +403,12 @@ function HistoryViewer({
       })
     }
     updateH()
-    const ro = new ResizeObserver(updateH)
-    ro.observe(el)
-    return () => ro.disconnect()
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateH)
+      ro.observe(el)
+      return () => ro.disconnect()
+    }
+    return undefined
   }, [])
 
   const snapTo = useCallback(

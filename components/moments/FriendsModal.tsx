@@ -42,29 +42,45 @@ export default function FriendsModal({
     const inviteUrl = `${baseUrl}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
     const message = `Gửi link này cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn: ${inviteUrl}`
 
-    navigator.clipboard
-      .writeText(message)
-      .then(() => {
-        setLinkCopied(true)
-        toast.success('Đã sao chép link mời kèm lời nhắn')
-        setTimeout(() => setLinkCopied(false), 2500)
-      })
-      .catch(() => {
-        toast.error('Không sao chép được')
-      })
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(message)
+          .then(() => {
+            setLinkCopied(true)
+            toast.success('Đã sao chép link mời kèm lời nhắn')
+            setTimeout(() => setLinkCopied(false), 2500)
+          })
+          .catch(() => {
+            toast.error('Không sao chép được')
+          })
+      } else {
+        toast.error('Trình duyệt không hỗ trợ sao chép tự động')
+      }
+    } catch {
+      toast.error('Không sao chép được')
+    }
   }
 
   const handleCopyRawCode = () => {
-    navigator.clipboard
-      .writeText(myInviteCode)
-      .then(() => {
-        setCodeCopied(true)
-        toast.success(`Đã sao chép mã ${myInviteCode}`)
-        setTimeout(() => setCodeCopied(false), 2500)
-      })
-      .catch(() => {
-        toast.error('Không sao chép được')
-      })
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(myInviteCode)
+          .then(() => {
+            setCodeCopied(true)
+            toast.success(`Đã sao chép mã ${myInviteCode}`)
+            setTimeout(() => setCodeCopied(false), 2500)
+          })
+          .catch(() => {
+            toast.error('Không sao chép được')
+          })
+      } else {
+        toast.error('Trình duyệt không hỗ trợ sao chép tự động')
+      }
+    } catch {
+      toast.error('Không sao chép được')
+    }
   }
 
   const handleAdd = async (e: React.FormEvent) => {

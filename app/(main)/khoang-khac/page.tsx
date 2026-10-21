@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MomentsClient from '@/components/moments/MomentsClient'
@@ -219,16 +220,19 @@ export default async function KhoangKhacPage() {
   }
 
   return (
-    <MomentsClient
-      initialMoments={(momentsRes.data as MomentWithProfile[]) ?? []}
-      myMoments={[]}
-      userId={user.id}
-      currentUser={currentUser}
-      myInviteCode={myInviteCode}
-      fetchError={momentsRes.error?.message ?? null}
-      initialFriends={initialFriends}
-      initialIncoming={initialIncoming}
-      initialOutgoing={initialOutgoing}
-    />
+    <Suspense fallback={<div className="min-h-[calc(100dvh-6rem)] bg-[#050505]" />}>
+      <MomentsClient
+        initialMoments={(momentsRes.data as MomentWithProfile[]) ?? []}
+        myMoments={[]}
+        userId={user.id}
+        currentUser={currentUser}
+        myInviteCode={myInviteCode}
+        fetchError={momentsRes.error?.message ?? null}
+        initialFriends={initialFriends}
+        initialIncoming={initialIncoming}
+        initialOutgoing={initialOutgoing}
+      />
+    </Suspense>
   )
 }
+

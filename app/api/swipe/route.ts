@@ -125,15 +125,21 @@ export async function POST(request: Request) {
           )
       } catch {}
 
-      const convList = (matchData as any).conversations
-      conversationId = Array.isArray(convList) ? convList[0]?.id : convList?.id ?? null
-      if (!conversationId) {
-        try {
-          const { data: convRpc } = await (supabase.rpc as any)('get_or_create_direct_conversation', {
+      try {
+        const { data: convRpc } = await (supabase.rpc as any)(
+          'get_or_create_direct_conversation',
+          {
             other_user: swiped_id,
-          })
-          conversationId = convRpc ?? null
-        } catch {}
+          }
+        )
+        if (convRpc) {
+          conversationId = convRpc
+        }
+      } catch {}
+
+      if (!conversationId) {
+        const convList = (matchData as any).conversations
+        conversationId = Array.isArray(convList) ? convList[0]?.id : convList?.id ?? null
       }
     }
   }

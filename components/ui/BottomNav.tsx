@@ -56,11 +56,12 @@ const navTabs = [
 export default function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const [optimisticTab, setOptimisticTab] = useState(pathname)
+  const safePath = typeof pathname === 'string' ? pathname : ''
+  const [optimisticTab, setOptimisticTab] = useState(safePath)
 
   useEffect(() => {
-    setOptimisticTab(pathname)
-  }, [pathname])
+    setOptimisticTab(safePath)
+  }, [safePath])
 
   useEffect(() => {
     navTabs.forEach((tab) => {
@@ -74,8 +75,10 @@ export default function BottomNav() {
   }, [router])
 
   // Hide bottom nav when inside a specific chat conversation (/tin-nhan/[convId])
-  const isInChatRoom = /^\/tin-nhan\/[^/]+/.test(pathname)
+  const isInChatRoom = /^\/tin-nhan\/[^/]+/.test(safePath)
   if (isInChatRoom) return null
+
+  const safeOpt = typeof optimisticTab === 'string' ? optimisticTab : ''
 
   return (
     <nav
@@ -84,7 +87,7 @@ export default function BottomNav() {
     >
       <div className="grid grid-cols-3 py-1">
         {navTabs.map((tab) => {
-          const isActive = optimisticTab.startsWith(tab.href)
+          const isActive = safeOpt.startsWith(tab.href)
           return (
             <Link
               key={tab.href}

@@ -1,6 +1,5 @@
 // components/design-system/Avatar.tsx
 import React from 'react'
-import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 type AvatarProps = {
@@ -24,16 +23,22 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   className,
 }) => {
-  const placeholder = '/placeholder-avatar.png' // assume placeholder exists in public
+  const placeholder = '/placeholder-avatar.png'
   return (
     <div className={cn('rounded-full overflow-hidden bg-muted', sizeMap[size], className)}>
-      <Image
-        src={src ?? placeholder}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src || placeholder}
         alt={alt}
         width={40}
         height={40}
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
         className="object-cover w-full h-full"
       />
     </div>
   )
 }
+

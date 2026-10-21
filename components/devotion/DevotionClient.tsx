@@ -215,15 +215,23 @@ export default function DevotionClient({
   }, [])
 
   useEffect(() => {
-    const audio = new Audio('/audio-bg.m4a')
-    audio.loop = true
-    audio.preload = 'auto'
-    audioRef.current = audio
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') return
+    let audio: HTMLAudioElement | null = null
+    try {
+      audio = new Audio('/audio-bg.m4a')
+      audio.loop = true
+      audio.preload = 'auto'
+      audioRef.current = audio
+    } catch {
+      return
+    }
 
     const tryPlay = () => {
-      if (musicOnRef.current) {
-        audio.play().catch(() => {})
-      }
+      try {
+        if (musicOnRef.current && audio) {
+          audio.play().catch(() => {})
+        }
+      } catch {}
     }
     tryPlay()
 
@@ -232,7 +240,9 @@ export default function DevotionClient({
 
     return () => {
       window.removeEventListener('pointerdown', handleFirstInteraction)
-      audio.pause()
+      try {
+        audio?.pause()
+      } catch {}
       audioRef.current = null
     }
   }, [])

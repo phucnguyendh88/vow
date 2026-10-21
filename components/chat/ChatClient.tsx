@@ -28,6 +28,7 @@ interface ConversationMember {
 
 interface Props {
   conversationId: string
+  allConversationIds?: string[]
   currentUserId: string
   initialMessages: ChatMessage[]
   partner: ConversationMember | null
@@ -40,6 +41,62 @@ function safeUUID(): string {
     } catch {}
   }
   return 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12)
+}
+
+function safeText(val: unknown): string {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  try {
+    return JSON.stringify(val)
+  } catch {
+    return ''
+  }
+}
+
+function resolveSafeMediaUrl(rawPath?: unknown, supabase?: any): string | null {
+  if (!rawPath || typeof rawPath !== 'string') return null
+  const trimmed = rawPath.trim()
+  if (!trimmed) return null
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('/')
+  ) {
+    return trimmed
+  }
+  try {
+    const sb = supabase || createClient()
+    const { data } = sb.storage.from('moment-images').getPublicUrl(trimmed)
+    return data?.publicUrl || null
+  } catch {
+    return null
+  }
+}
+
+function normalizeMessage(rawMsg: any, fallbackConvId = ''): ChatMessage {
+  let prof = rawMsg?.profiles
+  if (Array.isArray(prof)) prof = prof[0]
+  return {
+    id: safeText(rawMsg?.id) || safeUUID(),
+    conversation_id: safeText(rawMsg?.conversation_id) || fallbackConvId,
+    sender_id: safeText(rawMsg?.sender_id),
+    content: safeText(rawMsg?.content),
+    created_at:
+      typeof rawMsg?.created_at === 'string' && rawMsg.created_at.trim()
+        ? rawMsg.created_at
+        : new Date().toISOString(),
+    profiles:
+      prof && typeof prof === 'object'
+        ? {
+            id: safeText(prof.id),
+            username: typeof prof.username === 'string' ? prof.username : null,
+            full_name: typeof prof.full_name === 'string' ? prof.full_name : null,
+            avatar_url: typeof prof.avatar_url === 'string' ? prof.avatar_url : null,
+          }
+        : null,
+  }
 }
 
 const getInitial = (name?: string | null): string => {
@@ -73,15 +130,19 @@ function MemberAvatar({
   photo?: string | null
   size?: number
 }) {
+  const [imgFailed, setImgFailed] = useState(false)
   const safeName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : 'U'
-  if (photo && typeof photo === 'string') {
+  const safePhoto = resolveSafeMediaUrl(photo)
+  if (safePhoto && !imgFailed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={photo}
+        src={safePhoto}
         alt={safeName}
         width={size}
         height={size}
+        loading="lazy"
+        onError={() => setImgFailed(true)}
         className="shrink-0 rounded-full object-cover"
         style={{ width: size, height: size }}
       />
@@ -269,12 +330,17 @@ function parseMomentReply(rawContent: string): MomentReplyData | null {
 
 export default function ChatClient({
   conversationId,
+  allConversationIds,
   currentUserId,
   initialMessages,
   partner,
 }: Props) {
   const router = useRouter()
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    (Array.isArray(initialMessages) ? initialMessages : []).map((m) =>
+      normalizeMessage(m, conversationId)
+    )
+  )
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [showStickers, setShowStickers] = useState(false)
@@ -289,6 +355,15 @@ export default function ChatClient({
   const longPressTimerRef = useRef<number | null>(null)
   const supabase = createClient()
 
+  const mergedConvIds = Array.from(
+    new Set(
+      [conversationId, ...(Array.isArray(allConversationIds) ? allConversationIds : [])].filter(
+        (id): id is string => typeof id === 'string' && id.trim().length > 0
+      )
+    )
+  )
+  const mergedConvIdsKey = mergedConvIds.join(',')
+
   useEffect(() => {
     const el = streamRef.current
     if (el) {
@@ -296,42 +371,64 @@ export default function ChatClient({
     }
   }, [messages])
 
-  // Đánh dấu đã đọc cuộc trò chuyện khi mở
+  // Đánh dấu đã đọc tất cả cuộc trò chuyện gộp của đối phương khi mở
   useEffect(() => {
-    ;(supabase.rpc as any)('mark_conversation_read', { conv_id: conversationId }).catch(() => {})
-  }, [conversationId, supabase])
+    for (const cid of mergedConvIds) {
+      try {
+        Promise.resolve(
+          (supabase.rpc as any)('mark_conversation_read', { conv_id: cid })
+        ).catch(() => {})
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedConvIdsKey, supabase])
 
   // Lấy danh sách cảm xúc hiện có cho các tin nhắn
   useEffect(() => {
-    const msgIds = messages.map((m) => m.id)
+    const msgIds = (Array.isArray(messages) ? messages : [])
+      .map((m) => m?.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
     if (msgIds.length === 0) return
 
-    ;(supabase.from('message_reactions') as any)
-      .select('message_id, user_id, reaction')
-      .in('message_id', msgIds)
-      .then(({ data, error }: any) => {
-        if (error || !data) return
-        setReactionsMap((prev) => {
-          const next = { ...prev }
-          for (const row of data) {
-            if (!next[row.message_id]) {
-              next[row.message_id] = { heart: [], laugh: [], like: [] }
+    try {
+      Promise.resolve(
+        (supabase.from('message_reactions') as any)
+          .select('message_id, user_id, reaction')
+          .in('message_id', msgIds)
+      )
+        .then(({ data, error }: any) => {
+          if (error || !Array.isArray(data)) return
+          setReactionsMap((prev) => {
+            const next = { ...prev }
+            for (const row of data) {
+              if (!row?.message_id || !row?.reaction || !row?.user_id) continue
+              if (!next[row.message_id]) {
+                next[row.message_id] = { heart: [], laugh: [], like: [] }
+              }
+              const rType = row.reaction as 'heart' | 'laugh' | 'like'
+              if (
+                next[row.message_id][rType] &&
+                !next[row.message_id][rType].includes(row.user_id)
+              ) {
+                next[row.message_id][rType] = [...next[row.message_id][rType], row.user_id]
+              }
             }
-            const rType = row.reaction as 'heart' | 'laugh' | 'like'
-            if (next[row.message_id][rType] && !next[row.message_id][rType].includes(row.user_id)) {
-              next[row.message_id][rType] = [...next[row.message_id][rType], row.user_id]
-            }
-          }
-          return next
+            return next
+          })
         })
-      })
-      .catch(() => {})
+        .catch(() => {})
+    } catch {}
   }, [messages, supabase])
 
   // Realtime subscription cho messages và message_reactions
   useEffect(() => {
     if (!conversationId || typeof conversationId !== 'string') return
     let channel: any = null
+    const convFilter =
+      mergedConvIds.length <= 1
+        ? `conversation_id=eq.${conversationId}`
+        : `conversation_id=in.(${mergedConvIds.join(',')})`
+
     try {
       channel = supabase
         .channel(`chat_${conversationId}`)
@@ -341,17 +438,25 @@ export default function ChatClient({
             event: 'INSERT',
             schema: 'public',
             table: 'messages',
-            filter: `conversation_id=eq.${conversationId}`,
+            filter: convFilter,
           },
           (payload) => {
-            const newMsg = payload.new as ChatMessage
-            if (!newMsg || !newMsg.id) return
-            setMessages((prev) => {
-              const safePrev = Array.isArray(prev) ? prev : []
-              if (safePrev.some((m) => m?.id === newMsg.id)) return safePrev
-              return [...safePrev, newMsg]
-            })
-            ;(supabase.rpc as any)('mark_conversation_read', { conv_id: conversationId }).catch(() => {})
+            try {
+              const rawNew = payload?.new as any
+              if (!rawNew || !rawNew.id) return
+              const newMsg = normalizeMessage(rawNew, conversationId)
+              if (!mergedConvIds.includes(newMsg.conversation_id)) return
+              setMessages((prev) => {
+                const safePrev = Array.isArray(prev) ? prev : []
+                if (safePrev.some((m) => m?.id === newMsg.id)) return safePrev
+                return [...safePrev, newMsg]
+              })
+              Promise.resolve(
+                (supabase.rpc as any)('mark_conversation_read', {
+                  conv_id: newMsg.conversation_id || conversationId,
+                })
+              ).catch(() => {})
+            } catch {}
           }
         )
         .on(
@@ -364,7 +469,11 @@ export default function ChatClient({
           (payload) => {
             try {
               if (payload.eventType === 'INSERT') {
-                const row = payload.new as { message_id: string; user_id: string; reaction: 'heart' | 'laugh' | 'like' }
+                const row = payload.new as {
+                  message_id: string
+                  user_id: string
+                  reaction: 'heart' | 'laugh' | 'like'
+                }
                 if (!row?.message_id || !row?.reaction) return
                 setReactionsMap((prev) => {
                   const msgReacts = prev[row.message_id] || { heart: [], laugh: [], like: [] }
@@ -379,10 +488,18 @@ export default function ChatClient({
                   }
                 })
               } else if (payload.eventType === 'DELETE') {
-                const oldRow = payload.old as { message_id?: string; user_id?: string; reaction?: 'heart' | 'laugh' | 'like' }
+                const oldRow = payload.old as {
+                  message_id?: string
+                  user_id?: string
+                  reaction?: 'heart' | 'laugh' | 'like'
+                }
                 if (oldRow?.message_id && oldRow?.reaction && oldRow?.user_id) {
                   setReactionsMap((prev) => {
-                    const msgReacts = prev[oldRow.message_id!] || { heart: [], laugh: [], like: [] }
+                    const msgReacts = prev[oldRow.message_id!] || {
+                      heart: [],
+                      laugh: [],
+                      like: [],
+                    }
                     const list = msgReacts[oldRow.reaction!] || []
                     return {
                       ...prev,
@@ -409,7 +526,8 @@ export default function ChatClient({
         } catch {}
       }
     }
-  }, [conversationId, supabase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, mergedConvIdsKey, supabase])
 
   const handleSendMessage = async (textOverride?: string) => {
     const text = (textOverride ?? inputText).trim()
@@ -435,9 +553,11 @@ export default function ChatClient({
 
       const { message } = await res.json()
       if (message) {
+        const normalized = normalizeMessage(message, conversationId)
         setMessages((prev) => {
-          if (prev.some((m) => m.id === message.id)) return prev
-          return [...prev, message]
+          const safePrev = Array.isArray(prev) ? prev : []
+          if (safePrev.some((m) => m?.id === normalized.id)) return safePrev
+          return [...safePrev, normalized]
         })
       }
       if (!textOverride) setInputText('')
@@ -530,7 +650,7 @@ export default function ChatClient({
         >
           <MemberAvatar name={partnerName} photo={partnerPhoto} size={40} />
           <span className="min-w-0">
-            <span className="block truncate font-medium text-cream">{partnerName}</span>
+            <span className="block truncate font-medium text-cream">{safeText(partnerName)}</span>
             <span className="block text-[11px] text-muted">Xem hồ sơ</span>
           </span>
         </button>
@@ -546,15 +666,18 @@ export default function ChatClient({
             <div key={group.day + (group.items[0]?.id || '')}>
               <div className="my-3 flex justify-center">
                 <span className="rounded-full bg-surface2 px-3 py-1 text-xs text-muted">
-                  {group.day}
+                  {safeText(group.day)}
                 </span>
               </div>
 
               {group.items.map((msg) => {
                 const isMe = msg.sender_id === currentUserId
-                const rawContent = typeof msg?.content === 'string' ? msg.content : ''
+                const rawContent = safeText(msg?.content)
                 const replyData = rawContent ? parseMomentReply(rawContent) : null
-                const effectiveContent = replyData ? replyData.bodyText : rawContent
+                const safeReplyThumbUrl = replyData
+                  ? resolveSafeMediaUrl(replyData.thumbUrl, supabase)
+                  : null
+                const effectiveContent = safeText(replyData ? replyData.bodyText : rawContent)
                 const isSticker =
                   typeof effectiveContent === 'string' &&
                   effectiveContent.startsWith('[sticker:') &&
@@ -636,9 +759,12 @@ export default function ChatClient({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={stickerObj.src}
-                            alt="Sticker"
+                            alt={safeText(stickerObj.label || 'Sticker')}
                             className="h-28 w-28 object-contain"
                             loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
                           />
                         ) : (
                           <div
@@ -648,11 +774,15 @@ export default function ChatClient({
                           >
                             {replyData && (
                               <div className="mb-2 flex items-center gap-2.5 rounded-xl border border-[rgba(232,208,141,0.25)] bg-black/50 p-2 backdrop-blur-sm">
-                                {replyData.thumbUrl && (
+                                {safeReplyThumbUrl && (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={replyData.thumbUrl}
+                                    src={safeReplyThumbUrl}
                                     alt="Khoảnh khắc"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                    }}
                                     className="h-12 w-12 shrink-0 rounded-lg border border-[rgba(232,208,141,0.4)] object-cover shadow"
                                   />
                                 )}
@@ -662,7 +792,7 @@ export default function ChatClient({
                                   </p>
                                   {replyData.caption ? (
                                     <p className="truncate text-xs italic text-white/80">
-                                      &ldquo;{replyData.caption}&rdquo;
+                                      &ldquo;{safeText(replyData.caption)}&rdquo;
                                     </p>
                                   ) : (
                                     <p className="text-xs text-white/50">Phản hồi khoảnh khắc</p>
@@ -675,12 +805,15 @@ export default function ChatClient({
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={stickerObj.src}
-                                alt="Sticker"
+                                alt={safeText(stickerObj.label || 'Sticker')}
                                 className="h-24 w-24 object-contain"
                                 loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                }}
                               />
                             ) : (
-                              effectiveContent && <div>{effectiveContent}</div>
+                              effectiveContent && <div>{safeText(effectiveContent)}</div>
                             )}
 
                             <div
@@ -815,6 +948,9 @@ export default function ChatClient({
                   alt={st.label}
                   className="h-16 w-16 object-contain"
                   loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
                 />
               </button>
             ))}

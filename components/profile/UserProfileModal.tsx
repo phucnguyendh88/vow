@@ -51,9 +51,17 @@ export default function UserProfileModal({ userId, open, onClose }: Props) {
 
   if (!open || !userId) return null
 
-  const birthYear = profile?.date_of_birth ? parseInt(profile.date_of_birth.split('-')[0], 10) : null
+  const birthYear =
+    typeof profile?.date_of_birth === 'string'
+      ? parseInt(profile.date_of_birth.split('-')[0], 10)
+      : null
   const age = birthYear && !isNaN(birthYear) ? new Date().getFullYear() - birthYear : null
-  const photos = profile?.photos ?? []
+  const photos = Array.isArray(profile?.photos)
+    ? profile.photos.filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+    : []
+  const interests = Array.isArray(profile?.interests)
+    ? profile.interests.filter((i): i is string => typeof i === 'string' && i.trim().length > 0)
+    : []
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center p-0 sm:p-4">
@@ -80,29 +88,41 @@ export default function UserProfileModal({ userId, open, onClose }: Props) {
             {/* Avatar & Name & Age */}
             <div className="flex flex-col items-center text-center">
               <div className="relative h-24 w-24 rounded-full overflow-hidden border-2 border-[rgba(232,208,141,0.5)] bg-surface2 shadow-xl shadow-[#E8D08D]/10">
-                {profile.avatar_url ? (
+                {typeof profile.avatar_url === 'string' && profile.avatar_url.trim() ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={profile.avatar_url}
+                    alt=""
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center font-serif text-2xl font-bold text-[#E8D08D]">
-                    {profile.full_name?.charAt(0) || 'V'}
+                    {typeof profile.full_name === 'string' && profile.full_name.trim()
+                      ? profile.full_name.trim().charAt(0)
+                      : 'V'}
                   </div>
                 )}
               </div>
 
               <h3 className="mt-3 font-serif text-2xl font-bold text-cream">
-                {profile.full_name || 'Thành viên'}
+                {typeof profile.full_name === 'string' && profile.full_name.trim()
+                  ? profile.full_name
+                  : 'Thành viên'}
                 {age ? `, ${age}` : ''}
               </h3>
 
               <div className="mt-1 flex flex-wrap items-center justify-center gap-3 text-xs text-neutral-300">
-                {profile.church_name && (
+                {typeof profile.church_name === 'string' && profile.church_name.trim() && (
                   <span className="flex items-center gap-1 text-[#E8D08D]">
                     <Church size={14} />
                     {profile.church_name}
                   </span>
                 )}
-                {profile.location_text && (
+                {typeof profile.location_text === 'string' && profile.location_text.trim() && (
                   <span className="flex items-center gap-1 text-neutral-400">
                     <MapPin size={14} />
                     {profile.location_text}
@@ -133,6 +153,10 @@ export default function UserProfileModal({ userId, open, onClose }: Props) {
                       <img
                         src={url}
                         alt={`Ảnh ${idx + 1}`}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
                         className="h-full w-full object-cover transition duration-300 hover:scale-105"
                       />
                     </div>
@@ -142,7 +166,7 @@ export default function UserProfileModal({ userId, open, onClose }: Props) {
             )}
 
             {/* Bio */}
-            {profile.bio && (
+            {typeof profile.bio === 'string' && profile.bio.trim() && (
               <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
                 <p className="text-[11px] font-bold tracking-[0.18em] text-[#E8D08D] uppercase mb-1.5">
                   GIỚI THIỆU
@@ -154,13 +178,13 @@ export default function UserProfileModal({ userId, open, onClose }: Props) {
             )}
 
             {/* Interests */}
-            {profile.interests && profile.interests.length > 0 && (
+            {interests.length > 0 && (
               <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
                 <p className="text-[11px] font-bold tracking-[0.18em] text-[#E8D08D] uppercase mb-2">
                   SỞ THÍCH
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {profile.interests.map((it) => (
+                  {interests.map((it) => (
                     <span
                       key={it}
                       className="rounded-full border border-[rgba(232,208,141,0.25)] bg-[rgba(232,208,141,0.08)] px-3 py-1 text-xs text-[#E8D08D]"
