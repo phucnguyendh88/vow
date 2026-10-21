@@ -63,6 +63,52 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
     )
   }
 
+  // Helper upload file to Supabase Storage with bucket fallback and clean name
+  const uploadToStorage = async (file: File, prefix: string, effectiveUid: string): Promise<string> => {
+    // 1. Bước nén ảnh với fallback an toàn
+    let fileToUpload: File | Blob = file
+    try {
+      fileToUpload = await imageCompression(file, {
+        maxSizeMB: prefix === 'avatar' ? 1 : 1.5,
+        maxWidthOrHeight: prefix === 'avatar' ? 800 : 1200,
+        useWebWorker: true,
+      })
+    } catch (compressionErr) {
+      console.warn('Image compression fallback to original file:', compressionErr)
+      fileToUpload = file
+    }
+
+    // 2. Chuẩn hóa đường dẫn file theo user ID và clean filename
+    const cleanFileName = (file.name || `${prefix}.jpg`).replace(/[^a-zA-Z0-9._-]/g, '_')
+    const filePath = `${effectiveUid}/${Date.now()}-${cleanFileName}`
+    const uploadOptions = {
+      upsert: true,
+      contentType: file.type || 'image/jpeg',
+    }
+
+    // 3. Upload vào bucket profile-images (fallback sang avatars nếu cần)
+    let publicUrl = ''
+    const primary = await supabase.storage
+      .from('profile-images')
+      .upload(filePath, fileToUpload, uploadOptions)
+
+    if (!primary.error && primary.data) {
+      publicUrl = supabase.storage.from('profile-images').getPublicUrl(primary.data.path).data.publicUrl
+    } else {
+      const fallback = await supabase.storage
+        .from('avatars')
+        .upload(filePath, fileToUpload, uploadOptions)
+
+      if (fallback.error || !fallback.data) {
+        const errorDetail = primary.error || fallback.error || new Error('Upload Storage thất bại')
+        throw errorDetail
+      }
+      publicUrl = supabase.storage.from('avatars').getPublicUrl(fallback.data.path).data.publicUrl
+    }
+
+    return publicUrl
+  }
+
   // Upload avatar
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -70,36 +116,29 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
     setUploadingAvatar(true)
 
     try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 800,
-        useWebWorker: true,
-      })
-
-      const path = `${userId}/avatar_${Date.now()}.jpg`
-      let publicUrl = ''
-      const primary = await supabase.storage
-        .from('profile-images')
-        .upload(path, compressed, { upsert: true })
-
-      if (!primary.error && primary.data) {
-        publicUrl = supabase.storage.from('profile-images').getPublicUrl(primary.data.path).data.publicUrl
-      } else {
-        const fallback = await supabase.storage
-          .from('avatars')
-          .upload(path, compressed, { upsert: true })
-        if (fallback.error || !fallback.data) throw fallback.error || new Error('Upload failed')
-        publicUrl = supabase.storage.from('avatars').getPublicUrl(fallback.data.path).data.publicUrl
+      let effectiveUid = userId
+      if (!effectiveUid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        effectiveUid = user?.id || ''
+      }
+      if (!effectiveUid) {
+        throw new Error('Chưa đăng nhập hoặc không xác định được User ID')
       }
 
+      const publicUrl = await uploadToStorage(file, 'avatar', effectiveUid)
+
       setAvatarUrl(publicUrl)
-      await (supabase.from('profiles') as any)
-        .update({ avatar_url: publicUrl })
-        .eq('id', userId)
+      const { error } = await (supabase.from('profiles') as any)
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', effectiveUid)
+
+      if (error) throw error
 
       toast.success('Đã cập nhật ảnh đại diện')
-    } catch {
-      toast.error('Cập nhật ảnh thất bại')
+    } catch (err: any) {
+      const errMsg = err?.message || err?.error_description || (typeof err === 'string' ? err : JSON.stringify(err))
+      console.error('Avatar upload error:', err)
+      toast.error('Tải ảnh thất bại: ' + errMsg)
     } finally {
       setUploadingAvatar(false)
     }
@@ -116,39 +155,30 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
 
     setUploadingPhoto(true)
     try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 1.5,
-        maxWidthOrHeight: 1200,
-        useWebWorker: true,
-      })
-
-      const path = `${userId}/photo_${Date.now()}.jpg`
-      let publicUrl = ''
-      const primary = await supabase.storage
-        .from('profile-images')
-        .upload(path, compressed, { upsert: true })
-
-      if (!primary.error && primary.data) {
-        publicUrl = supabase.storage.from('profile-images').getPublicUrl(primary.data.path).data.publicUrl
-      } else {
-        const fallback = await supabase.storage
-          .from('avatars')
-          .upload(path, compressed, { upsert: true })
-        if (fallback.error || !fallback.data) throw fallback.error || new Error('Upload failed')
-        publicUrl = supabase.storage.from('avatars').getPublicUrl(fallback.data.path).data.publicUrl
+      let effectiveUid = userId
+      if (!effectiveUid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        effectiveUid = user?.id || ''
       }
+      if (!effectiveUid) {
+        throw new Error('Chưa đăng nhập hoặc không xác định được User ID')
+      }
+
+      const publicUrl = await uploadToStorage(file, 'photo', effectiveUid)
 
       const updatedPhotos = [...photos, publicUrl].slice(0, 6)
       setPhotos(updatedPhotos)
 
       const { error } = await (supabase.from('profiles') as any)
-        .update({ photos: updatedPhotos })
-        .eq('id', userId)
+        .update({ photos: updatedPhotos, updated_at: new Date().toISOString() })
+        .eq('id', effectiveUid)
 
       if (error) throw error
       toast.success('Đã thêm ảnh vào hồ sơ')
-    } catch {
-      toast.error('Tải ảnh lên thất bại')
+    } catch (err: any) {
+      const errMsg = err?.message || err?.error_description || (typeof err === 'string' ? err : JSON.stringify(err))
+      console.error('Photo upload error:', err)
+      toast.error('Tải ảnh thất bại: ' + errMsg)
     } finally {
       setUploadingPhoto(false)
     }
@@ -161,14 +191,22 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
     setPhotos(updatedPhotos)
 
     try {
+      let effectiveUid = userId
+      if (!effectiveUid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        effectiveUid = user?.id || ''
+      }
+
       const { error } = await (supabase.from('profiles') as any)
-        .update({ photos: updatedPhotos })
-        .eq('id', userId)
+        .update({ photos: updatedPhotos, updated_at: new Date().toISOString() })
+        .eq('id', effectiveUid)
 
       if (error) throw error
       toast.success('Đã xóa ảnh')
-    } catch {
-      toast.error('Không thể cập nhật ảnh')
+    } catch (err: any) {
+      const errMsg = err?.message || err?.error_description || (typeof err === 'string' ? err : JSON.stringify(err))
+      console.error('Delete photo error:', err)
+      toast.error('Không thể cập nhật ảnh: ' + errMsg)
       setPhotos(photos)
     }
   }
@@ -191,6 +229,15 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
     setSaving(true)
 
     try {
+      let effectiveUid = userId
+      if (!effectiveUid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        effectiveUid = user?.id || ''
+      }
+      if (!effectiveUid) {
+        throw new Error('Chưa đăng nhập hoặc không xác định được User ID')
+      }
+
       const dob = `${year}-01-01`
       const updates = {
         full_name: fullName.trim(),
@@ -207,7 +254,7 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
 
       const { data, error } = await (supabase.from('profiles') as any)
         .update(updates)
-        .eq('id', userId)
+        .eq('id', effectiveUid)
         .select()
         .single()
 
@@ -216,8 +263,10 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
       setProfile(data)
       setEditing(false)
       toast.success('Đã lưu hồ sơ thành công!')
-    } catch {
-      toast.error('Lưu hồ sơ thất bại')
+    } catch (err: any) {
+      const errMsg = err?.message || err?.error_description || (typeof err === 'string' ? err : JSON.stringify(err))
+      console.error('Save profile error:', err)
+      toast.error('Lưu hồ sơ thất bại: ' + errMsg)
     } finally {
       setSaving(false)
     }

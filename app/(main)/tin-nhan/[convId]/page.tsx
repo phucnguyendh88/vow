@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ChatClient from '@/components/chat/ChatClient'
+import ChatErrorBoundary from '@/components/chat/ChatErrorBoundary'
 
 interface Props {
   params: Promise<{ convId: string }>
@@ -31,16 +32,26 @@ export default async function ConversationPage({ params }: Props) {
     `)
     .eq('conversation_id', convId)
 
-  // Thành viên đối phương
-  const otherMember = (members ?? [])
-    .map((m: any) => m.profiles)
-    .find((p: any) => p && p.id !== user.id)
+  // Thành viên đối phương (hỗ trợ cả trường hợp profiles là mảng hoặc object)
+  const otherMember = (Array.isArray(members) ? members : [])
+    .map((m: any) => {
+      const p = m.profiles
+      return Array.isArray(p) ? p[0] : p
+    })
+    .find((p: any) => p && String(p.id) !== String(user.id))
+
+  const partnerName =
+    typeof otherMember?.full_name === 'string' && otherMember.full_name.trim().length > 0
+      ? otherMember.full_name.trim()
+      : typeof otherMember?.username === 'string' && otherMember.username.trim().length > 0
+      ? otherMember.username.trim()
+      : 'Thành viên'
 
   const partner = otherMember
     ? {
-        id: otherMember.id,
-        name: otherMember.full_name ?? otherMember.username ?? 'Thành viên',
-        avatarUrl: otherMember.avatar_url,
+        id: String(otherMember.id),
+        name: partnerName,
+        avatarUrl: typeof otherMember.avatar_url === 'string' ? otherMember.avatar_url : null,
       }
     : null
 
@@ -65,11 +76,13 @@ export default async function ConversationPage({ params }: Props) {
     .limit(50)
 
   return (
-    <ChatClient
-      conversationId={convId}
-      currentUserId={user.id}
-      initialMessages={(messages as any) ?? []}
-      partner={partner}
-    />
+    <ChatErrorBoundary>
+      <ChatClient
+        conversationId={convId}
+        currentUserId={user.id}
+        initialMessages={(Array.isArray(messages) ? messages : []) as any}
+        partner={partner}
+      />
+    </ChatErrorBoundary>
   )
 }

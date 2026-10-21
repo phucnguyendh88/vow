@@ -42,18 +42,25 @@ function safeUUID(): string {
   return 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12)
 }
 
-function computeAvatarGradient(name: string): { background: string; initial: string } {
+const getInitial = (name?: string | null): string => {
+  if (typeof name === 'string' && name.trim().length > 0) {
+    return name.trim().charAt(0).toUpperCase()
+  }
+  return 'U'
+}
+
+function computeAvatarGradient(name?: string | null): { background: string; initial: string } {
+  const safeName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : 'U'
   let hash = 0
-  const trimmed = name.trim()
-  for (let i = 0; i < trimmed.length; i++) {
-    hash = (hash * 31 + trimmed.charCodeAt(i)) >>> 0
+  for (let i = 0; i < safeName.length; i++) {
+    hash = (hash * 31 + safeName.charCodeAt(i)) >>> 0
   }
   const hue = hash % 360
   return {
     background: `linear-gradient(135deg, hsl(${hue}, 62%, 44%) 0%, hsl(${
       (hue + 55) % 360
     }, 66%, 26%) 100%)`,
-    initial: (trimmed.charAt(0) || '?').toUpperCase(),
+    initial: getInitial(safeName),
   }
 }
 
@@ -62,16 +69,17 @@ function MemberAvatar({
   photo,
   size = 40,
 }: {
-  name: string
+  name?: string | null
   photo?: string | null
   size?: number
 }) {
-  if (photo) {
+  const safeName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : 'U'
+  if (photo && typeof photo === 'string') {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={photo}
-        alt={name}
+        alt={safeName}
         width={size}
         height={size}
         className="shrink-0 rounded-full object-cover"
@@ -79,7 +87,7 @@ function MemberAvatar({
       />
     )
   }
-  const { background, initial } = computeAvatarGradient(name)
+  const { background, initial } = computeAvatarGradient(safeName)
   return (
     <div
       aria-hidden="true"
@@ -93,25 +101,38 @@ function MemberAvatar({
   )
 }
 
-function formatDayLabel(dateStr: string): string {
-  const d = new Date(dateStr)
-  const now = new Date()
-  const startOfDay = (x: Date) => {
-    const c = new Date(x)
-    c.setHours(0, 0, 0, 0)
-    return c.getTime()
+function formatDayLabel(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    const timestamp = d.getTime()
+    if (isNaN(timestamp)) return ''
+    const now = new Date()
+    const startOfDay = (x: Date) => {
+      const c = new Date(x)
+      c.setHours(0, 0, 0, 0)
+      return c.getTime()
+    }
+    const diff = startOfDay(now) - startOfDay(d)
+    if (diff === 0) return 'Hôm nay'
+    if (diff === 86400000) return 'Hôm qua'
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    return d.getFullYear() === now.getFullYear() ? `${dd}/${mm}` : `${dd}/${mm}/${d.getFullYear()}`
+  } catch {
+    return ''
   }
-  const diff = startOfDay(now) - startOfDay(d)
-  if (diff === 0) return 'Hôm nay'
-  if (diff === 86400000) return 'Hôm qua'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return d.getFullYear() === now.getFullYear() ? `${dd}/${mm}` : `${dd}/${mm}/${d.getFullYear()}`
 }
 
-function formatTimeHHMM(dateStr: string): string {
-  const d = new Date(dateStr)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+function formatTimeHHMM(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return ''
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return ''
+  }
 }
 
 function BackArrowIcon({ size = 22 }: { size?: number }) {
@@ -309,69 +330,84 @@ export default function ChatClient({
 
   // Realtime subscription cho messages và message_reactions
   useEffect(() => {
-    const channel = supabase
-      .channel(`chat_${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as ChatMessage
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev
-            return [...prev, newMsg]
-          })
-          ;(supabase.rpc as any)('mark_conversation_read', { conv_id: conversationId }).catch(() => {})
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'message_reactions',
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const row = payload.new as { message_id: string; user_id: string; reaction: 'heart' | 'laugh' | 'like' }
-            setReactionsMap((prev) => {
-              const msgReacts = prev[row.message_id] || { heart: [], laugh: [], like: [] }
-              const list = msgReacts[row.reaction] || []
-              if (list.includes(row.user_id)) return prev
-              return {
-                ...prev,
-                [row.message_id]: {
-                  ...msgReacts,
-                  [row.reaction]: [...list, row.user_id],
-                },
-              }
+    if (!conversationId || typeof conversationId !== 'string') return
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel(`chat_${conversationId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const newMsg = payload.new as ChatMessage
+            if (!newMsg || !newMsg.id) return
+            setMessages((prev) => {
+              const safePrev = Array.isArray(prev) ? prev : []
+              if (safePrev.some((m) => m?.id === newMsg.id)) return safePrev
+              return [...safePrev, newMsg]
             })
-          } else if (payload.eventType === 'DELETE') {
-            const oldRow = payload.old as { message_id?: string; user_id?: string; reaction?: 'heart' | 'laugh' | 'like' }
-            if (oldRow.message_id && oldRow.reaction && oldRow.user_id) {
-              setReactionsMap((prev) => {
-                const msgReacts = prev[oldRow.message_id!] || { heart: [], laugh: [], like: [] }
-                const list = msgReacts[oldRow.reaction!] || []
-                return {
-                  ...prev,
-                  [oldRow.message_id!]: {
-                    ...msgReacts,
-                    [oldRow.reaction!]: list.filter((u) => u !== oldRow.user_id),
-                  },
-                }
-              })
-            }
+            ;(supabase.rpc as any)('mark_conversation_read', { conv_id: conversationId }).catch(() => {})
           }
-        }
-      )
-      .subscribe()
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'message_reactions',
+          },
+          (payload) => {
+            try {
+              if (payload.eventType === 'INSERT') {
+                const row = payload.new as { message_id: string; user_id: string; reaction: 'heart' | 'laugh' | 'like' }
+                if (!row?.message_id || !row?.reaction) return
+                setReactionsMap((prev) => {
+                  const msgReacts = prev[row.message_id] || { heart: [], laugh: [], like: [] }
+                  const list = msgReacts[row.reaction] || []
+                  if (list.includes(row.user_id)) return prev
+                  return {
+                    ...prev,
+                    [row.message_id]: {
+                      ...msgReacts,
+                      [row.reaction]: [...list, row.user_id],
+                    },
+                  }
+                })
+              } else if (payload.eventType === 'DELETE') {
+                const oldRow = payload.old as { message_id?: string; user_id?: string; reaction?: 'heart' | 'laugh' | 'like' }
+                if (oldRow?.message_id && oldRow?.reaction && oldRow?.user_id) {
+                  setReactionsMap((prev) => {
+                    const msgReacts = prev[oldRow.message_id!] || { heart: [], laugh: [], like: [] }
+                    const list = msgReacts[oldRow.reaction!] || []
+                    return {
+                      ...prev,
+                      [oldRow.message_id!]: {
+                        ...msgReacts,
+                        [oldRow.reaction!]: list.filter((u) => u !== oldRow.user_id),
+                      },
+                    }
+                  })
+                }
+              }
+            } catch {}
+          }
+        )
+        .subscribe()
+    } catch (err) {
+      console.warn('Realtime channel error:', err)
+    }
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) {
+        try {
+          supabase.removeChannel(channel)
+        } catch {}
+      }
     }
   }, [conversationId, supabase])
 
@@ -455,13 +491,18 @@ export default function ChatClient({
     } catch {}
   }
 
-  const partnerName = partner?.name ?? 'Cuộc trò chuyện'
-  const partnerPhoto = partner?.avatarUrl ?? null
+  const partnerName =
+    typeof partner?.name === 'string' && partner.name.trim().length > 0
+      ? partner.name.trim()
+      : 'Cuộc trò chuyện'
+  const partnerPhoto = typeof partner?.avatarUrl === 'string' ? partner.avatarUrl : null
 
-  // Group messages by day
+  // Group messages by day safely
   const dayGroups: Array<{ day: string; items: ChatMessage[] }> = []
-  for (const m of messages) {
-    const day = formatDayLabel(m.created_at)
+  const safeMsgs = Array.isArray(messages) ? messages : []
+  for (const m of safeMsgs) {
+    if (!m || !m.id) continue
+    const day = formatDayLabel(m.created_at) || 'Tin nhắn'
     const last = dayGroups[dayGroups.length - 1]
     if (last && last.day === day) {
       last.items.push(m)
@@ -502,7 +543,7 @@ export default function ChatClient({
           </p>
         ) : (
           dayGroups.map((group) => (
-            <div key={group.day + group.items[0].id}>
+            <div key={group.day + (group.items[0]?.id || '')}>
               <div className="my-3 flex justify-center">
                 <span className="rounded-full bg-surface2 px-3 py-1 text-xs text-muted">
                   {group.day}
@@ -511,10 +552,13 @@ export default function ChatClient({
 
               {group.items.map((msg) => {
                 const isMe = msg.sender_id === currentUserId
-                const replyData = parseMomentReply(msg.content)
-                const effectiveContent = replyData ? replyData.bodyText : msg.content
+                const rawContent = typeof msg?.content === 'string' ? msg.content : ''
+                const replyData = rawContent ? parseMomentReply(rawContent) : null
+                const effectiveContent = replyData ? replyData.bodyText : rawContent
                 const isSticker =
-                  effectiveContent.startsWith('[sticker:') && effectiveContent.endsWith(']')
+                  typeof effectiveContent === 'string' &&
+                  effectiveContent.startsWith('[sticker:') &&
+                  effectiveContent.endsWith(']')
                 const stickerKey = isSticker ? effectiveContent.slice(9, -1) : null
                 const stickerObj = stickerKey
                   ? STICKERS.find((s) => s.key === stickerKey)
