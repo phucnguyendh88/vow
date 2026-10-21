@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STICKERS } from '@/lib/stickers'
@@ -420,14 +420,81 @@ export default function ChatClient({
     } catch {}
   }, [messages, supabase])
 
+  // Đồng bộ tin nhắn mới nhất từ server (xóa bỏ độ trễ và tránh sót tin nhắn trên mobile)
+  const syncLatestMessages = useCallback(async () => {
+    if (!conversationId) return
+    try {
+      const fetchConvs = mergedConvIds.length > 0 ? mergedConvIds : [conversationId]
+      const results = await Promise.all(
+        fetchConvs.map((cid) =>
+          fetch(`/api/messages?conversation_id=${encodeURIComponent(cid)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null)
+        )
+      )
+
+      const allIncoming: any[] = []
+      for (const res of results) {
+        if (Array.isArray(res?.messages)) {
+          allIncoming.push(...res.messages)
+        }
+      }
+
+      if (allIncoming.length === 0) return
+
+      setMessages((prev) => {
+        const safePrev = Array.isArray(prev) ? prev : []
+        const existingIds = new Set(safePrev.map((m) => m.id))
+        const newOnes = allIncoming
+          .map((m) => normalizeMessage(m, conversationId))
+          .filter((m) => !existingIds.has(m.id))
+
+        if (newOnes.length === 0) return safePrev
+        return [...safePrev, ...newOnes].sort((a, b) =>
+          (a.created_at || '').localeCompare(b.created_at || '')
+        )
+      })
+    } catch {}
+  }, [conversationId, mergedConvIdsKey])
+
+  // Đồng bộ tin nhắn ngay khi mount, khi tab hiển thị lại và định kỳ an toàn
+  useEffect(() => {
+    void syncLatestMessages()
+
+    const handleVisibility = () => {
+      try {
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          void syncLatestMessages()
+        }
+      } catch {}
+    }
+
+    const interval = setInterval(() => {
+      try {
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          void syncLatestMessages()
+        }
+      } catch {}
+    }, 3500)
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('visibilitychange', handleVisibility)
+      window.addEventListener('focus', handleVisibility)
+    }
+
+    return () => {
+      clearInterval(interval)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('visibilitychange', handleVisibility)
+        window.removeEventListener('focus', handleVisibility)
+      }
+    }
+  }, [syncLatestMessages])
+
   // Realtime subscription cho messages và message_reactions
   useEffect(() => {
     if (!conversationId || typeof conversationId !== 'string') return
     let channel: any = null
-    const convFilter =
-      mergedConvIds.length <= 1
-        ? `conversation_id=eq.${conversationId}`
-        : `conversation_id=in.(${mergedConvIds.join(',')})`
 
     try {
       channel = supabase
@@ -438,14 +505,13 @@ export default function ChatClient({
             event: 'INSERT',
             schema: 'public',
             table: 'messages',
-            filter: convFilter,
           },
           (payload) => {
             try {
               const rawNew = payload?.new as any
               if (!rawNew || !rawNew.id) return
+              if (!mergedConvIds.includes(rawNew.conversation_id)) return
               const newMsg = normalizeMessage(rawNew, conversationId)
-              if (!mergedConvIds.includes(newMsg.conversation_id)) return
               setMessages((prev) => {
                 const safePrev = Array.isArray(prev) ? prev : []
                 if (safePrev.some((m) => m?.id === newMsg.id)) return safePrev
@@ -514,7 +580,11 @@ export default function ChatClient({
             } catch {}
           }
         )
-        .subscribe()
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            void syncLatestMessages()
+          }
+        })
     } catch (err) {
       console.warn('Realtime channel error:', err)
     }
@@ -526,8 +596,7 @@ export default function ChatClient({
         } catch {}
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, mergedConvIdsKey, supabase])
+  }, [conversationId, mergedConvIdsKey, supabase, syncLatestMessages])
 
   const handleSendMessage = async (textOverride?: string) => {
     const text = (textOverride ?? inputText).trim()

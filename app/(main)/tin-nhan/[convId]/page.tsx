@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -24,7 +27,7 @@ export default async function ConversationPage({ params }: Props) {
   let mergedMessages: any[] = []
 
   try {
-    // 1. Chạy song song: lấy thành viên conversation và 50 tin nhắn của conversation hiện tại
+    // 1. Chạy song song: lấy thành viên conversation và 50 tin nhắn mới nhất
     const [membersRes, initialMsgsRes] = await Promise.all([
       supabase
         .from('conversation_members')
@@ -56,7 +59,7 @@ export default async function ConversationPage({ params }: Props) {
         `)
         .eq('conversation_id', convId)
         .eq('is_deleted', false)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(50),
     ])
 
@@ -83,7 +86,9 @@ export default async function ConversationPage({ params }: Props) {
         }
       : null
 
-    mergedMessages = Array.isArray(initialMsgsRes.data) ? initialMsgsRes.data : []
+    // Đảo lại theo thứ tự thời gian tăng dần để hiển thị từ cũ đến mới
+    const rawInitial = Array.isArray(initialMsgsRes.data) ? initialMsgsRes.data : []
+    mergedMessages = [...rawInitial].reverse()
 
     // 2. Tìm nhanh các conversation_id khác nếu có giữa user.id và partner.id
     if (partner?.id) {
@@ -131,7 +136,7 @@ export default async function ConversationPage({ params }: Props) {
               `)
               .in('conversation_id', otherConvIds)
               .eq('is_deleted', false)
-              .order('created_at', { ascending: true })
+              .order('created_at', { ascending: false })
               .limit(50)
 
             if (Array.isArray(otherMsgs) && otherMsgs.length > 0) {
@@ -167,4 +172,3 @@ export default async function ConversationPage({ params }: Props) {
     </Suspense>
   )
 }
-

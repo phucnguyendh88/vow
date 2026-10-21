@@ -1,53 +1,12 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { STICKERS } from '@/lib/stickers'
 import ChatErrorBoundary from '@/components/chat/ChatErrorBoundary'
-
-const getInitial = (name?: string | null): string => {
-  if (typeof name === 'string' && name.trim().length > 0) {
-    return name.trim().charAt(0).toUpperCase()
-  }
-  return 'U'
-}
-
-function computeAvatarGradient(name?: string | null): { background: string; initial: string } {
-  const safeName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : 'U'
-  let hash = 0
-  for (let i = 0; i < safeName.length; i++) {
-    hash = (hash * 31 + safeName.charCodeAt(i)) >>> 0
-  }
-  const hue = hash % 360
-  return {
-    background: `linear-gradient(135deg, hsl(${hue}, 62%, 44%) 0%, hsl(${
-      (hue + 55) % 360
-    }, 66%, 26%) 100%)`,
-    initial: getInitial(safeName),
-  }
-}
-
-function formatRelativeTime(dateStr?: string | null): string {
-  if (!dateStr) return ''
-  try {
-    const d = new Date(dateStr)
-    const timestamp = d.getTime()
-    if (isNaN(timestamp)) return ''
-    const diff = Date.now() - timestamp
-    if (diff < 0) return 'Vừa xong'
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'Vừa xong'
-    if (mins < 60) return `${mins} phút trước`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours} giờ trước`
-    const days = Math.floor(hours / 24)
-    if (days < 7) return `${days} ngày trước`
-    const dd = String(d.getDate()).padStart(2, '0')
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    return d.getFullYear() === new Date().getFullYear() ? `${dd}/${mm}` : `${dd}/${mm}/${d.getFullYear()}`
-  } catch {
-    return ''
-  }
-}
+import ConversationListClient, { EnrichedConversation } from '@/components/chat/ConversationListClient'
+import { STICKERS } from '@/lib/stickers'
 
 function formatMessagePreview(content?: any): string {
   if (!content) return 'Bắt đầu cuộc trò chuyện'
@@ -69,65 +28,6 @@ function formatMessagePreview(content?: any): string {
   return content
 }
 
-function PeopleBadgeIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function ConversationAvatar({
-  name,
-  photo,
-  size = 52,
-}: {
-  name: string
-  photo?: string | null
-  size?: number
-}) {
-  if (photo) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={photo}
-        alt={name}
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full object-cover"
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  const { background, initial } = computeAvatarGradient(name)
-  return (
-    <div
-      aria-hidden="true"
-      className="flex shrink-0 items-center justify-center rounded-full text-cream"
-      style={{ width: size, height: size, background }}
-    >
-      <span className="font-serif font-semibold" style={{ fontSize: size * 0.42 }}>
-        {initial}
-      </span>
-    </div>
-  )
-}
-
-import { Suspense } from 'react'
-
 export default async function TinNhanPage() {
   const supabase = await createClient()
 
@@ -139,17 +39,7 @@ export default async function TinNhanPage() {
   if (!user) redirect('/dang-nhap')
 
   let error: any = null
-  let enrichedConversations: Array<{
-    id: string
-    partnerId: string
-    name: string
-    photo: string | null
-    isFriendOrGroup: boolean
-    unreadCount: number
-    hasActualMessage: boolean
-    lastMessage: string
-    lastMessageAt: string | null
-  }> = []
+  let enrichedConversations: EnrichedConversation[] = []
 
   try {
     // 1. Fetch conversations where current user is a member
@@ -313,6 +203,7 @@ export default async function TinNhanPage() {
         hasActualMessage,
         lastMessage: String(formatMessagePreview(lastMsg?.content)),
         lastMessageAt: lastMsg?.created_at || conv.created_at || null,
+        mergedConvIds: [String(conv.id)],
       }
     })
 
@@ -344,6 +235,9 @@ export default async function TinNhanPage() {
         photo: primary.photo || secondary.photo,
         isFriendOrGroup: primary.isFriendOrGroup || secondary.isFriendOrGroup,
         unreadCount: existing.unreadCount + item.unreadCount,
+        mergedConvIds: Array.from(
+          new Set([...(existing.mergedConvIds || [existing.id]), ...(item.mergedConvIds || [item.id])])
+        ),
       })
     }
 
@@ -359,66 +253,24 @@ export default async function TinNhanPage() {
     <Suspense fallback={<div className="min-h-[calc(100dvh-6rem)] bg-[#050505]" />}>
       <ChatErrorBoundary>
         <div className="flex h-full min-h-[calc(100dvh-6rem)] flex-col bg-ink">
-        <header className="flex items-center px-4 pb-2 pt-4">
-          <h1 className="font-serif text-3xl text-cream">Tin nhắn</h1>
-        </header>
+          <header className="flex items-center px-4 pb-2 pt-4">
+            <h1 className="font-serif text-3xl text-cream">Tin nhắn</h1>
+          </header>
 
-        <div className="nice-scroll flex-1 overflow-y-auto pb-6">
-          {error ? (
-            <div className="px-4 py-10 text-center text-sm text-muted">
-              Không tải được tin nhắn. Vui lòng thử lại sau.
-            </div>
-          ) : enrichedConversations.length === 0 ? (
-            <div className="px-8 py-16 text-center">
-              <p className="font-serif text-2xl text-cream">Chưa có tin nhắn</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                Ghép đôi ở tab Kết nối để bắt đầu trò chuyện.
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-white/5">
-              {enrichedConversations.map((conv) => (
-                <li key={conv.id}>
-                  <Link
-                    href={`/tin-nhan/${conv.id}`}
-                    prefetch={true}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-surface2"
-                  >
-                    <ConversationAvatar name={conv.name} photo={conv.photo} size={52} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`truncate ${conv.unreadCount > 0 ? 'font-semibold text-white' : 'font-medium text-cream'}`}>
-                          {conv.name}
-                        </span>
-                        {conv.isFriendOrGroup && (
-                          <span className="shrink-0 text-muted">
-                            <PeopleBadgeIcon size={16} />
-                          </span>
-                        )}
-                      </div>
-                      <p className={`mt-0.5 truncate text-sm ${conv.unreadCount > 0 ? 'font-medium text-white' : 'text-muted'}`}>
-                        {conv.lastMessage}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <span className="text-xs text-muted">
-                        {formatRelativeTime(conv.lastMessageAt)}
-                      </span>
-                      {conv.unreadCount > 0 && (
-                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#E8D08D] px-1.5 text-[11px] font-bold text-black shadow-[0_0_8px_rgba(232,208,141,0.5)]">
-                          {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="nice-scroll flex-1 overflow-y-auto pb-6">
+            {error ? (
+              <div className="px-4 py-10 text-center text-sm text-muted">
+                Không tải được tin nhắn. Vui lòng thử lại sau.
+              </div>
+            ) : (
+              <ConversationListClient
+                initialConversations={enrichedConversations}
+                currentUserId={user.id}
+              />
+            )}
+          </div>
         </div>
-      </div>
       </ChatErrorBoundary>
     </Suspense>
   )
 }
-
