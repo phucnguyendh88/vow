@@ -381,6 +381,7 @@ export default async function TinNhanPage() {
                 <li key={conv.id}>
                   <Link
                     href={`/tin-nhan/${conv.id}`}
+                    prefetch={true}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-surface2"
                   >
                     <ConversationAvatar name={conv.name} photo={conv.photo} size={52} />

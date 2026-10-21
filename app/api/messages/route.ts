@@ -102,15 +102,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Message too long (max 4000 chars)' }, { status: 400 })
   }
 
-  // Kiểm tra membership
-  // deno-lint-ignore no-explicit-any
-  const { data: isMember } = await (supabase.rpc as any)('is_conversation_member', {
-    conv_id: conversation_id,
-    check_user_id: user.id,
-  })
+  // 1. Chạy song song: kiểm tra membership và kiểm tra idempotency_key
+  const [memberRes, existingMsgRes] = await Promise.all([
+    (supabase.rpc as any)('is_conversation_member', {
+      conv_id: conversation_id,
+      check_user_id: user.id,
+    }),
+    idempotency_key
+      ? supabase
+          .from('messages')
+          .select('id, conversation_id, content, created_at')
+          .eq('idempotency_key', idempotency_key)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
+  // Nếu idempotency_key đã tồn tại -> trả về ngay lập tức
+  if (existingMsgRes?.data) {
+    return NextResponse.json({ success: true, message: existingMsgRes.data, duplicate: true })
+  }
+
+  const isMember = memberRes?.data
   if (!isMember) {
-    // Kiểm tra nếu cuộc trò chuyện thuộc về match của user thì tự động đảm bảo ghi nhận thành viên
+    // Fallback: nếu chưa ghi nhận membership nhưng thuộc về match của user
     const { data: conv } = await (supabase
       .from('conversations') as any)
       .select('id, match_id, matches(user1_id, user2_id)')
@@ -130,20 +144,6 @@ export async function POST(request: Request) {
       } catch {}
     } else {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-  }
-
-  // Nếu có idempotency_key, kiểm tra xem message đã được tạo chưa
-  if (idempotency_key) {
-    const { data: existingMsg } = await supabase
-      .from('messages')
-      .select('id, conversation_id, content, created_at')
-      .eq('idempotency_key', idempotency_key)
-      .maybeSingle()
-
-    if (existingMsg) {
-      // Message đã tồn tại — return nó (idempotent response)
-      return NextResponse.json({ success: true, message: existingMsg, duplicate: true })
     }
   }
 

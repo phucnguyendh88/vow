@@ -24,20 +24,43 @@ export default async function ConversationPage({ params }: Props) {
   let mergedMessages: any[] = []
 
   try {
-    // 1. Lấy các thành viên trong conversation để xác định partner
-    const { data: members } = await supabase
-      .from('conversation_members')
-      .select(`
-        user_id,
-        profiles (
-          id,
-          username,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('conversation_id', convId)
+    // 1. Chạy song song: lấy thành viên conversation và 50 tin nhắn của conversation hiện tại
+    const [membersRes, initialMsgsRes] = await Promise.all([
+      supabase
+        .from('conversation_members')
+        .select(`
+          user_id,
+          profiles (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('conversation_id', convId),
 
+      supabase
+        .from('messages')
+        .select(`
+          id,
+          conversation_id,
+          sender_id,
+          content,
+          created_at,
+          profiles:sender_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('conversation_id', convId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: true })
+        .limit(50),
+    ])
+
+    const members = membersRes.data
     const otherMember = (Array.isArray(members) ? members : [])
       .map((m: any) => {
         const p = m?.profiles
@@ -60,13 +83,15 @@ export default async function ConversationPage({ params }: Props) {
         }
       : null
 
-    // 2. Tìm tất cả conversation_id chung giữa user.id và partner.id để gộp luồng tin nhắn bị tách
+    mergedMessages = Array.isArray(initialMsgsRes.data) ? initialMsgsRes.data : []
+
+    // 2. Tìm nhanh các conversation_id khác nếu có giữa user.id và partner.id
     if (partner?.id) {
       try {
         const [myConvsRes, partnerConvsRes] = await Promise.all([
           supabase
             .from('conversation_members')
-            .select('conversation_id, conversations(id, type)')
+            .select('conversation_id')
             .eq('user_id', user.id),
           supabase
             .from('conversation_members')
@@ -81,46 +106,49 @@ export default async function ConversationPage({ params }: Props) {
         )
 
         const sharedIds = (Array.isArray(myConvsRes.data) ? myConvsRes.data : [])
-          .filter((r: any) => {
-            const cid = String(r?.conversation_id || '')
-            const cObj = Array.isArray(r?.conversations) ? r.conversations[0] : r?.conversations
-            const cType = cObj?.type
-            return (
-              cid &&
-              partnerConvSet.has(cid) &&
-              (!cType || cType === 'friend' || cType === 'match')
-            )
-          })
-          .map((r: any) => String(r.conversation_id))
+          .map((r: any) => String(r?.conversation_id || ''))
+          .filter((cid: string) => cid && partnerConvSet.has(cid))
 
-        if (sharedIds.length > 0) {
+        if (sharedIds.length > 1) {
           allConvIdsWithPartner = Array.from(new Set([convId, ...sharedIds]))
+          // Nếu phát hiện có nhiều hơn 1 conversation, query bổ sung tin nhắn từ các conv còn lại
+          const otherConvIds = allConvIdsWithPartner.filter((id) => id !== convId)
+          if (otherConvIds.length > 0) {
+            const { data: otherMsgs } = await supabase
+              .from('messages')
+              .select(`
+                id,
+                conversation_id,
+                sender_id,
+                content,
+                created_at,
+                profiles:sender_id (
+                  id,
+                  username,
+                  full_name,
+                  avatar_url
+                )
+              `)
+              .in('conversation_id', otherConvIds)
+              .eq('is_deleted', false)
+              .order('created_at', { ascending: true })
+              .limit(50)
+
+            if (Array.isArray(otherMsgs) && otherMsgs.length > 0) {
+              const combined = [...mergedMessages, ...otherMsgs]
+              const seen = new Set<string>()
+              mergedMessages = combined
+                .filter((m) => {
+                  if (!m?.id || seen.has(m.id)) return false
+                  seen.add(m.id)
+                  return true
+                })
+                .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+            }
+          }
         }
       } catch {}
     }
-
-    // 3. Lấy tin nhắn từ tất cả các conversation_id chung của cặp user này, sắp xếp theo thời gian
-    const { data: messages } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        conversation_id,
-        sender_id,
-        content,
-        created_at,
-        profiles:sender_id (
-          id,
-          username,
-          full_name,
-          avatar_url
-        )
-      `)
-      .in('conversation_id', allConvIdsWithPartner)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: true })
-      .limit(100)
-
-    mergedMessages = Array.isArray(messages) ? messages : []
   } catch (err) {
     console.error('[ConversationPage] Error loading conversation:', err)
   }

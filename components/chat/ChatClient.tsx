@@ -532,6 +532,21 @@ export default function ChatClient({
   const handleSendMessage = async (textOverride?: string) => {
     const text = (textOverride ?? inputText).trim()
     if (!text || sending) return
+
+    // 1. Phản hồi tức thì 0ms (Optimistic UI Update): hiển thị tin nhắn ngay trên màn hình
+    const tempId = safeUUID()
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: text,
+      created_at: new Date().toISOString(),
+      profiles: null,
+    }
+
+    setMessages((prev) => [...(Array.isArray(prev) ? prev : []), optimisticMsg])
+    if (!textOverride) setInputText('')
+    setShowStickers(false)
     setSending(true)
     setSendError(null)
 
@@ -542,12 +557,14 @@ export default function ChatClient({
         body: JSON.stringify({
           conversation_id: conversationId,
           content: text,
-          idempotency_key: safeUUID(),
+          idempotency_key: tempId,
         }),
       })
 
       if (!res.ok) {
         setSendError('Gửi tin nhắn thất bại. Thử lại.')
+        // Rollback nếu thất bại
+        setMessages((prev) => (Array.isArray(prev) ? prev.filter((m) => m.id !== tempId) : []))
         return
       }
 
@@ -556,14 +573,14 @@ export default function ChatClient({
         const normalized = normalizeMessage(message, conversationId)
         setMessages((prev) => {
           const safePrev = Array.isArray(prev) ? prev : []
-          if (safePrev.some((m) => m?.id === normalized.id)) return safePrev
-          return [...safePrev, normalized]
+          // Thay thế tin nhắn optimistic tạm thời bằng bản ghi chính thức từ server
+          const filtered = safePrev.filter((m) => m.id !== tempId && m.id !== normalized.id)
+          return [...filtered, normalized]
         })
       }
-      if (!textOverride) setInputText('')
-      setShowStickers(false)
     } catch {
       setSendError('Gửi tin nhắn thất bại. Thử lại.')
+      setMessages((prev) => (Array.isArray(prev) ? prev.filter((m) => m.id !== tempId) : []))
     } finally {
       setSending(false)
     }
