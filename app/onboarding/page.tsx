@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
-const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác']
+const GENDER_OPTIONS = ['Nam', 'Nữ']
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -41,8 +41,13 @@ export default function OnboardingPage() {
 
     const year = parseInt(birthYear, 10)
     const currentYear = new Date().getFullYear()
-    if (!birthYear || isNaN(year) || currentYear - year < 18) {
-      toast.error('Bạn phải từ 18 tuổi trở lên để sử dụng VOW')
+    if (!birthYear || isNaN(year) || currentYear - year < 18 || currentYear - year > 100) {
+      toast.error('Bạn phải từ 18 đến 100 tuổi để sử dụng VOW')
+      return
+    }
+
+    if (gender !== 'Nam' && gender !== 'Nữ') {
+      toast.error('Vui lòng chọn giới tính Nam hoặc Nữ')
       return
     }
 
@@ -51,7 +56,7 @@ export default function OnboardingPage() {
       if (!userId) throw new Error('Chưa đăng nhập')
 
       const dob = `${year}-01-01`
-      const genderDb = gender === 'Nam' ? 'male' : gender === 'Nữ' ? 'female' : 'other'
+      const genderDb = gender === 'Nam' ? 'male' : 'female'
 
       const { error } = await (supabase.from('profiles') as any).upsert({
         id: userId,
@@ -148,7 +153,9 @@ export default function OnboardingPage() {
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-sm text-cream/80">Giới tính</span>
+            <span className="mb-1.5 block text-sm text-cream/80">
+              Giới tính <span className="text-gold">*</span>
+            </span>
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}

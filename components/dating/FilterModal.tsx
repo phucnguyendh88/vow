@@ -40,7 +40,7 @@ export default function FilterModal({ open, onClose, currentFilters, onApply }: 
       aria-label="Bộ lọc"
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-surface p-6 pb-8 sm:rounded-3xl"
+        className="w-full max-w-md rounded-t-3xl bg-surface p-6 pb-8 sm:rounded-3xl border border-white/10 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-surface2" />

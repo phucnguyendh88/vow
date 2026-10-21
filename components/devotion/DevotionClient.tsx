@@ -37,8 +37,8 @@ function getWeekDates(today: string): string[] {
 
 function getGreeting(hour: number): string {
   if (hour >= 5 && hour < 11) return 'buổi sáng'
-  if (hour >= 11 && hour < 13) return 'buổi trưa'
-  if (hour >= 13 && hour < 18) return 'buổi chiều'
+  if (hour >= 11 && hour < 14) return 'buổi trưa'
+  if (hour >= 14 && hour < 18) return 'buổi chiều'
   return 'buổi tối'
 }
 
@@ -285,8 +285,6 @@ export default function DevotionClient({
     } catch {}
   }, [todayRead, supabase, userId, today])
 
-  const iconBtnClass =
-    'flex h-10 w-10 items-center justify-center rounded-full bg-surface text-cream active:scale-95 transition'
 
   // Prefer the curated 574 Bible lessons (exact match to original VOW's bai-hoc-BqR8ZEkY.js) or DB verse
   const lesson = fallbackLesson
@@ -348,7 +346,7 @@ export default function DevotionClient({
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <h1 className="min-w-0 flex-1 truncate font-serif text-[clamp(1.15rem,4.8vw,1.45rem)] font-bold leading-snug text-[#F0F0F0] tracking-wide">
+          <h1 className="min-w-0 flex-1 truncate font-serif text-lg sm:text-xl font-medium leading-snug text-[#F0F0F0] tracking-normal">
             Chào {getGreeting(now.getHours())}
             {userName ? `, ${userName}.` : '.'}
           </h1>

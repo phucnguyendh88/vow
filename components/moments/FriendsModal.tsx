@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Copy, Check, UserPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
+import UserProfileModal from '@/components/profile/UserProfileModal'
 
 interface FriendProfile {
   id: string
@@ -29,19 +30,41 @@ export default function FriendsModal({
 }: Props) {
   const [inviteCodeInput, setInviteCodeInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
 
   if (!open) return null
 
   const handleCopyLink = () => {
-    const inviteUrl = `${window.location.origin}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
-    navigator.clipboard.writeText(`Kết bạn trên VOW với mình nhé: ${inviteUrl}`).then(() => {
-      setCopied(true)
-      toast.success('Đã sao chép link mời kết bạn')
-      setTimeout(() => setCopied(false), 2500)
-    }).catch(() => {
-      toast.error('Không sao chép được')
-    })
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vow-faith.vercel.app'
+    const baseUrl = origin.includes('localhost') ? origin : 'https://vow-faith.vercel.app'
+    const inviteUrl = `${baseUrl}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
+    const message = `Gửi link này cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn: ${inviteUrl}`
+
+    navigator.clipboard
+      .writeText(message)
+      .then(() => {
+        setLinkCopied(true)
+        toast.success('Đã sao chép link mời kèm lời nhắn')
+        setTimeout(() => setLinkCopied(false), 2500)
+      })
+      .catch(() => {
+        toast.error('Không sao chép được')
+      })
+  }
+
+  const handleCopyRawCode = () => {
+    navigator.clipboard
+      .writeText(myInviteCode)
+      .then(() => {
+        setCodeCopied(true)
+        toast.success(`Đã sao chép mã ${myInviteCode}`)
+        setTimeout(() => setCodeCopied(false), 2500)
+      })
+      .catch(() => {
+        toast.error('Không sao chép được')
+      })
   }
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -75,25 +98,37 @@ export default function FriendsModal({
         </div>
 
         {/* My Invite Code Card */}
-        <div className="mt-5 rounded-2xl bg-surface2/60 p-4 border border-white/5">
+        <div className="mt-5 rounded-2xl bg-surface2/60 p-4 border border-[rgba(232,208,141,0.2)]">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold">
             Mã kết bạn của bạn
           </p>
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="font-mono text-2xl font-bold tracking-wider text-cream">
-              {myInviteCode || 'FC-VOW123'}
+              {myInviteCode || 'VOW-123456'}
             </span>
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-1.5 text-xs font-semibold text-ink transition active:scale-95 hover:brightness-105 cursor-pointer"
-            >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              <span>{copied ? 'Đã chép' : 'Sao chép'}</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleCopyRawCode}
+                title="Sao chép chỉ mã kết bạn"
+                className="flex items-center gap-1 rounded-full border border-gold/40 bg-white/[0.05] px-2.5 py-1.5 text-xs font-semibold text-gold transition active:scale-95 hover:bg-white/10 cursor-pointer"
+              >
+                {codeCopied ? <Check size={13} /> : <Copy size={13} />}
+                <span>{codeCopied ? 'Đã chép' : 'Chép mã'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                title="Sao chép link mời đầy đủ"
+                className="flex items-center gap-1 rounded-full bg-gold px-3 py-1.5 text-xs font-bold text-ink transition active:scale-95 hover:brightness-105 cursor-pointer shadow-md shadow-gold/10"
+              >
+                {linkCopied ? <Check size={13} /> : <Copy size={13} />}
+                <span>{linkCopied ? 'Đã chép' : 'Chép link'}</span>
+              </button>
+            </div>
           </div>
-          <p className="mt-2 text-[11px] text-muted">
-            Chia sẻ mã hoặc link này để bạn bè thêm bạn vào Locket của họ.
+          <p className="mt-2 text-[11px] text-muted leading-relaxed">
+            Gửi link cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn.
           </p>
         </div>
 
@@ -107,7 +142,7 @@ export default function FriendsModal({
               type="text"
               value={inviteCodeInput}
               onChange={(e) => setInviteCodeInput(e.target.value)}
-              placeholder="VD: FC-7K2PQA"
+              placeholder="VD: VOW-7K2PQA"
               maxLength={15}
               className="flex-1 uppercase rounded-xl bg-surface2 border border-transparent px-3 py-2 text-sm text-cream placeholder:normal-case placeholder:text-muted/60 outline-none focus:border-gold/60"
             />
@@ -136,7 +171,8 @@ export default function FriendsModal({
               {friends.map((f) => (
                 <div
                   key={f.id}
-                  className="flex items-center gap-3 rounded-xl bg-surface2/40 p-2.5 border border-white/5"
+                  onClick={() => setSelectedFriendId(f.id)}
+                  className="flex items-center gap-3 rounded-xl bg-surface2/40 p-2.5 border border-white/5 hover:border-[rgba(232,208,141,0.3)] transition cursor-pointer"
                 >
                   <div className="h-10 w-10 overflow-hidden rounded-full bg-surface2">
                     {f.avatarUrl ? (
@@ -154,12 +190,20 @@ export default function FriendsModal({
                       <p className="text-xs text-muted truncate">{f.church}</p>
                     )}
                   </div>
+                  <span className="text-[11px] text-muted hover:text-gold">Xem</span>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        userId={selectedFriendId}
+        open={Boolean(selectedFriendId)}
+        onClose={() => setSelectedFriendId(null)}
+      />
     </div>
   )
 }

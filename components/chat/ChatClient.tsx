@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STICKERS } from '@/lib/stickers'
+import UserProfileModal from '@/components/profile/UserProfileModal'
 
 interface ChatMessage {
   id: string
@@ -252,6 +253,7 @@ export default function ChatClient({
     Record<string, Record<'heart' | 'laugh' | 'like', string[]>>
   >({})
   const [sendError, setSendError] = useState<string | null>(null)
+  const [showPartnerProfile, setShowPartnerProfile] = useState(false)
 
   const streamRef = useRef<HTMLDivElement | null>(null)
   const longPressTimerRef = useRef<number | null>(null)
@@ -471,12 +473,17 @@ export default function ChatClient({
           <BackArrowIcon />
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <button
+          type="button"
+          onClick={() => partner?.id && setShowPartnerProfile(true)}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-85 transition active:scale-[0.99] cursor-pointer"
+        >
           <MemberAvatar name={partnerName} photo={partnerPhoto} size={40} />
           <span className="min-w-0">
             <span className="block truncate font-medium text-cream">{partnerName}</span>
+            <span className="block text-[11px] text-muted">Xem hồ sơ</span>
           </span>
-        </div>
+        </button>
       </header>
 
       <div ref={streamRef} className="nice-scroll flex-1 overflow-y-auto px-3 py-4">
@@ -761,6 +768,13 @@ export default function ChatClient({
           </div>
         </div>
       )}
+
+      {/* Profile Modal */}
+      <UserProfileModal
+        userId={partner?.id ?? null}
+        open={showPartnerProfile}
+        onClose={() => setShowPartnerProfile(false)}
+      />
     </div>
   )
 }

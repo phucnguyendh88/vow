@@ -23,7 +23,7 @@ export default async function KhoangKhacPage() {
 
   if (!user) redirect('/dang-nhap')
 
-  const myInviteCode = 'FC-' + user.id.replace(/-/g, '').slice(0, 6).toUpperCase()
+  const myInviteCode = 'VOW-' + user.id.replace(/-/g, '').slice(0, 6).toUpperCase()
 
   const [profileRes, friendshipsRes, matchesRes, blocksRes, incomingReqRes, outgoingReqRes] =
     await Promise.all([

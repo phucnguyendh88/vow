@@ -37,6 +37,9 @@ interface AdminUser {
   location_text: string | null
   avatar_url: string | null
   created_at: string
+  auth_provider?: string
+  email?: string | null
+  is_anonymous?: boolean
 }
 
 interface AdminMatch {
@@ -79,6 +82,7 @@ export default function AdminClient() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [matches, setMatches] = useState<AdminMatch[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [providerFilter, setProviderFilter] = useState<'all' | 'google' | 'email' | 'guest'>('all')
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -125,12 +129,12 @@ export default function AdminClient() {
 
   const loadUsers = useCallback(async () => {
     const res = await fetch(
-      `/api/admin/users?page=${page}&limit=${PAGE}&search=${encodeURIComponent(searchQuery)}`
+      `/api/admin/users?page=${page}&limit=${PAGE}&search=${encodeURIComponent(searchQuery)}&provider=${providerFilter}`
     )
     if (!res.ok) throw new Error('Không tải được danh sách người dùng')
     const json = await res.json()
     setUsers(json.users || [])
-  }, [page, searchQuery])
+  }, [page, searchQuery, providerFilter])
 
   const loadMatches = useCallback(async () => {
     const { data, error: e } = await supabase
@@ -348,6 +352,37 @@ export default function AdminClient() {
         </div>
       )}
 
+      {/* Provider Filter for Users Tab */}
+      {tab === 'users' && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-neutral-400 mr-1">Đăng nhập bằng:</span>
+          {(
+            [
+              { id: 'all', label: 'Tất cả' },
+              { id: 'google', label: 'Google' },
+              { id: 'email', label: 'Email' },
+              { id: 'guest', label: 'Khách (Guest)' },
+            ] as const
+          ).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                setProviderFilter(p.id)
+                setPage(0)
+              }}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                providerFilter === p.id
+                  ? 'bg-[#E8D08D] text-black font-semibold'
+                  : 'border border-white/10 bg-white/[0.03] text-neutral-400 hover:text-white'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && (
         <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/20 p-3 text-sm text-red-300">
           {error}{' '}
@@ -447,7 +482,23 @@ export default function AdminClient() {
                           BỊ KHÓA
                         </span>
                       )}
+                      {u.is_anonymous || u.auth_provider === 'anonymous' ? (
+                        <span className="rounded-full border border-neutral-700 bg-neutral-800/80 px-2 py-0.5 text-[10px] font-medium text-neutral-300">
+                          Khách
+                        </span>
+                      ) : u.auth_provider === 'google' ? (
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                          Google
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-sky-500/30 bg-sky-500/20 px-2 py-0.5 text-[10px] font-medium text-sky-300">
+                          Email
+                        </span>
+                      )}
                     </div>
+                    {u.email && (
+                      <p className="truncate text-xs text-[#E8D08D]/80 font-mono">{u.email}</p>
+                    )}
                     <p className="truncate font-mono text-[11px] text-neutral-500">{u.id}</p>
                     <p className="text-xs text-neutral-400">
                       {u.church_name ? `Hội thánh: ${u.church_name} · ` : ''}

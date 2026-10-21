@@ -21,6 +21,7 @@ export interface Database {
           location_text: string | null
           church_name: string | null
           interests: string[]
+          photos?: string[]
           is_complete: boolean
           is_active: boolean
           is_banned: boolean
@@ -39,6 +40,7 @@ export interface Database {
           location_text?: string | null
           church_name?: string | null
           interests?: string[]
+          photos?: string[]
           is_complete?: boolean
           is_active?: boolean
           is_banned?: boolean
@@ -56,6 +58,7 @@ export interface Database {
           location_text?: string | null
           church_name?: string | null
           interests?: string[]
+          photos?: string[]
           is_complete?: boolean
           is_active?: boolean
           is_banned?: boolean

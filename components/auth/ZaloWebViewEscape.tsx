@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { detectZaloWebView, type ZaloDetectResult } from '@/lib/zalo-webview'
 
 export default function ZaloWebViewEscape() {
+  const [mounted, setMounted] = useState(false)
   const [zaloInfo, setZaloInfo] = useState<ZaloDetectResult>({
     isZalo: false,
     isAndroid: false,
@@ -13,26 +14,27 @@ export default function ZaloWebViewEscape() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const info = detectZaloWebView()
     setZaloInfo(info)
 
     // Nếu là Android trong Zalo, thử trigger intent Chrome 1 lần duy nhất (không lặp)
     if (info.isZalo && info.isAndroid) {
-      const intentTried = sessionStorage.getItem('vow_zalo_intent_tried')
-      if (!intentTried) {
-        sessionStorage.setItem('vow_zalo_intent_tried', '1')
-        const currentUrl = window.location.href.replace(/^https?:\/\//, '')
-        const chromeIntent = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end`
-        try {
+      try {
+        const intentTried = sessionStorage.getItem('vow_zalo_intent_tried')
+        if (!intentTried) {
+          sessionStorage.setItem('vow_zalo_intent_tried', '1')
+          const currentUrl = window.location.href.replace(/^https?:\/\//, '')
+          const chromeIntent = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end`
           window.location.href = chromeIntent
-        } catch {
-          // Fallback UI sẽ hiển thị nếu intent bị Zalo chặn
         }
+      } catch {
+        // Fallback UI sẽ hiển thị nếu intent bị Zalo chặn hoặc sessionStorage bị vô hiệu hóa
       }
     }
   }, [])
 
-  if (!zaloInfo.isZalo || dismissed) return null
+  if (!mounted || !zaloInfo.isZalo || dismissed) return null
 
   const handleCopyLink = () => {
     try {

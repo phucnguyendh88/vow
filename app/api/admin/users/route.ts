@@ -57,13 +57,68 @@ export async function GET(request: Request) {
     )
   }
 
+  const providerFilter = searchParams.get('provider')?.trim().toLowerCase()
+
   const { data: users, count, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ users: users ?? [], total: count ?? 0, page, limit })
+  // Lấy thông tin phương thức đăng nhập và email từ Supabase Auth Admin nếu có service role key
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const authInfoMap = new Map<string, { provider: string; email: string | null; isAnonymous: boolean }>()
+
+  if (serviceKey && supabaseUrl) {
+    try {
+      const adminAuthClient = createAdminClient(supabaseUrl, serviceKey)
+      const { data: authData } = await adminAuthClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      if (authData?.users) {
+        for (const u of authData.users) {
+          const isAnon = Boolean(u.is_anonymous)
+          const provider = isAnon
+            ? 'anonymous'
+            : (u.app_metadata?.provider || (u.email ? 'email' : 'anonymous'))
+          authInfoMap.set(u.id, {
+            provider,
+            email: u.email ?? null,
+            isAnonymous: isAnon,
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('Could not list auth users:', e)
+    }
+  }
+
+  let enrichedUsers = (users ?? []).map((u: any) => {
+    const authMeta = authInfoMap.get(u.id)
+    return {
+      ...u,
+      auth_provider: authMeta?.provider || 'email',
+      email: authMeta?.email || null,
+      is_anonymous: authMeta?.isAnonymous ?? false,
+    }
+  })
+
+  if (providerFilter && providerFilter !== 'all') {
+    enrichedUsers = enrichedUsers.filter((u: any) => {
+      if (providerFilter === 'google') return u.auth_provider === 'google'
+      if (providerFilter === 'email') return u.auth_provider === 'email'
+      if (providerFilter === 'anonymous' || providerFilter === 'guest') {
+        return u.is_anonymous || u.auth_provider === 'anonymous'
+      }
+      return true
+    })
+  }
+
+  return NextResponse.json({
+    users: enrichedUsers,
+    total: count ?? 0,
+    page,
+    limit,
+  })
 }
 
 /**

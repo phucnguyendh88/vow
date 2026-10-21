@@ -8,6 +8,7 @@ import imageCompression from 'browser-image-compression'
 import type { Moment } from '@/types/database'
 import { STICKERS } from '@/lib/stickers'
 import { useUnreadCount } from '@/lib/hooks/useUnreadCount'
+import UserProfileModal from '@/components/profile/UserProfileModal'
 
 interface MomentWithProfile extends Moment {
   profiles: {
@@ -355,6 +356,7 @@ function HistoryViewer({
   onReplyMoment,
   ownAvatar,
   onOpenProfile,
+  onOpenUserProfile,
 }: {
   moments: MomentWithProfile[]
   initialId: string | null
@@ -368,6 +370,7 @@ function HistoryViewer({
   onReplyMoment: (m: MomentWithProfile, text: string, stickerKey?: string) => Promise<void>
   ownAvatar: string | null
   onOpenProfile: () => void
+  onOpenUserProfile?: (id: string) => void
 }) {
   const total = moments.length
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -638,7 +641,12 @@ function HistoryViewer({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3 px-2 py-3">
+                    <div
+                      onClick={() => !isMine && onOpenUserProfile?.(m.user_id)}
+                      className={`flex items-center gap-3 px-2 py-3 ${
+                        !isMine ? 'cursor-pointer hover:opacity-85 transition' : ''
+                      }`}
+                    >
                       {author.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -833,6 +841,7 @@ export default function MomentsClient({
   const [historyFilter, setHistoryFilter] = useState<{ userId: string; name: string } | null>(null)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [premiumActive, setPremiumActive] = useState<boolean>(isGoldTrialActive)
+  const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null)
 
   // Capture & Post state
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null)
@@ -871,7 +880,7 @@ export default function MomentsClient({
   // Check URL params (?code=FC-XXXXXX or ?locket=USER_ID)
   useEffect(() => {
     const code = (searchParams.get('code') ?? '').trim().toUpperCase()
-    if (/^FC-[A-Z0-9]{6,8}$/.test(code)) {
+    if (/^(FC|VOW)-[A-Z0-9]{6,8}$/.test(code)) {
       setInviteInput(code)
       setShowFriendsDialog(true)
     }
@@ -1266,8 +1275,11 @@ export default function MomentsClient({
 
   const handleCopyInviteLink = useCallback(async () => {
     try {
-      const link = `${window.location.origin}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
-      await navigator.clipboard.writeText(`Kết bạn trên VOW với mình nhé: ${link}`)
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vow-faith.vercel.app'
+      const baseUrl = origin.includes('localhost') ? origin : 'https://vow-faith.vercel.app'
+      const link = `${baseUrl}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
+      const msg = `Gửi link này cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn: ${link}`
+      await navigator.clipboard.writeText(msg)
       notify('Đã sao chép link mời kết bạn')
     } catch {
       notify('Không sao chép được', 'error')
@@ -1279,7 +1291,7 @@ export default function MomentsClient({
     if (!code || sendingInvite) return
     setSendingInvite(true)
     try {
-      const cleanPrefix = code.replace(/^FC-/, '').toLowerCase()
+      const cleanPrefix = code.replace(/^(FC|VOW)-/, '').toLowerCase()
       const { data: candidates } = await supabase
         .from('profiles')
         .select('id, username, full_name, avatar_url, church_name')
@@ -1445,7 +1457,6 @@ export default function MomentsClient({
     () => [...moments].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [moments]
   )
-  const latestThumb = sortedMoments[0]?.thumbnail_url || sortedMoments[0]?.media_url || null
   const filteredMoments = historyFilter
     ? sortedMoments.filter((m) => m.user_id === historyFilter.userId)
     : sortedMoments
@@ -2062,18 +2073,9 @@ export default function MomentsClient({
                   PREMIUM
                 </span>
               )}
-              {latestThumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={latestThumb}
-                  alt="Ảnh gần nhất"
-                  className="h-13 w-13 rounded-2xl border border-[rgba(232,208,141,0.4)] object-cover shadow-[0_4px_15px_rgba(0,0,0,0.5)]"
-                />
-              ) : (
-                <span className="flex h-13 w-13 items-center justify-center rounded-2xl border border-[rgba(232,208,141,0.3)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
-                  <GalleryAddSvg />
-                </span>
-              )}
+              <span className="flex h-13 w-13 items-center justify-center rounded-2xl border border-[rgba(232,208,141,0.35)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+                <GalleryAddSvg />
+              </span>
             </button>
 
             <input
@@ -2169,13 +2171,16 @@ export default function MomentsClient({
             setShowHistoryViewer(false)
             router.push('/ho-so')
           }}
+          onOpenUserProfile={(targetUserId) => {
+            setViewingProfileUserId(targetUserId)
+          }}
         />
       )}
 
-      {/* VOW Premium Trial Modal (E in original) */}
+      {/* VOW Premium Trial Modal (Luxury Obsidian & Metallic Gold) */}
       {showPremiumModal && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
         >
@@ -2183,39 +2188,45 @@ export default function MomentsClient({
             type="button"
             aria-label="Đóng"
             onClick={() => setShowPremiumModal(false)}
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-transparent"
           />
-          <div className="relative w-full max-w-md rounded-t-[2rem] bg-[#a3e635] p-6 pb-8 text-ink">
-            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink/20" />
+          <div className="relative w-full max-w-md rounded-t-[2.5rem] border border-[rgba(232,208,141,0.3)] bg-[#121216] p-6 pb-8 text-[#F0F0F0] shadow-2xl backdrop-blur-xl">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/10" />
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold">VOW Premium</h3>
-              <span className="rounded-md bg-ink px-2 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-[#a3e635]">
+              <h3 className="font-serif text-2xl font-bold tracking-wide text-[#E8D08D]">VOW Premium</h3>
+              <span className="rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(232,208,141,0.15)] px-2.5 py-0.5 text-[10px] font-bold tracking-[0.18em] text-[#E8D08D]">
                 PREMIUM
               </span>
             </div>
-            <p className="mt-2 text-sm font-medium">
+            <p className="mt-2 text-sm text-neutral-300">
               Chọn ảnh từ thư viện là tính năng VOW Premium. Dùng thử miễn phí 7 ngày:
             </p>
-            <ul className="mt-3 space-y-1.5 text-sm">
-              <li>• Chọn ảnh có sẵn từ thư viện</li>
-              <li>• Lịch sử không giới hạn</li>
-              <li>• Huy hiệu premium</li>
+            <ul className="mt-3.5 space-y-2 text-sm text-neutral-200">
+              <li className="flex items-center gap-2">
+                <span className="text-[#E8D08D]">✦</span> Chọn ảnh có sẵn từ thư viện ảnh
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#E8D08D]">✦</span> Lịch sử khoảnh khắc không giới hạn
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#E8D08D]">✦</span> Huy hiệu VOW Premium sang trọng
+              </li>
             </ul>
             <button
               type="button"
               onClick={handleActivateTrial}
-              className="mt-5 w-full rounded-2xl bg-ink py-3.5 text-sm font-bold text-[#a3e635] active:scale-95"
+              className="mt-6 w-full rounded-full bg-gradient-to-r from-[#FFF8E7] via-[#E8D08D] to-[#D4AF37] py-3.5 text-sm font-bold text-black shadow-lg shadow-[#E8D08D]/20 transition active:scale-95 cursor-pointer"
             >
               Kích hoạt dùng thử miễn phí
             </button>
             <button
               type="button"
               onClick={() => setShowPremiumModal(false)}
-              className="mt-2 w-full rounded-2xl py-2.5 text-sm font-semibold text-ink/70 active:scale-95"
+              className="mt-2.5 w-full rounded-full py-2.5 text-sm font-semibold text-neutral-400 hover:text-white transition active:scale-95 cursor-pointer"
             >
               Để sau
             </button>
-            <p className="mt-2 text-center text-[11px] opacity-70">
+            <p className="mt-2 text-center text-[11px] text-neutral-500">
               Bản dùng thử mô phỏng — không thanh toán thật.
             </p>
           </div>
@@ -2233,6 +2244,13 @@ export default function MomentsClient({
           {toastBanner.message}
         </div>
       )}
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        userId={viewingProfileUserId}
+        open={Boolean(viewingProfileUserId)}
+        onClose={() => setViewingProfileUserId(null)}
+      />
     </div>
   )
 }

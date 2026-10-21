@@ -87,8 +87,29 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/dang-nhap?error=auth_failed', baseUrl))
     }
 
+    // Kiểm tra trạng thái hồ sơ người dùng để điều hướng Onboarding nếu là tài khoản mới
+    let targetDestination = safeNext
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: profile } = await (supabase.from('profiles') as any)
+          .select('is_complete, full_name, date_of_birth, gender')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!profile || !profile.is_complete || !profile.full_name || !profile.date_of_birth || !profile.gender) {
+          targetDestination = '/onboarding'
+        }
+      }
+    } catch (profileCheckErr) {
+      console.warn('[OAuth Callback] Could not verify profile completeness:', profileCheckErr)
+    }
+
     // Tạo response redirect đến trang đích
-    const redirectResponse = NextResponse.redirect(new URL(safeNext, baseUrl))
+    const redirectResponse = NextResponse.redirect(new URL(targetDestination, baseUrl))
 
     // Chuyển tiếp các cookie phiên làm việc đã được setAll vào response
     // để tránh mất session trên các trình duyệt chặn third-party cookie

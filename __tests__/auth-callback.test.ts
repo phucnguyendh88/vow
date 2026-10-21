@@ -41,7 +41,26 @@ describe('Auth Callback Route Handler (app/auth/callback/route.ts)', () => {
     mockSupabase = {
       auth: {
         exchangeCodeForSession: jest.fn().mockResolvedValue({ data: { session: {} }, error: null }),
+        getUser: jest.fn().mockResolvedValue({
+          data: { user: { id: 'test-user-id' } },
+          error: null,
+        }),
       },
+      from: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: {
+                is_complete: true,
+                full_name: 'Phúc Nguyễn',
+                date_of_birth: '1988-01-01',
+                gender: 'male',
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }),
     }
     ;(createServerClient as jest.Mock).mockReturnValue(mockSupabase)
   })
@@ -71,6 +90,10 @@ describe('Auth Callback Route Handler (app/auth/callback/route.ts)', () => {
     ;(createServerClient as jest.Mock).mockImplementation((_url, _key, options) => {
       return {
         auth: {
+          getUser: jest.fn().mockResolvedValue({
+            data: { user: { id: 'test-user-id' } },
+            error: null,
+          }),
           exchangeCodeForSession: jest.fn().mockImplementation(async () => {
             options.cookies.setAll([
               {
@@ -87,6 +110,21 @@ describe('Auth Callback Route Handler (app/auth/callback/route.ts)', () => {
             return { data: {}, error: null }
           }),
         },
+        from: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: {
+                  is_complete: true,
+                  full_name: 'Phúc Nguyễn',
+                  date_of_birth: '1988-01-01',
+                  gender: 'male',
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
       }
     })
 

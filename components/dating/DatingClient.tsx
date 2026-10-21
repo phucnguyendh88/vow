@@ -8,6 +8,7 @@ import SettingsModal from '@/components/devotion/SettingsModal'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUnreadCount } from '@/lib/hooks/useUnreadCount'
+import UserProfileModal from '@/components/profile/UserProfileModal'
 
 type DiscoverProfile = Pick<
   Profile,
@@ -207,8 +208,7 @@ function PinSvg({ className = 'h-4 w-4 shrink-0 text-gold' }: { className?: stri
   )
 }
 
-const DECLINE_IMG = '/assets/decline-CDfCipDq.png'
-const ACCEPT_IMG = '/assets/accept-BffwXBF5.png'
+
 
 export default function DatingClient({
   discoverProfiles,
@@ -238,6 +238,7 @@ export default function DatingClient({
 
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null)
   const [ownAvatar, setOwnAvatar] = useState<string | null>(null)
 
   const [matchedModal, setMatchedModal] = useState<{
@@ -457,7 +458,7 @@ export default function DatingClient({
   return (
     <div className="flex h-[calc(100dvh-5rem)] min-h-0 flex-col bg-[#050505]">
       {/* Top Navigation: Minimalist Luxury */}
-      <header className="flex items-center justify-between px-5 pt-3 pb-2">
+      <header className="relative flex items-center justify-between px-5 pt-3 pb-2">
         <button
           type="button"
           onClick={() => setShowFilterModal(true)}
@@ -467,8 +468,8 @@ export default function DatingClient({
           <SlidersSvg className="h-5 w-5 text-[#E8D08D]" />
         </button>
 
-        <div className="flex items-center gap-1.5">
-          <span className="font-serif text-2xl font-bold tracking-[0.25em] gold-gradient-text uppercase">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+          <span className="font-serif text-2xl font-bold tracking-[0.25em] gold-gradient-text uppercase pl-[0.25em]">
             VOW
           </span>
         </div>
@@ -618,9 +619,21 @@ export default function DatingClient({
 
                 {/* Bottom Half: Inside the glassmorphism card info area */}
                 <div className="nice-scroll min-h-0 flex-1 overflow-y-auto px-6 py-4">
-                  <h2 className="font-serif text-3xl font-semibold text-[#F0F0F0] tracking-wide">
-                    {currentCandidate.name}, {currentCandidate.age}
-                  </h2>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2
+                      onClick={() => setViewProfileId(currentCandidate.id)}
+                      className="font-serif text-3xl font-semibold text-[#F0F0F0] tracking-wide hover:text-[#E8D08D] transition cursor-pointer"
+                    >
+                      {currentCandidate.name}, {currentCandidate.age}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setViewProfileId(currentCandidate.id)}
+                      className="rounded-full border border-[rgba(232,208,141,0.3)] bg-white/[0.04] px-3.5 py-1 text-xs font-semibold text-[#E8D08D] hover:bg-white/10 transition active:scale-95 cursor-pointer shadow-sm"
+                    >
+                      Hồ sơ
+                    </button>
+                  </div>
 
                   <div className="mt-2.5 space-y-1.5 text-[13px] text-[#A0A0A5]">
                     {currentCandidate.church && (
@@ -818,6 +831,13 @@ export default function DatingClient({
 
       {/* Settings Modal */}
       <SettingsModal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        userId={viewProfileId}
+        open={Boolean(viewProfileId)}
+        onClose={() => setViewProfileId(null)}
+      />
     </div>
   )
 }

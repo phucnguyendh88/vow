@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export function useUnreadCount(userId?: string | null) {
+export function useUnreadCount(_userId?: string | null) {
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const supabase = createClient()
 
