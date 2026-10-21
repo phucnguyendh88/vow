@@ -30,7 +30,14 @@ interface TopicArticle {
   noi_dung: string
 }
 
+interface FriendItem {
+  conversationId: string
+  name: string
+  avatarUrl: string | null
+}
+
 const DAY_NAMES = ['CHỦ NHẬT', 'THỨ HAI', 'THỨ BA', 'THỨ TƯ', 'THỨ NĂM', 'THỨ SÁU', 'THỨ BẢY']
+const WEEK_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 const MUSIC_STORAGE_KEY = 'fc_music_on'
 
 function getGreeting(hour: number): string {
@@ -46,7 +53,18 @@ function getDayOfYear(date = new Date()): number {
   return Math.floor(diff / (1000 * 60 * 60 * 24))
 }
 
-/* ================== SVGS (HEADER & UTILITIES) ================== */
+function getSundayToSaturdayDates(todayStr: string): string[] {
+  const d = new Date(todayStr)
+  const sunday = new Date(d)
+  sunday.setDate(d.getDate() - d.getDay())
+  return Array.from({ length: 7 }, (_, i) => {
+    const cur = new Date(sunday)
+    cur.setDate(sunday.getDate() + i)
+    return cur.toISOString().split('T')[0]
+  })
+}
+
+/* ================== ICONS ================== */
 
 function FlameIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
@@ -140,22 +158,6 @@ function CheckIcon({ className = 'h-4 w-4' }: { className?: string }) {
   )
 }
 
-function ArrowRightIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function BackArrowIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 function RefreshCwIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
@@ -164,10 +166,23 @@ function RefreshCwIcon({ className = 'h-4 w-4' }: { className?: string }) {
   )
 }
 
-function SunRiseIcon({ className = 'h-5 w-5' }: { className?: string }) {
+function BookOpenIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M12 2v4M4.93 10.93l2.83-2.83M19.07 10.93l-2.83-2.83M2 18h20M20 18a8 8 0 1 0-16 0" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ShareSvg({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
     </svg>
   )
 }
@@ -180,166 +195,29 @@ function QuoteWatermark({ className = '' }: { className?: string }) {
   )
 }
 
-/* ================== 14 LINE-ART ICONS (LUCIDE STYLE) ================== */
-
-function WindSwirlIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 1. Lo lắng
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2M9.5 4.2A2 2 0 1 1 11 7.7H2M16 16.2a2 2 0 1 0-1.5 3.3H2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function SolitaryBirdIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 2. Cô đơn
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M3 13c3.5-3 6.5-3 9 0 2.5-3 5.5-3 9 0M7 8c2.5-2 4.5-2 6 0 1.5-2 3.5-2 6 0" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="18" r="1.5" />
-    </svg>
-  )
-}
-
-function FallingDropIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 3. Thất vọng
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 11v4M12 19h.01" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function CompassGuideIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 4. Mất phương hướng
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-    </svg>
-  )
-}
-
-function IntertwinedHeartsIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 5. Tình yêu & các mối quan hệ
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function SproutWorkIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 6. Công việc
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M7 20h10M12 20v-8M12 12c0-3.5 2.5-6 6-6-1 3-3.5 6-6 6zM12 14c0-3-2-5-5-5 1 2.5 3 5 5 5z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function ScalesCoinIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 7. Tài chính
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM7 21h10M12 3v18M3 7h18" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function ReleasingDoveIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 8. Tha thứ
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m14 13 3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function ShieldAnchorIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 9. Sợ hãi
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function CandleTearIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 10. Đau buồn
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M9 21h6M12 17v4M8 17h8a2 2 0 0 0 2-2V9H6v6a2 2 0 0 0 2 2zM12 2c-1.5 1.5-2 3-2 4a2 2 0 0 0 4 0c0-1-.5-2.5-2-4z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function CrescentMoonRestIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 11. Mệt mỏi, kiệt sức
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.5 5.5 0 0 1-7.54-7.54C12.92 3.04 12.46 3 12 3z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19 3v4M21 5h-4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function PrayingHandsFlowerIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 12. Biết ơn
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.34 6.34l2.83 2.83M14.83 14.83l2.83 2.83M6.34 17.66l2.83-2.83M14.83 9.17l2.83-2.83" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
-function CrossLightIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 13. Muốn gần Chúa hơn
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <path d="M12 2v20M7 8h10" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m4 4 2 2M20 4l-2 2M4 20l2-2M20 20l-2-2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function SunburstJoyIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  // 14. Vui mừng vì 1 chuyện gì đó
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-/* ================== 14 TOPICS CONFIG ================== */
+/* ================== 14 TOPICS ================== */
 
 interface TopicConfig {
   id: string
   title: string
   jsonKey: string
-  icon: React.ComponentType<{ className?: string }>
 }
 
 const TOPICS: TopicConfig[] = [
-  { id: 'lo-lang', title: 'Lo lắng', jsonKey: 'Lo lắng', icon: WindSwirlIcon },
-  { id: 'co-don', title: 'Cô đơn', jsonKey: 'Cô đơn', icon: SolitaryBirdIcon },
-  { id: 'that-vong', title: 'Thất vọng', jsonKey: 'Thất vọng', icon: FallingDropIcon },
-  { id: 'mat-phuong-huong', title: 'Mất phương hướng', jsonKey: 'Mất phương hướng', icon: CompassGuideIcon },
-  { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', jsonKey: 'Tình yêu / hôn nhân', icon: IntertwinedHeartsIcon },
-  { id: 'cong-viec', title: 'Công việc', jsonKey: 'Công việc', icon: SproutWorkIcon },
-  { id: 'tai-chinh', title: 'Tài chính', jsonKey: 'Tài chính', icon: ScalesCoinIcon },
-  { id: 'tha-thu', title: 'Tha thứ', jsonKey: 'Tha thứ', icon: ReleasingDoveIcon },
-  { id: 'so-hai', title: 'Sợ hãi', jsonKey: 'Sợ hãi', icon: ShieldAnchorIcon },
-  { id: 'dau-buon', title: 'Đau buồn', jsonKey: 'Đau buồn', icon: CandleTearIcon },
-  { id: 'met-moi', title: 'Mệt mỏi, kiệt sức', jsonKey: 'Mệt mỏi, kiệt sức', icon: CrescentMoonRestIcon },
-  { id: 'biet-on', title: 'Biết ơn', jsonKey: 'Biết ơn', icon: PrayingHandsFlowerIcon },
-  { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', jsonKey: 'Muốn gần Chúa hơn', icon: CrossLightIcon },
-  { id: 'vui-mung', title: 'Vui mừng vì 1 chuyện gì đó', jsonKey: 'Vui mừng vì chuyện gì đó', icon: SunburstJoyIcon },
+  { id: 'lo-lang', title: 'Lo lắng', jsonKey: 'Lo lắng' },
+  { id: 'co-don', title: 'Cô đơn', jsonKey: 'Cô đơn' },
+  { id: 'that-vong', title: 'Thất vọng', jsonKey: 'Thất vọng' },
+  { id: 'mat-phuong-huong', title: 'Mất phương hướng', jsonKey: 'Mất phương hướng' },
+  { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', jsonKey: 'Tình yêu / hôn nhân' },
+  { id: 'cong-viec', title: 'Công việc', jsonKey: 'Công việc' },
+  { id: 'tai-chinh', title: 'Tài chính', jsonKey: 'Tài chính' },
+  { id: 'tha-thu', title: 'Tha thứ', jsonKey: 'Tha thứ' },
+  { id: 'so-hai', title: 'Sợ hãi', jsonKey: 'Sợ hãi' },
+  { id: 'dau-buon', title: 'Đau buồn', jsonKey: 'Đau buồn' },
+  { id: 'met-moi', title: 'Mệt mỏi, kiệt sức', jsonKey: 'Mệt mỏi, kiệt sức' },
+  { id: 'biet-on', title: 'Biết ơn', jsonKey: 'Biết ơn' },
+  { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', jsonKey: 'Muốn gần Chúa hơn' },
+  { id: 'vui-mung', title: 'Vui mừng vì 1 chuyện gì đó', jsonKey: 'Vui mừng vì chuyện gì đó' },
 ]
 
 /* ================== COMPONENT ================== */
@@ -370,6 +248,13 @@ export default function DevotionClient({
   // Modals & settings
   const [showWallpaperModal, setShowWallpaperModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Friends for in-app sharing
+  const [friendList, setFriendList] = useState<FriendItem[]>([])
+  const [loadingFriends, setLoadingFriends] = useState(false)
+  const [sendingFriendId, setSendingFriendId] = useState<string | null>(null)
 
   // Music state
   const [musicOn, setMusicOn] = useState<boolean>(() => {
@@ -399,16 +284,25 @@ export default function DevotionClient({
   const musicOnRef = useRef(musicOn)
   musicOnRef.current = musicOn
 
+  const touchStartXRef = useRef(0)
+  const touchStartYRef = useRef(0)
+
   const [fallbackLesson, setFallbackLesson] = useState<BibleLesson | null>(null)
   const supabase = createClient()
   const now = new Date()
   const headerDateStr = `${DAY_NAMES[now.getDay()]}, ${now.getDate()} THÁNG ${now.getMonth() + 1}`
+  const weekDates = getSundayToSaturdayDates(today)
+  const currentDayIdx = now.getDay() // 0 = CN, 1 = T2, ..., 6 = T7
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg)
+    window.setTimeout(() => setToastMessage(null), 2600)
+  }
 
   // Pre-load lessons & data
   useEffect(() => {
     setFallbackLesson(getTodayLesson(new Date()))
 
-    // Fetch VOW daily.json
     fetch('/VOW%20daily.json')
       .then((res) => (res.ok ? res.json() : []))
       .then((data: DailyLessonItem[]) => {
@@ -418,7 +312,6 @@ export default function DevotionClient({
       })
       .catch(() => {})
 
-    // Fetch kinh-thanh-hoan-canh.json
     fetch('/kinh-thanh-hoan-canh.json')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -429,7 +322,7 @@ export default function DevotionClient({
       .catch(() => {})
   }, [])
 
-  // Audio background player
+  // ================== AUDIO BACKGROUND ENGINE ==================
   useEffect(() => {
     if (typeof window === 'undefined' || typeof Audio === 'undefined') return
     let audio: HTMLAudioElement | null = null
@@ -444,18 +337,51 @@ export default function DevotionClient({
 
     const tryPlay = () => {
       try {
-        if (musicOnRef.current && audio) {
+        if (musicOnRef.current && audio && !document.hidden) {
           audio.play().catch(() => {})
         }
       } catch {}
     }
+
+    // Auto-play immediately on mount
     tryPlay()
 
-    const handleFirstInteraction = () => tryPlay()
-    window.addEventListener('pointerdown', handleFirstInteraction, { once: true })
+    // Unlock audio on iOS/Android first user touch gesture
+    const handleFirstGesture = () => {
+      tryPlay()
+    }
+    window.addEventListener('pointerdown', handleFirstGesture, { once: true })
+    window.addEventListener('touchstart', handleFirstGesture, { once: true })
+
+    // Strict audio shutdown: pause immediately on hidden, pagehide, or blur
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        audio?.pause()
+      } else if (musicOnRef.current) {
+        audio?.play().catch(() => {})
+      }
+    }
+
+    const handlePageHide = () => {
+      audio?.pause()
+    }
+
+    const handleBlur = () => {
+      if (document.hidden) {
+        audio?.pause()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', handlePageHide)
+    window.addEventListener('blur', handleBlur)
 
     return () => {
-      window.removeEventListener('pointerdown', handleFirstInteraction)
+      window.removeEventListener('pointerdown', handleFirstGesture)
+      window.removeEventListener('touchstart', handleFirstGesture)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', handlePageHide)
+      window.removeEventListener('blur', handleBlur)
       try {
         audio?.pause()
       } catch {}
@@ -470,12 +396,48 @@ export default function DevotionClient({
     const audio = audioRef.current
     if (audio) {
       if (musicOn) {
-        audio.play().catch(() => undefined)
+        if (!document.hidden) {
+          audio.play().catch(() => undefined)
+        }
       } else {
         audio.pause()
       }
     }
   }, [musicOn])
+
+  // ================== BROWSER HISTORY & NATURAL GESTURE BACK ==================
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      // Whenever user presses back on browser/Android or swipes edge on iOS
+      if (!e.state?.vowSubPage) {
+        setActiveView('home')
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX
+    touchStartYRef.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (activeView === 'home') return
+    const touchEndX = e.changedTouches[0].clientX
+    const touchEndY = e.changedTouches[0].clientY
+    const deltaX = touchEndX - touchStartXRef.current
+    const deltaY = Math.abs(touchEndY - touchStartYRef.current)
+
+    // Edge swipe from left: start near left edge (< 40px) and drag right (> 70px)
+    if (touchStartXRef.current < 40 && deltaX > 70 && deltaY < deltaX * 0.8) {
+      if (window.history.state?.vowSubPage) {
+        window.history.back()
+      } else {
+        setActiveView('home')
+      }
+    }
+  }
 
   // Sync theme changes
   useEffect(() => {
@@ -537,25 +499,24 @@ export default function DevotionClient({
       const idx = Math.abs(dayIndex) % dailyLessons.length
       return dailyLessons[idx]
     }
-    // Fallback if JSON not yet loaded
     const fl = fallbackLesson
     return {
-      cau_goc: fl ? `“${fl.loi_kinh_thanh}”\n${fl.sach} ${fl.chuong}:${fl.cau}` : (verse?.verse_text || 'Chúa là Đấng chăn giữ tôi, tôi sẽ chẳng thiếu thốn gì.'),
+      cau_goc: fl
+        ? `“${fl.loi_kinh_thanh}”\n${fl.sach} ${fl.chuong}:${fl.cau}`
+        : (verse?.verse_text || 'Chúa là Đấng chăn giữ tôi, tôi sẽ chẳng thiếu thốn gì.'),
       suy_ngam: fl?.bai_hoc || verse?.meditation_text || 'Hãy dành vài phút để hướng lòng về Chúa hôm nay.',
       thuc_hanh: fl?.loi_cau_nguyen ? `Cầu nguyện: ${fl.loi_cau_nguyen}` : 'Hãy chọn một điều nhỏ để thực hiện với lòng biết ơn.',
     }
   })()
 
-  // Get articles for chosen topic
+  // Helper for topic articles
   const getTopicArticles = useCallback((topic: TopicConfig): TopicArticle[] => {
     if (!topicData) return []
 
-    // Direct key lookup
     if (topicData[topic.jsonKey] && topicData[topic.jsonKey].length > 0) {
       return topicData[topic.jsonKey]
     }
 
-    // Special Topic 11: Mệt mỏi, kiệt sức (aggregate rest/renewal verses from JSON)
     if (topic.id === 'met-moi') {
       const targetVerses = ['Ma-thi-ơ 11:28', 'Ê-sai 40:31', 'Thi thiên 23:2-3', 'Thi thiên 127:2', 'Thi thiên 62:1', 'Thi thiên 55:22']
       const collected: TopicArticle[] = []
@@ -570,7 +531,6 @@ export default function DevotionClient({
       return topicData['Lo lắng'] || []
     }
 
-    // Special Topic 12: Biết ơn (aggregate thanksgiving verses from "Vui mừng vì chuyện gì đó")
     if (topic.id === 'biet-on') {
       const vuiMungList = topicData['Vui mừng vì chuyện gì đó'] || []
       const targetVerses = ['1 Tê-sa-lô-ni-ca 5:16-18', 'Thi thiên 103:2', 'Gia-cơ 1:17', 'Thi thiên 100:1-2', 'Thi thiên 9:1-2', '1 Cô-rinh-tô 4:7', 'Thi thiên 118:24']
@@ -582,9 +542,13 @@ export default function DevotionClient({
     return []
   }, [topicData])
 
+  // Select a topic: pick a RANDOM article initially
   const handleSelectTopic = (topic: TopicConfig) => {
     setSelectedTopic(topic)
-    setTopicArticleIndex(0)
+    const articles = getTopicArticles(topic)
+    const initialRandomIdx = articles.length > 0 ? Math.floor(Math.random() * articles.length) : 0
+    setTopicArticleIndex(initialRandomIdx)
+    window.history.pushState({ vowSubPage: 'mood' }, '')
     setActiveView('topic')
   }
 
@@ -593,21 +557,152 @@ export default function DevotionClient({
     ? currentTopicArticles[topicArticleIndex % currentTopicArticles.length]
     : null
 
-  const handleNextArticle = () => {
-    if (currentTopicArticles.length > 0) {
-      setTopicArticleIndex((prev) => (prev + 1) % currentTopicArticles.length)
+  // Next article button: pick another RANDOM article (different from current)
+  const handleNextRandomArticle = () => {
+    if (currentTopicArticles.length <= 1) return
+    let nextIdx = topicArticleIndex
+    while (nextIdx === topicArticleIndex) {
+      nextIdx = Math.floor(Math.random() * currentTopicArticles.length)
+    }
+    setTopicArticleIndex(nextIdx)
+  }
+
+  // ================== SHARING HELPERS ==================
+  const loadFriendsForSharing = async () => {
+    if (friendList.length > 0) return
+    setLoadingFriends(true)
+    try {
+      // 1. Check cached conversations in sessionStorage
+      const cached = sessionStorage.getItem('vow_conversations_cache')
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const list: FriendItem[] = parsed.map((c: any) => ({
+              conversationId: c.conversationId || c.id,
+              name: c.partnerName || 'Bạn bè',
+              avatarUrl: c.partnerAvatar || null,
+            }))
+            setFriendList(list)
+            setLoadingFriends(false)
+            return
+          }
+        } catch {}
+      }
+
+      // 2. Query Supabase conversation members
+      const { data: myConvs } = await supabase
+        .from('conversation_members')
+        .select('conversation_id')
+        .eq('user_id', userId)
+
+      const cids = (myConvs || []).map((c: any) => c.conversation_id)
+      if (cids.length > 0) {
+        const { data: others } = await supabase
+          .from('conversation_members')
+          .select(`
+            conversation_id,
+            user_id,
+            profiles:user_id (
+              id,
+              full_name,
+              username,
+              avatar_url
+            )
+          `)
+          .in('conversation_id', cids)
+          .neq('user_id', userId)
+
+        if (others && others.length > 0) {
+          const uniquePartners = new Map<string, FriendItem>()
+          others.forEach((o: any) => {
+            const p = o.profiles
+            const name = p?.full_name || p?.username || 'Bạn bè'
+            const uid = p?.id || o.user_id
+            if (!uniquePartners.has(uid)) {
+              uniquePartners.set(uid, {
+                conversationId: o.conversation_id,
+                name,
+                avatarUrl: p?.avatar_url || null,
+              })
+            }
+          })
+          setFriendList(Array.from(uniquePartners.values()))
+        }
+      }
+    } catch (err) {
+      console.error('Error loading friends for sharing:', err)
+    } finally {
+      setLoadingFriends(false)
+    }
+  }
+
+  const handleSendToFriend = async (friend: FriendItem) => {
+    setSendingFriendId(friend.conversationId)
+    const shareText = `"${currentDailyItem.cau_goc.trim()}"\n\nChia sẻ từ VOW`
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: friend.conversationId,
+          content: shareText,
+          idempotency_key: `share_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        }),
+      })
+      if (res.ok) {
+        setShowShareModal(false)
+        showToast(`Đã gửi cho ${friend.name}!`)
+      } else {
+        showToast('Không thể gửi. Vui lòng thử lại.')
+      }
+    } catch {
+      showToast('Lỗi kết nối khi gửi.')
+    } finally {
+      setSendingFriendId(null)
+    }
+  }
+
+  const handleShareExternal = async () => {
+    const shareText = `"${currentDailyItem.cau_goc.trim()}"\n\nChia sẻ từ VOW`
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Lời Chúa hôm nay - VOW',
+          text: shareText,
+        })
+        setShowShareModal(false)
+        return
+      } catch {}
+    }
+    // Fallback: clipboard
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setShowShareModal(false)
+      showToast('Đã sao chép câu gốc')
+    } catch {
+      showToast('Không thể sao chép')
     }
   }
 
   return (
     <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       className={`fixed inset-0 z-20 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none pb-[calc(4.75rem+env(safe-area-inset-bottom))] ${
         lightMode ? 'devotion-light bg-[#F8F7F4] text-[#1C1917]' : 'bg-[#050505] text-[#F0F0F0]'
       }`}
     >
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 rounded-full border border-[rgba(232,208,141,0.5)] bg-[#E8D08D] px-4 py-2 text-xs font-semibold text-black shadow-[0_10px_25px_rgba(0,0,0,0.5)] transition-all animate-bounce">
+          {toastMessage}
+        </div>
+      )}
+
       {/* ================== FIXED TOP HEADER (4 ROWS) ================== */}
       <header className="relative shrink-0 border-b border-[rgba(232,208,141,0.12)] px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
-        {/* Row 1: 4 Quick Actions (Right aligned) */}
+        {/* Row 1: Logo & 4 Quick Actions */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-serif text-xl font-bold tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-[#FFF2CC] via-[#E8D08D] to-[#B38C3B]">
@@ -686,7 +781,7 @@ export default function DevotionClient({
           </div>
         </div>
 
-        {/* Row 2: Date in Gold uppercase (Left) & Streak flame pill (Right) */}
+        {/* Row 2: Date in Gold uppercase & Streak flame pill */}
         <div className="mt-2.5 flex items-center justify-between gap-3">
           <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#E8D08D]">
             {headerDateStr}
@@ -715,155 +810,122 @@ export default function DevotionClient({
         </div>
       </header>
 
-      {/* ================== MAIN CONTENT AREA ================== */}
+      {/* ================== MAIN CONTENT: TAB HOME ================== */}
       {activeView === 'home' && (
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4">
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3.5">
           {/* SECTION A: Title & Description */}
-          <section className="mb-4">
+          <section className="mb-3.5">
             <h2 className="font-serif text-2xl sm:text-3xl font-semibold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#FFF4D4] via-[#E8D08D] to-[#C49A45]">
               Hôm nay, lòng bạn thế nào?
             </h2>
-            <p className={`mt-1 text-xs sm:text-sm font-light italic leading-relaxed ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
-              “Dành một chút thời gian cho tâm hồn. Bạn đang cần điều gì hôm nay?”
+            <p className={`mt-0.5 text-xs sm:text-sm font-light italic leading-relaxed ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
+              “Bạn đang cần điều gì hôm nay?”
             </p>
           </section>
 
-          {/* SECTION B: Lựa chọn 1 (Hero Card - Bắt đầu ngày mới) */}
-          <section className="mb-6">
+          {/* SECTION B: Lựa chọn 1 (Bắt đầu ngày mới - Chỉ đúng 2 dòng chữ) */}
+          <section className="mb-5">
             <button
               type="button"
-              onClick={() => setActiveView('daily')}
-              className="group relative w-full overflow-hidden rounded-[1.8rem] border border-[rgba(232,208,141,0.45)] bg-gradient-to-br from-[rgba(232,208,141,0.14)] via-[rgba(255,255,255,0.03)] to-[rgba(20,20,24,0.7)] p-4 sm:p-5 text-left backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.3)] transition-all duration-200 hover:border-[#E8D08D] hover:shadow-[0_12px_40px_rgba(232,208,141,0.25)] active:scale-[0.98]"
+              onClick={() => {
+                window.history.pushState({ vowSubPage: 'daily' }, '')
+                setActiveView('daily')
+              }}
+              className="group relative w-full overflow-hidden rounded-[1.6rem] border border-[rgba(232,208,141,0.45)] bg-gradient-to-br from-[rgba(232,208,141,0.12)] via-[rgba(255,255,255,0.03)] to-[rgba(20,20,24,0.7)] p-4 sm:p-5 text-left backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.3)] transition-all duration-200 hover:border-[#E8D08D] active:scale-[0.98]"
             >
-              {/* Subtle ambient golden light blur */}
-              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[#E8D08D]/20 blur-2xl transition-opacity group-hover:opacity-100" />
-
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(232,208,141,0.5)] bg-gradient-to-br from-[#FFF2CC] via-[#E8D08D] to-[#B38C3B] shadow-[0_0_16px_rgba(232,208,141,0.35)]">
-                    <SunRiseIcon className="h-5 w-5 text-black" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8D08D]">
-                      LỰA CHỌN ĐẶC BIỆT
-                    </span>
-                    <h3 className={`font-serif text-lg sm:text-xl font-bold tracking-wide ${lightMode ? 'text-neutral-900' : 'text-[#F0F0F0]'}`}>
-                      Tôi muốn bắt đầu ngày mới
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] bg-white/5 text-[#E8D08D] transition-transform duration-200 group-hover:translate-x-0.5">
-                  <ArrowRightIcon className="h-4 w-4" />
-                </div>
-              </div>
-
-              <p className={`mt-2.5 text-xs sm:text-sm font-light leading-relaxed ${lightMode ? 'text-neutral-700' : 'text-[#D0D0D5]'}`}>
-                “Một câu Kinh Thánh để lòng được tươi mới và vững vàng bước vào ngày hôm nay.”
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#E8D08D]/15 blur-xl transition-opacity group-hover:opacity-100" />
+              <h3 className={`font-serif text-lg sm:text-xl font-bold tracking-wide ${lightMode ? 'text-neutral-900' : 'text-[#F0F0F0]'}`}>
+                Tôi muốn bắt đầu ngày mới
+              </h3>
+              <p className={`mt-1 text-xs sm:text-sm font-light leading-relaxed ${lightMode ? 'text-neutral-600' : 'text-[#D0D0D5]'}`}>
+                Một câu gốc - Một suy gẫm - Một ngày mới
               </p>
             </button>
           </section>
 
-          {/* SECTION C: Lựa chọn 2 (14 Chủ đề tâm trạng & hoàn cảnh - Lưới 2 cột) */}
+          {/* SECTION C: Lựa chọn 2 (Tâm trạng và hoàn cảnh - 14 Ô nhỏ gọn, không icon) */}
           <section className="mb-4">
-            <div className="mb-3">
+            <div className="mb-2.5">
               <div className="flex items-center gap-2">
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.25)] to-transparent" />
                 <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#E8D08D]">
-                  TÂM TRẠNG & HOÀN CẢNH
+                  Tâm trạng và hoàn cảnh
                 </span>
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.25)] to-transparent" />
               </div>
-              <h3 className="mt-2 font-serif text-lg sm:text-xl font-semibold tracking-wide">
-                Hay hôm nay, bạn đang trải qua điều gì?
+              <h3 className="mt-1.5 font-serif text-base sm:text-lg font-semibold tracking-wide">
+                Hay bạn đang trải qua điều gì?
               </h3>
-              <p className={`mt-0.5 text-xs font-light ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
+              <p className={`mt-0.5 text-[11px] sm:text-xs font-light ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
                 Chọn điều gần nhất với tâm trạng hoặc hoàn cảnh của bạn.
               </p>
             </div>
 
-            {/* 14 TOPIC CARDS: 2 COLUMNS */}
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-              {TOPICS.map((topic) => {
-                const TopicIcon = topic.icon
-                return (
-                  <button
-                    key={topic.id}
-                    type="button"
-                    onClick={() => handleSelectTopic(topic)}
-                    className={`group flex flex-col justify-between rounded-2xl border p-3.5 text-left backdrop-blur-md transition-all duration-200 hover:border-[rgba(232,208,141,0.5)] active:scale-[0.98] min-h-[96px] ${
-                      lightMode
-                        ? 'border-neutral-200 bg-white/80 hover:bg-white shadow-sm'
-                        : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.025)] hover:bg-[rgba(232,208,141,0.06)] shadow-[0_4px_16px_rgba(0,0,0,0.3)]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(232,208,141,0.3)] bg-[rgba(232,208,141,0.08)] text-[#E8D08D] transition-transform duration-200 group-hover:scale-110">
-                        <TopicIcon className="h-4 w-4" />
-                      </div>
-                      <ArrowRightIcon className="h-3 w-3 text-[#E8D08D]/40 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#E8D08D]" />
-                    </div>
-
-                    <div className="mt-2.5">
-                      <h4 className={`font-serif text-[13.5px] sm:text-[14.5px] font-semibold leading-snug tracking-wide transition-colors ${
-                        lightMode ? 'text-neutral-800 group-hover:text-black' : 'text-[#F0F0F0] group-hover:text-[#E8D08D]'
-                      }`}>
-                        {topic.title}
-                      </h4>
-                    </div>
-                  </button>
-                )
-              })}
+            {/* 14 COMPACT TOPIC BUTTONS: 2 COLUMNS, NO ICONS */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+              {TOPICS.map((topic) => (
+                <button
+                  key={topic.id}
+                  type="button"
+                  onClick={() => handleSelectTopic(topic)}
+                  className={`group flex items-center justify-center rounded-xl border px-3 py-2.5 text-center backdrop-blur-md transition-all duration-200 hover:border-[rgba(232,208,141,0.5)] active:scale-[0.98] min-h-[44px] ${
+                    lightMode
+                      ? 'border-neutral-200 bg-white/80 hover:bg-white shadow-sm'
+                      : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.025)] hover:bg-[rgba(232,208,141,0.08)] shadow-[0_2px_10px_rgba(0,0,0,0.3)]'
+                  }`}
+                >
+                  <span className={`font-serif text-xs sm:text-[13px] font-medium leading-snug tracking-wide transition-colors ${
+                    lightMode ? 'text-neutral-800 group-hover:text-black' : 'text-[#F0F0F0] group-hover:text-[#E8D08D]'
+                  }`}>
+                    {topic.title}
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
 
           {/* SECTION D: Subtle Closing Quote */}
-          <section className="my-6 text-center px-4">
-            <div className="mx-auto mb-3 h-px w-20 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
+          <section className="my-5 text-center px-4">
+            <div className="mx-auto mb-2.5 h-px w-20 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
             <p className={`font-serif text-xs sm:text-[13px] italic leading-relaxed tracking-wide ${
               lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'
             }`}>
               “Bạn không cần phải ổn mới có thể đến với Chúa. Hãy bắt đầu từ chính nơi bạn đang đứng.”
             </p>
-            <div className="mx-auto mt-3 h-px w-20 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
+            <div className="mx-auto mt-2.5 h-px w-20 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
           </section>
         </main>
       )}
 
-      {/* ================== READING VIEW 1: DAILY BIBLE LESSON ================== */}
+      {/* ================== READING VIEW 1: BẮT ĐẦU NGÀY MỚI ================== */}
       {activeView === 'daily' && (
         <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4">
-          {/* Subheader Navigation */}
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveView('home')}
-              className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold backdrop-blur-md transition active:scale-95 ${
-                lightMode
-                  ? 'border-neutral-200 bg-white text-neutral-800'
-                  : 'border-[rgba(232,208,141,0.3)] bg-white/5 text-[#E8D08D]'
-              }`}
-            >
-              <BackArrowIcon className="h-3.5 w-3.5" />
-              <span>Quay lại</span>
-            </button>
-
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8D08D]">
-              BẮT ĐẦU NGÀY MỚI
-            </span>
-          </div>
-
-          {/* Card 1: 01 · CÂU GỐC */}
+          {/* Card 1: 01 · CÂU GỐC (Font nhỏ hơn, mềm mại hơn + Nút Chia sẻ) */}
           <section className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 ${
             lightMode
               ? 'border-neutral-200 bg-white/95 shadow-md'
               : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
           }`}>
             <QuoteWatermark className="absolute right-4 top-4 h-16 w-16 text-[#E8D08D] opacity-15 pointer-events-none" />
-            <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
-              01 · CÂU GỐC HẰNG NGÀY
-            </p>
-            <p className={`mt-3.5 font-serif text-[1.25rem] sm:text-[1.35rem] font-medium leading-relaxed tracking-wide whitespace-pre-line ${
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-[#E8D08D]">
+                01 · CÂU GỐC HẰNG NGÀY
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  loadFriendsForSharing()
+                  setShowShareModal(true)
+                }}
+                className="flex items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.1)] px-3 py-1 text-xs font-semibold text-[#E8D08D] backdrop-blur transition hover:bg-[rgba(232,208,141,0.2)] active:scale-95 shadow-sm"
+              >
+                <ShareSvg className="h-3.5 w-3.5 text-[#E8D08D]" />
+                <span>Chia sẻ</span>
+              </button>
+            </div>
+
+            <p className={`mt-3.5 font-serif text-base sm:text-[17px] font-normal italic leading-relaxed tracking-wide whitespace-pre-line ${
               lightMode ? 'text-neutral-900' : 'text-[#F0F0F0]'
             }`}>
               {currentDailyItem.cau_goc}
@@ -888,7 +950,7 @@ export default function DevotionClient({
 
           {/* Card 3: 03 · THỰC HÀNH */}
           {currentDailyItem.thuc_hanh && (
-            <section className={`rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-5 ${
+            <section className={`rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 ${
               lightMode
                 ? 'border-neutral-200 bg-white/95 shadow-md'
                 : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
@@ -904,8 +966,8 @@ export default function DevotionClient({
             </section>
           )}
 
-          {/* Mark Read Button (Streak Increment) */}
-          <div className="mb-4">
+          {/* Mark Read Button (Streak increment) */}
+          <div className="mb-5">
             <button
               type="button"
               onClick={handleMarkRead}
@@ -921,59 +983,79 @@ export default function DevotionClient({
             </button>
           </div>
 
-          <div className="pb-4 text-center">
-            <button
-              type="button"
-              onClick={() => setActiveView('home')}
-              className="text-xs text-[#E8D08D] underline underline-offset-4 hover:opacity-80 transition"
-            >
-              ← Quay lại Khoảng lặng hôm nay
-            </button>
+          {/* Ô TÍCH CHUỖI 7 NGÀY (CHÚA NHẬT ĐẾN THỨ 7: CN, T2, T3, T4, T5, T6, T7) */}
+          <div className={`rounded-[1.6rem] border p-4 backdrop-blur-xl mb-4 ${
+            lightMode ? 'border-neutral-200 bg-white/90 shadow-sm' : 'border-[rgba(232,208,141,0.22)] bg-[rgba(255,255,255,0.03)] shadow-[0_8px_24px_rgba(0,0,0,0.5)]'
+          }`}>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#E8D08D]">
+                CHUỖI ĐỌC TRONG TUẦN
+              </span>
+              <span className="text-xs text-[#E8D08D] font-semibold">
+                🔥 {currentStreak} ngày
+              </span>
+            </div>
+
+            <div className="flex items-start justify-between px-1">
+              {WEEK_DAYS.map((day, idx) => {
+                const dateStr = weekDates[idx]
+                const isToday = idx === currentDayIdx
+                const isRead = streaks.includes(dateStr) || (isToday && todayRead)
+
+                return (
+                  <div key={day} className="flex flex-col items-center gap-1.5">
+                    <span className={`text-[11px] font-medium tracking-wide ${
+                      isToday ? 'font-bold text-[#E8D08D]' : lightMode ? 'text-neutral-500' : 'text-neutral-400'
+                    }`}>
+                      {day}
+                    </span>
+
+                    {isToday ? (
+                      <div className="relative flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#B38C3B] shadow-[0_0_20px_rgba(232,208,141,0.5),inset_0_1px_2px_rgba(255,255,255,0.7)]">
+                        <CheckIcon className="h-5 w-5 text-black stroke-[3]" />
+                        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-white shadow-[0_0_6px_#fff]" />
+                      </div>
+                    ) : isRead ? (
+                      <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-[#E8D08D] shadow-[0_2px_8px_rgba(0,0,0,0.4)]">
+                        <CheckIcon className="h-5 w-5 text-black stroke-[2.5]" />
+                      </div>
+                    ) : (
+                      <div className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border backdrop-blur-sm ${
+                        lightMode ? 'border-neutral-200 bg-neutral-100' : 'border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.02)]'
+                      }`} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </main>
       )}
 
-      {/* ================== READING VIEW 2: TOPIC REFLECTION ================== */}
+      {/* ================== READING VIEW 2: CHỌN TÂM TRẠNG ================== */}
       {activeView === 'topic' && selectedTopic && (
         <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4">
-          {/* Subheader Navigation */}
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveView('home')}
-              className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold backdrop-blur-md transition active:scale-95 ${
-                lightMode
-                  ? 'border-neutral-200 bg-white text-neutral-800'
-                  : 'border-[rgba(232,208,141,0.3)] bg-white/5 text-[#E8D08D]'
-              }`}
-            >
-              <BackArrowIcon className="h-3.5 w-3.5" />
-              <span>Chọn lại tâm trạng</span>
-            </button>
-
-            <div className="flex items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(232,208,141,0.08)] px-3 py-1">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8D08D]">
-                {selectedTopic.title}
-              </span>
-            </div>
-          </div>
-
           {currentTopicArticle ? (
-            <div className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-5 ${
+            <div className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 ${
               lightMode
                 ? 'border-neutral-200 bg-white/95 shadow-md'
                 : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
             }`}>
               <QuoteWatermark className="absolute right-4 top-4 h-16 w-16 text-[#E8D08D] opacity-15 pointer-events-none" />
 
-              {/* Bible Address */}
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(232,208,141,0.3)] bg-[rgba(232,208,141,0.1)] text-[#E8D08D]">
-                  <selectedTopic.icon className="h-3.5 w-3.5" />
+              {/* Bible Address Header with Cuốn Kinh Thánh (BookOpenIcon) */}
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.1)] text-[#E8D08D] shadow-sm">
+                  <BookOpenIcon className="h-4 w-4 text-[#E8D08D]" />
                 </div>
-                <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-wide text-[#E8D08D]">
-                  {currentTopicArticle.dia_chi}
-                </h3>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8D08D]">
+                    {selectedTopic.title}
+                  </span>
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-wide text-[#E8D08D]">
+                    {currentTopicArticle.dia_chi}
+                  </h3>
+                </div>
               </div>
 
               {/* Article Content */}
@@ -1000,33 +1082,15 @@ export default function DevotionClient({
                 })}
               </div>
 
-              {/* Action Buttons: Next article / Change topic */}
-              <div className="mt-6 pt-4 border-t border-[rgba(232,208,141,0.15)] flex flex-col gap-2.5">
+              {/* Nút Đổi bài suy ngẫm khác (Random bài khác, không số thứ tự) */}
+              <div className="mt-6 pt-4 border-t border-[rgba(232,208,141,0.15)]">
                 <button
                   type="button"
-                  onClick={handleNextArticle}
+                  onClick={handleNextRandomArticle}
                   className="flex w-full items-center justify-center gap-2 rounded-full border border-[#E8D08D] bg-[#E8D08D] py-3 text-sm font-semibold text-black shadow-[0_0_20px_rgba(232,208,141,0.25)] transition active:scale-95"
                 >
                   <RefreshCwIcon className="h-4 w-4" />
-                  <span>
-                    Đổi bài suy ngẫm khác
-                    {currentTopicArticles.length > 1
-                      ? ` (${(topicArticleIndex % currentTopicArticles.length) + 1}/${currentTopicArticles.length})`
-                      : ''}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveView('home')}
-                  className={`flex w-full items-center justify-center gap-2 rounded-full border py-2.5 text-xs font-medium transition active:scale-95 ${
-                    lightMode
-                      ? 'border-neutral-200 bg-neutral-100 text-neutral-700'
-                      : 'border-[rgba(232,208,141,0.25)] bg-white/5 text-[#D8D8DC]'
-                  }`}
-                >
-                  <BackArrowIcon className="h-3.5 w-3.5" />
-                  <span>Chọn lại tâm trạng khác</span>
+                  <span>Đổi bài suy ngẫm khác</span>
                 </button>
               </div>
             </div>
@@ -1037,6 +1101,90 @@ export default function DevotionClient({
             </div>
           )}
         </main>
+      )}
+
+      {/* ================== SHARE MODAL / MENU ================== */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-fade-in">
+          <div
+            className={`w-full max-w-sm rounded-t-[2rem] sm:rounded-[2rem] border p-5 backdrop-blur-2xl shadow-2xl transition-all ${
+              lightMode ? 'border-neutral-200 bg-white text-black' : 'border-[rgba(232,208,141,0.35)] bg-[#121214] text-white'
+            }`}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[rgba(232,208,141,0.15)]">
+              <div className="flex items-center gap-2">
+                <ShareSvg className="h-4 w-4 text-[#E8D08D]" />
+                <h3 className="font-serif text-lg font-bold tracking-wide">Chia sẻ câu gốc</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Preview text */}
+            <div className="my-3 rounded-xl border border-[rgba(232,208,141,0.2)] bg-black/20 p-3 text-xs italic text-[#D8D8DC] line-clamp-3">
+              &quot;{currentDailyItem.cau_goc}&quot;
+            </div>
+
+            {/* Option 1: Send to friends in chat */}
+            <div className="mb-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#E8D08D] mb-2">
+                Gửi trong tin nhắn Bạn bè
+              </p>
+              {loadingFriends ? (
+                <div className="py-4 text-center text-xs text-neutral-400">Đang tìm bạn bè...</div>
+              ) : friendList.length > 0 ? (
+                <div className="max-h-44 overflow-y-auto space-y-1.5 nice-scroll">
+                  {friendList.map((f) => (
+                    <button
+                      key={f.conversationId}
+                      type="button"
+                      disabled={sendingFriendId === f.conversationId}
+                      onClick={() => handleSendToFriend(f)}
+                      className="flex w-full items-center justify-between rounded-xl p-2 hover:bg-white/5 active:scale-95 transition"
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        {f.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={f.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-[#E8D08D]/20 text-[#E8D08D] flex items-center justify-center text-xs font-bold shrink-0">
+                            {f.name.charAt(0)}
+                          </div>
+                        )}
+                        <span className="text-xs font-medium truncate">{f.name}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-[#E8D08D] px-2.5 py-1 rounded-full bg-[#E8D08D]/10 border border-[#E8D08D]/30 shrink-0">
+                        {sendingFriendId === f.conversationId ? 'Đang gửi...' : 'Gửi'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 italic py-2">
+                  Chưa có cuộc trò chuyện nào để gửi trực tiếp.
+                </p>
+              )}
+            </div>
+
+            {/* Option 2: Share externally */}
+            <div className="pt-2 border-t border-[rgba(232,208,141,0.15)]">
+              <button
+                type="button"
+                onClick={handleShareExternal}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-[#E8D08D] bg-[#E8D08D] py-2.5 text-xs font-semibold text-black shadow-md transition active:scale-95"
+              >
+                <ShareSvg className="h-3.5 w-3.5 text-black" />
+                <span>Chia sẻ ra ngoài (Zalo, Messenger hoặc Sao chép)</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ================== MODALS ================== */}
