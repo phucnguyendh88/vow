@@ -336,11 +336,67 @@ export default function ChatClient({
   partner,
 }: Props) {
   const router = useRouter()
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    (Array.isArray(initialMessages) ? initialMessages : []).map((m) =>
-      normalizeMessage(m, conversationId)
-    )
-  )
+
+  // 1. Khởi tạo ngay thông tin đối phương từ props hoặc sessionStorage để vẽ Header 0ms
+  const [partnerState, setPartnerState] = useState(() => {
+    if (partner && partner.name && partner.name !== 'Thành viên') {
+      return partner
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const preview = sessionStorage.getItem(`vow_chat_preview_${conversationId}`)
+        if (preview) {
+          const parsed = JSON.parse(preview)
+          return {
+            id: parsed.partnerId || partner?.id || '',
+            name: parsed.partnerName || partner?.name || 'Thành viên',
+            avatarUrl: parsed.partnerAvatar || partner?.avatarUrl || null,
+          }
+        }
+      } catch {}
+    }
+    return partner || { id: '', name: 'Thành viên', avatarUrl: null }
+  })
+
+  useEffect(() => {
+    if (partner && partner.name && partner.name !== 'Thành viên') {
+      setPartnerState(partner)
+    }
+  }, [partner])
+
+  // 2. Khởi tạo 30 tin nhắn ngay lập tức từ props hoặc sessionStorage cache (0ms)
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const rawList = Array.isArray(initialMessages) ? initialMessages : []
+    if (rawList.length > 0) {
+      return rawList.map((m) => normalizeMessage(m, conversationId))
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`vow_chat_messages_${conversationId}`)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((m) => normalizeMessage(m, conversationId))
+          }
+        }
+      } catch {}
+    }
+    return []
+  })
+
+  // Lưu 30 tin nhắn mới nhất vào sessionStorage cache để mở lại lần sau với tốc độ 0ms
+  useEffect(() => {
+    if (Array.isArray(messages) && messages.length > 0) {
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(
+            `vow_chat_messages_${conversationId}`,
+            JSON.stringify(messages.slice(-30))
+          )
+        }
+      } catch {}
+    }
+  }, [conversationId, messages])
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [showStickers, setShowStickers] = useState(false)
@@ -697,11 +753,16 @@ export default function ChatClient({
     } catch {}
   }
 
+  const effectivePartner =
+    partnerState && partnerState.name && partnerState.name !== 'Thành viên'
+      ? partnerState
+      : partner || partnerState
   const partnerName =
-    typeof partner?.name === 'string' && partner.name.trim().length > 0
-      ? partner.name.trim()
+    typeof effectivePartner?.name === 'string' && effectivePartner.name.trim().length > 0
+      ? effectivePartner.name.trim()
       : 'Cuộc trò chuyện'
-  const partnerPhoto = typeof partner?.avatarUrl === 'string' ? partner.avatarUrl : null
+  const partnerPhoto =
+    typeof effectivePartner?.avatarUrl === 'string' ? effectivePartner.avatarUrl : null
 
   // Group messages by day safely
   const dayGroups: Array<{ day: string; items: ChatMessage[] }> = []
@@ -722,17 +783,23 @@ export default function ChatClient({
       <header className="flex items-center gap-2 border-b border-white/5 px-2 py-2.5">
         <button
           type="button"
-          onClick={() => router.push('/tin-nhan')}
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back()
+            } else {
+              router.push('/tin-nhan')
+            }
+          }}
           aria-label="Quay lại danh sách tin nhắn"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-cream transition active:bg-surface2"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-cream transition duration-75 active:scale-95 active:bg-white/10"
         >
           <BackArrowIcon />
         </button>
 
         <button
           type="button"
-          onClick={() => partner?.id && setShowPartnerProfile(true)}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-85 transition active:scale-[0.99] cursor-pointer"
+          onClick={() => effectivePartner?.id && setShowPartnerProfile(true)}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-85 transition duration-75 active:scale-[0.99] cursor-pointer"
         >
           <MemberAvatar name={partnerName} photo={partnerPhoto} size={40} />
           <span className="min-w-0">
@@ -1046,7 +1113,7 @@ export default function ChatClient({
 
       {/* Profile Modal */}
       <UserProfileModal
-        userId={partner?.id ?? null}
+        userId={effectivePartner?.id ?? partner?.id ?? null}
         open={showPartnerProfile}
         onClose={() => setShowPartnerProfile(false)}
       />

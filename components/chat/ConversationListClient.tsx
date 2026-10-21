@@ -148,13 +148,50 @@ function ConversationAvatar({
 
 export default function ConversationListClient({ initialConversations, currentUserId }: Props) {
   const router = useRouter()
-  const [conversations, setConversations] = useState<EnrichedConversation[]>(initialConversations)
+  const [conversations, setConversations] = useState<EnrichedConversation[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('vow_conversations_cache')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0 && (!initialConversations || initialConversations.length === 0)) {
+            return parsed
+          }
+        }
+      } catch {}
+    }
+    return initialConversations
+  })
   const supabase = createClient()
 
-  // Đồng bộ khi server gửi dữ liệu mới (ví dụ sau router.refresh)
+  // Đồng bộ khi server gửi dữ liệu mới (ví dụ sau router.refresh) và lưu cache
   useEffect(() => {
-    setConversations(initialConversations)
+    if (Array.isArray(initialConversations) && initialConversations.length > 0) {
+      setConversations(initialConversations)
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('vow_conversations_cache', JSON.stringify(initialConversations))
+        }
+      } catch {}
+    }
   }, [initialConversations])
+
+  const handleSelectConv = (conv: EnrichedConversation) => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(
+          `vow_chat_preview_${conv.id}`,
+          JSON.stringify({
+            partnerId: conv.partnerId,
+            partnerName: conv.name,
+            partnerAvatar: conv.photo,
+            allConvIds: conv.mergedConvIds || [conv.id],
+            lastMessage: conv.lastMessage,
+          })
+        )
+      }
+    } catch {}
+  }
 
   // Lắng nghe Realtime tin nhắn mới để cập nhật tức thì danh sách mà không cần tải lại trang
   useEffect(() => {
@@ -267,9 +304,10 @@ export default function ConversationListClient({ initialConversations, currentUs
       {conversations.map((conv) => (
         <li key={conv.id}>
           <Link
-            href={`/tin-nhan/${conv.id}`}
-            prefetch={false}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-surface2"
+            href={`/tin-nhan/${conv.id}?pname=${encodeURIComponent(conv.name)}&pavatar=${encodeURIComponent(conv.photo || '')}&cids=${conv.mergedConvIds?.join(',') || conv.id}`}
+            prefetch={true}
+            onClick={() => handleSelectConv(conv)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition duration-75 active:scale-[0.99] active:bg-white/10 select-none"
           >
             <ConversationAvatar name={conv.name} photo={conv.photo} size={52} />
             <div className="min-w-0 flex-1">
