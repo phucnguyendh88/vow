@@ -214,7 +214,7 @@ interface TopicConfig {
 interface MoodGroup {
   id: string
   title: string
-  dotClass: string
+  starClass: string
   pills: TopicConfig[]
 }
 
@@ -222,7 +222,7 @@ const MOOD_GROUPS: MoodGroup[] = [
   {
     id: 'triu-nang',
     title: 'KHI LÒNG TRĨU NẶNG',
-    dotClass: 'bg-amber-400/60',
+    starClass: 'text-amber-300/75',
     pills: [
       { id: 'lo-lang', title: 'Lo lắng', jsonKey: 'Lo lắng' },
       { id: 'co-don', title: 'Cô đơn', jsonKey: 'Cô đơn' },
@@ -234,8 +234,8 @@ const MOOD_GROUPS: MoodGroup[] = [
   },
   {
     id: 'dong-doi',
-    title: 'GIỮA DÒNG ĐỜI',
-    dotClass: 'bg-stone-300/60',
+    title: 'GIỮA DÒNG ĐỜI & TƯƠNG GIAO',
+    starClass: 'text-[#E5C158]/80',
     pills: [
       { id: 'mat-phuong-huong', title: 'Mất phương hướng', jsonKey: 'Mất phương hướng' },
       { id: 'cong-viec', title: 'Công việc', jsonKey: 'Công việc' },
@@ -247,7 +247,7 @@ const MOOD_GROUPS: MoodGroup[] = [
   {
     id: 've-chua',
     title: 'HƯỚNG LÒNG VỀ CHÚA',
-    dotClass: 'bg-[#E5B84B] shadow-[0_0_6px_#E5B84B]',
+    starClass: 'text-[#FFF3B0] drop-shadow-[0_0_4px_rgba(229,184,75,0.6)]',
     pills: [
       { id: 'biet-on', title: 'Biết ơn', jsonKey: 'Biết ơn' },
       { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', jsonKey: 'Muốn gần Chúa hơn' },
@@ -329,6 +329,9 @@ export default function DevotionClient({
   const headerDateStr = `${DAY_NAMES[now.getDay()]}, ${now.getDate()} THÁNG ${now.getMonth() + 1}`
   const weekDates = getSundayToSaturdayDates(today)
   const currentDayIdx = now.getDay() // 0 = CN, 1 = T2, ..., 6 = T7
+  const dayOfYear = getDayOfYear(now)
+  const wallpaperIdx = (Math.abs(dayOfYear) % 16) + 1
+  const wallpaperSrc = `/wallpapers/w${wallpaperIdx}.jpg`
 
   const showToast = (msg: string) => {
     setToastMessage(msg)
@@ -545,6 +548,17 @@ export default function DevotionClient({
     }
   })()
 
+  // Extract verse address from current daily item for Hero Card badge
+  const todayVerseAddress = (() => {
+    if (!currentDailyItem?.cau_goc) return ''
+    const lines = currentDailyItem.cau_goc.trim().split(/\r?\n/)
+    if (lines.length > 1) {
+      const lastLine = lines[lines.length - 1].trim()
+      return lastLine.replace(/^[-–—]\s*/, '').replace(/^[“"']+|[”"']+$/g, '').trim()
+    }
+    return ''
+  })()
+
   // Helper for topic articles
   const getTopicArticles = useCallback((topic: TopicConfig): TopicArticle[] => {
     if (!topicData) return []
@@ -755,12 +769,16 @@ export default function DevotionClient({
               title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
               className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
                 lightMode
-                  ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
+                  ? musicOn
+                    ? 'border-[#D4AF37]/60 bg-amber-50 text-[#B38C3B] shadow-[0_0_12px_rgba(212,175,55,0.25)]'
+                    : 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
+                  : musicOn
+                  ? 'border-[#D4AF37]/50 bg-[rgba(255,255,255,0.05)] text-[#E5B84B] shadow-[0_0_12px_rgba(212,175,55,0.25)]'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
               }`}
             >
               {musicOn ? (
-                <MusicOnIcon className="h-4 w-4 text-[#E8D08D]" />
+                <MusicOnIcon className="h-4 w-4 text-[#E5B84B]" />
               ) : (
                 <MusicOffIcon className={`h-4 w-4 ${lightMode ? 'text-neutral-500' : 'text-neutral-400'}`} />
               )}
@@ -848,67 +866,110 @@ export default function DevotionClient({
 
       {/* ================== MAIN CONTENT: TAB HOME ================== */}
       {activeView === 'home' && (
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3 space-y-3.5">
+        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3 space-y-3.5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
+          {/* HẠNG MỤC A: Vầng sáng Bình Minh phía sau Hero Card */}
+          <div className="pointer-events-none absolute top-24 left-1/2 -translate-x-1/2 w-[360px] h-[200px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[70px]" />
+
           {/* SECTION A: Tiêu đề chính font Serif */}
-          <section>
+          <section className="relative z-10">
             <h2 className="text-[22px] sm:text-2xl font-serif text-[#F3E5AB] tracking-wide font-medium">
               Hôm nay, lòng bạn thế nào?
             </h2>
           </section>
 
           {/* SECTION B: Nâng cấp Hero Card "Tôi muốn bắt đầu ngày mới" */}
-          <section>
+          <section className="relative z-10">
             <button
               type="button"
               onClick={() => {
                 window.history.pushState({ vowSubPage: 'daily' }, '')
                 setActiveView('daily')
               }}
-              className="w-full rounded-2xl p-4 bg-gradient-to-r from-[#1A150E] via-[#14110C] to-[#211A10] border border-[#D4AF37]/35 shadow-[0_8px_30px_rgba(212,175,55,0.07)] hover:border-[#D4AF37]/60 active:scale-[0.99] transition-all duration-200 text-left cursor-pointer"
+              className="group relative overflow-hidden rounded-2xl p-4 sm:p-5 border border-[#D4AF37]/45 shadow-[0_12px_35px_-8px_rgba(212,175,55,0.22)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="border-l-2 border-[#D4AF37]/70 pl-3.5">
-                  <h3 className="font-serif text-[18px] sm:text-[19px] font-medium text-white tracking-wide">
+              {/* Lớp 1: Nền Phong Cảnh Theo Ngày Mờ Ảo & Gradient tối ấm */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={wallpaperSrc}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-luminosity scale-105 group-hover:scale-100 transition-transform duration-700"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0F0C08]/95 via-[#17130C]/85 to-[#1F180E]/70" />
+
+              {/* Lớp 2: Đường sáng lấp lánh cạnh trên & Họa tiết Mặt Trời Mọc (Sunburst rays SVG) */}
+              <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#F3E5AB]/80 to-transparent" />
+              <svg
+                viewBox="0 0 160 160"
+                className="pointer-events-none absolute -right-6 -top-6 w-44 h-44 text-[#D4AF37] opacity-[0.14]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                aria-hidden="true"
+              >
+                <circle cx="100" cy="60" r="18" strokeDasharray="3 3" />
+                <circle cx="100" cy="60" r="32" strokeDasharray="2 4" />
+                {Array.from({ length: 16 }).map((_, i) => {
+                  const angle = (i * 360) / 16
+                  const rad = (angle * Math.PI) / 180
+                  const x1 = 100 + 36 * Math.cos(rad)
+                  const y1 = 60 + 36 * Math.sin(rad)
+                  const x2 = 100 + 75 * Math.cos(rad)
+                  const y2 = 60 + 75 * Math.sin(rad)
+                  return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeLinecap="round" />
+                })}
+              </svg>
+
+              {/* Lớp 3: Nội dung & Badge Hé lộ Câu Gốc Hôm Nay */}
+              <div className="relative z-10 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[10px] uppercase tracking-[0.18em] text-[#F3E5AB] mb-2 font-medium">
+                    <span className="text-[#E5B84B]">✦</span>
+                    <span className="truncate">LỜI CHÚA HÔM NAY {todayVerseAddress ? `· ${todayVerseAddress}` : ''}</span>
+                  </div>
+                  <h3 className="font-serif text-[19px] sm:text-[21px] font-medium text-[#FFF8E7] tracking-wide drop-shadow-sm leading-snug">
                     Tôi muốn bắt đầu ngày mới
                   </h3>
-                  <p className="text-xs text-[#E5B84B]/80 mt-1 font-light tracking-wide">
+                  <p className="text-xs text-[#E5B84B]/85 mt-1 font-normal tracking-wide">
                     Một câu gốc  ·  Một suy gẫm  ·  Một ngày mới
                   </p>
                 </div>
 
-                <div className="w-9 h-9 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#E5B84B] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E5B84B]/30 to-[#D4AF37]/10 border border-[#F3E5AB]/50 shadow-[0_0_18px_rgba(229,184,75,0.25)] flex items-center justify-center text-[#FFF8E7] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
                   <ArrowRightIcon className="h-4 w-4" />
                 </div>
               </div>
             </button>
           </section>
 
-          {/* SECTION C: 3 Nhóm Cảm Xúc × Flowing Pills */}
-          <section className="space-y-3.5">
+          {/* SECTION C: 3 Nhóm Cảm Xúc × Flowing Pills Cân Đối 2 Bên */}
+          <section className="relative z-10 space-y-3.5">
             {MOOD_GROUPS.map((group) => (
               <div key={group.id} className="space-y-2">
-                {/* Tiêu đề nhóm với đường kẻ mờ kéo dài sang phải */}
-                <div className="flex items-center gap-2.5 mb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#D4AF37]/75 font-medium shrink-0">
+                {/* Tiêu đề nhóm với biểu tượng kim cương mảnh và đường kẻ mờ kéo dài sang phải */}
+                <div className="flex items-center gap-2.5 mb-2">
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-[#E5B84B]/80 font-medium shrink-0">
                     {group.title}
                   </span>
-                  <div className="h-[1px] flex-1 bg-gradient-to-r from-[#D4AF37]/20 to-transparent" />
+                  <div className="flex items-center flex-1">
+                    <span className="text-[8px] text-[#D4AF37]/40 mr-1.5">❖</span>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#D4AF37]/25 to-transparent" />
+                  </div>
                 </div>
 
-                {/* Danh sách Pill bo tròn tự co giãn theo độ dài chữ */}
+                {/* Danh sách Pill tự dàn đều cân đối 2 bên với chất liệu kính mờ 3D */}
                 <div className="flex flex-wrap gap-2">
                   {group.pills.map((pill) => (
                     <button
                       key={pill.id}
                       type="button"
                       onClick={() => handleSelectTopic(pill)}
-                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full border active:scale-[0.97] transition-all duration-200 text-[13px] whitespace-nowrap cursor-pointer ${
+                      className={`flex-1 min-w-fit inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full border border-t-white/[0.18] shadow-[0_4px_12px_rgba(0,0,0,0.35)] active:scale-[0.97] transition-all duration-200 text-[13px] font-normal whitespace-nowrap cursor-pointer ${
                         lightMode
-                          ? 'bg-black/[0.035] hover:bg-[#D4AF37]/15 border-black/10 hover:border-[#D4AF37]/50 text-stone-800 hover:text-black'
-                          : 'bg-white/[0.035] hover:bg-[#D4AF37]/[0.1] border-white/[0.08] hover:border-[#D4AF37]/40 text-zinc-200 hover:text-white'
+                          ? 'bg-gradient-to-b from-stone-100 to-stone-50 hover:from-[#D4AF37]/20 hover:to-[#D4AF37]/5 border-stone-200 hover:border-[#D4AF37]/50 text-stone-800'
+                          : 'bg-gradient-to-b from-white/[0.075] to-white/[0.02] hover:from-[#D4AF37]/[0.2] hover:to-[#D4AF37]/[0.05] border-white/[0.07] hover:border-[#D4AF37]/50 text-zinc-100'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${group.dotClass}`} />
+                      <span className={`text-[10px] shrink-0 ${group.starClass}`}>✦</span>
                       <span className="font-serif leading-none tracking-wide">{pill.title}</span>
                     </button>
                   ))}
@@ -918,21 +979,22 @@ export default function DevotionClient({
           </section>
 
           {/* SECTION D: Subtle Closing Quote */}
-          <section className="pt-2 pb-1 text-center px-4">
-            <div className="mx-auto mb-2 h-px w-16 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
+          <section className="relative z-10 pt-2 pb-1 text-center px-4">
+            <div className="text-center text-[10px] tracking-[0.3em] text-[#D4AF37]/40 mb-1">─── ✦ ───</div>
             <p className={`font-serif text-xs italic leading-relaxed tracking-wide ${
               lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'
             }`}>
               “Bạn không cần phải ổn mới có thể đến với Chúa. Hãy bắt đầu từ chính nơi bạn đang đứng.”
             </p>
-            <div className="mx-auto mt-2 h-px w-16 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
           </section>
         </main>
       )}
 
       {/* ================== READING VIEW 1: BẮT ĐẦU NGÀY MỚI ================== */}
       {activeView === 'daily' && (
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4">
+        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
+          {/* Ambient Glow for Daily Reading */}
+          <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 w-[320px] h-[160px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.12] via-[#E5B84B]/[0.05] to-transparent blur-[60px]" />
           {/* Card 1: 01 · CÂU GỐC (Font nhỏ hơn, mềm mại hơn + Nút Chia sẻ) */}
           <section className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 ${
             lightMode
@@ -1067,7 +1129,9 @@ export default function DevotionClient({
 
       {/* ================== READING VIEW 2: CHỌN TÂM TRẠNG ================== */}
       {activeView === 'topic' && selectedTopic && (
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4">
+        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
+          {/* Ambient Glow for Topic Reading */}
+          <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 w-[320px] h-[160px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.12] via-[#E5B84B]/[0.05] to-transparent blur-[60px]" />
           {currentTopicArticle ? (
             <div className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 ${
               lightMode
