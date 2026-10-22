@@ -806,13 +806,13 @@ export default function DevotionClient({
 
       {/* ================== MAIN CONTENT: TAB HOME ================== */}
       {activeView === 'home' && (
-        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-2.5 space-y-2.5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
+        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3 space-y-3 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
           {/* HẠNG MỤC A: Vầng sáng Bình Minh phía sau Hero Card */}
-          <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 w-[340px] h-[160px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[70px]" />
+          <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 w-[360px] h-[180px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[75px]" />
 
           {/* Hào quang nền đổi màu theo Tab cảm xúc đang chọn */}
           <div
-            className={`pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 w-[360px] h-[240px] rounded-full blur-[85px] transition-colors duration-700 ${
+            className={`pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 w-[380px] h-[260px] rounded-full blur-[85px] transition-colors duration-700 ${
               activeMoodTab === 'comfort'
                 ? 'bg-amber-500/10'
                 : activeMoodTab === 'life'
@@ -823,7 +823,7 @@ export default function DevotionClient({
 
           {/* SECTION A: Tiêu đề chính font Serif */}
           <section className="relative z-10">
-            <h2 className="text-[17px] sm:text-[19px] font-serif text-[#F3E5AB] tracking-wide font-medium">
+            <h2 className="text-[20px] sm:text-[22px] font-serif text-[#F3E5AB] tracking-wide font-medium">
               Hôm nay, lòng bạn thế nào?
             </h2>
           </section>
@@ -836,7 +836,7 @@ export default function DevotionClient({
                 window.history.pushState({ vowSubPage: 'daily' }, '')
                 setActiveView('daily')
               }}
-              className="group min-h-[125px] sm:min-h-[140px] flex flex-col justify-between p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_10px_30px_-10px_rgba(212,175,55,0.25)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
+              className="group min-h-[144px] sm:min-h-[158px] flex flex-col justify-between p-4.5 sm:p-5 rounded-2xl sm:rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_12px_36px_-10px_rgba(212,175,55,0.28)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
             >
               {/* Ảnh Phong Cảnh Có Màu Sắc Thật (wallpapers/w1.jpg .. w16.jpg) */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -854,34 +854,34 @@ export default function DevotionClient({
               <div className="pointer-events-none absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#F3E5AB]/80 to-transparent" />
 
               {/* Góc trên trái: Badge Kính mờ nổi trên nền ảnh */}
-              <div className="relative z-10 inline-flex items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-[#F3E5AB]/35 text-[9.5px] uppercase tracking-[0.16em] text-[#FFF3B0] font-medium">
+              <div className="relative z-10 inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-[#F3E5AB]/35 text-[10px] uppercase tracking-[0.16em] text-[#FFF3B0] font-medium">
                 <span>✦</span>
                 <span>LỜI CHÚA HÔM NAY {todayVerseAddress ? `· ${todayVerseAddress}` : ''}</span>
               </div>
 
               {/* Góc dưới: Tiêu đề lớn + Nút tròn phát sáng */}
-              <div className="relative z-10 flex items-end justify-between gap-2.5 mt-2.5">
+              <div className="relative z-10 flex items-end justify-between gap-3 mt-3.5">
                 <div className="flex-1 min-w-0 pr-1">
-                  <h3 className="font-serif text-[15px] xs:text-[16px] sm:text-[18px] font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] leading-tight tracking-wide whitespace-nowrap">
+                  <h3 className="font-serif text-[18.5px] xs:text-[19px] sm:text-[21px] font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] leading-tight tracking-wide whitespace-nowrap">
                     Tôi muốn bắt đầu ngày mới
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-[#F3E5AB]/90 mt-0.5 drop-shadow tracking-wide truncate">
+                  <p className="text-[11.5px] sm:text-xs text-[#F3E5AB]/90 mt-1 drop-shadow tracking-wide truncate">
                     Một câu gốc  ·  Một suy gẫm  ·  Một ngày mới
                   </p>
                 </div>
 
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#D4AF37]/30 backdrop-blur-md border border-[#FFF3B0]/60 shadow-[0_0_16px_rgba(229,184,75,0.4)] flex items-center justify-center text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
-                  <ArrowRightIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <div className="w-10 h-10 rounded-full bg-[#D4AF37]/30 backdrop-blur-md border border-[#FFF3B0]/60 shadow-[0_0_18px_rgba(229,184,75,0.4)] flex items-center justify-center text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
+                  <ArrowRightIcon className="h-4 w-4" />
                 </div>
               </div>
             </button>
           </section>
 
           {/* SECTION C: ĐỘT PHÁ 2 — Thanh Chuyển Tâm Trạng & Lưới Bento Sống Động */}
-          <section className="relative z-10 space-y-2">
+          <section className="relative z-10 space-y-2.5">
             {/* Thanh Chuyển 3 Nhóm Cảm Xúc (Segmented Glass Pill Bar) */}
             <div
-              className={`grid grid-cols-3 gap-1 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border backdrop-blur-md ${
+              className={`grid grid-cols-3 gap-1 p-1 rounded-2xl border backdrop-blur-md ${
                 lightMode
                   ? 'bg-black/[0.04] border-black/[0.08]'
                   : 'bg-white/[0.04] border-white/[0.08]'
@@ -900,9 +900,9 @@ export default function DevotionClient({
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveMoodTab(tab.key)}
-                    className={`py-1.5 px-1 text-center rounded-lg sm:rounded-xl text-[11.5px] sm:text-[12.5px] tracking-wide transition-all duration-200 cursor-pointer ${
+                    className={`py-1.5 sm:py-2 px-1 text-center rounded-xl text-xs sm:text-[13px] tracking-wide transition-all duration-200 cursor-pointer ${
                       isActive
-                        ? 'bg-gradient-to-b from-[#D4AF37]/25 to-[#D4AF37]/10 border border-[#D4AF37]/45 text-[#FFF3B0] shadow-[0_2px_10px_rgba(212,175,55,0.2)] font-medium'
+                        ? 'bg-gradient-to-b from-[#D4AF37]/25 to-[#D4AF37]/10 border border-[#D4AF37]/45 text-[#FFF3B0] shadow-[0_2px_12px_rgba(212,175,55,0.2)] font-medium'
                         : lightMode
                         ? 'text-neutral-600 hover:text-black font-normal border border-transparent'
                         : 'text-zinc-400 hover:text-zinc-200 font-normal border border-transparent'
@@ -917,7 +917,7 @@ export default function DevotionClient({
             {/* Lưới Bento Cards cho Tab đang chọn */}
             <div
               key={activeMoodTab}
-              className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200"
+              className="grid grid-cols-2 gap-2 sm:gap-2.5 animate-in fade-in slide-in-from-bottom-1 duration-200"
             >
               {MOOD_TABS[activeMoodTab].pills.map((pill) => (
                 <button
@@ -926,7 +926,7 @@ export default function DevotionClient({
                   onClick={() => handleSelectTopic(pill)}
                   className={`${
                     pill.colSpan ? 'col-span-2' : 'col-span-1'
-                  } group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer text-left backdrop-blur-md overflow-hidden ${
+                  } group relative p-3 sm:p-3.5 rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer text-left backdrop-blur-md overflow-hidden ${
                     lightMode
                       ? 'bg-gradient-to-br from-white/95 via-white/80 to-amber-50/40 border-stone-200/80'
                       : 'bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent border-white/[0.1]'
@@ -937,9 +937,9 @@ export default function DevotionClient({
 
                   <div className="relative z-10 flex flex-col justify-between h-full">
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className={`text-[10px] ${MOOD_TABS[activeMoodTab].starClass}`}>✦</span>
+                      <span className={`text-[10.5px] ${MOOD_TABS[activeMoodTab].starClass}`}>✦</span>
                       {pill.colSpan && (
-                        <span className="text-[9.5px] uppercase tracking-wider text-[#D4AF37]/75 font-sans font-medium">
+                        <span className="text-[10px] uppercase tracking-wider text-[#D4AF37]/75 font-sans font-medium">
                           Tương giao sâu lắng
                         </span>
                       )}
@@ -947,14 +947,14 @@ export default function DevotionClient({
 
                     <div>
                       <h4
-                        className={`font-serif text-[13.5px] sm:text-[14.5px] font-medium tracking-wide leading-tight group-hover:text-[#FFF3B0] transition-colors ${
+                        className={`font-serif text-[14.5px] sm:text-[15.5px] font-medium tracking-wide leading-snug group-hover:text-[#FFF3B0] transition-colors ${
                           lightMode ? 'text-neutral-900' : 'text-white'
                         }`}
                       >
                         {pill.title}
                       </h4>
                       <p
-                        className={`text-[10.5px] sm:text-[11px] mt-0.5 font-light tracking-wide truncate ${
+                        className={`text-[11px] mt-0.5 font-light tracking-wide truncate ${
                           lightMode ? 'text-neutral-500' : 'text-zinc-400'
                         }`}
                       >
@@ -968,9 +968,9 @@ export default function DevotionClient({
           </section>
 
           {/* SECTION D: Subtle Closing Quote */}
-          <section className="relative z-10 pt-1 pb-0.5 text-center px-3">
-            <div className="text-center text-[9px] tracking-[0.3em] text-[#D4AF37]/40 mb-0.5">─── ✦ ───</div>
-            <p className={`font-serif text-[11.5px] sm:text-xs italic leading-snug tracking-wide ${
+          <section className="relative z-10 pt-1.5 pb-1 text-center px-4">
+            <div className="text-center text-[9.5px] tracking-[0.3em] text-[#D4AF37]/40 mb-1">─── ✦ ───</div>
+            <p className={`font-serif text-xs italic leading-relaxed tracking-wide ${
               lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'
             }`}>
               “Bạn không cần phải ổn mới có thể đến với Chúa.”
