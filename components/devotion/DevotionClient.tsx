@@ -203,58 +203,66 @@ function ArrowRightIcon({ className = 'h-4 w-4' }: { className?: string }) {
   )
 }
 
-/* ================== 3 NHÓM CẢM XÚC × 14 FLOWING PILLS ================== */
+/* ================== 3 NHÓM CẢM XÚC × INTERACTIVE MOOD BENTO ================== */
 
-interface TopicConfig {
+export type MoodTabKey = 'comfort' | 'life' | 'praise'
+
+export interface TopicConfig {
   id: string
   title: string
+  subtitle: string
   jsonKey: string
+  colSpan?: boolean
 }
 
-interface MoodGroup {
-  id: string
-  title: string
+export interface MoodTabConfig {
+  key: MoodTabKey
+  label: string
+  glowClass: string
   starClass: string
   pills: TopicConfig[]
 }
 
-const MOOD_GROUPS: MoodGroup[] = [
-  {
-    id: 'triu-nang',
-    title: 'KHI LÒNG TRĨU NẶNG',
-    starClass: 'text-amber-300/75',
+export const MOOD_TABS: Record<MoodTabKey, MoodTabConfig> = {
+  comfort: {
+    key: 'comfort',
+    label: 'Khi trĩu nặng',
+    glowClass: 'bg-amber-500/10',
+    starClass: 'text-amber-300/80',
     pills: [
-      { id: 'lo-lang', title: 'Lo lắng', jsonKey: 'Lo lắng' },
-      { id: 'co-don', title: 'Cô đơn', jsonKey: 'Cô đơn' },
-      { id: 'that-vong', title: 'Thất vọng', jsonKey: 'Thất vọng' },
-      { id: 'so-hai', title: 'Sợ hãi', jsonKey: 'Sợ hãi' },
-      { id: 'dau-buon', title: 'Đau buồn', jsonKey: 'Đau buồn' },
-      { id: 'met-moi', title: 'Mệt mỏi, kiệt sức', jsonKey: 'Mệt mỏi, kiệt sức' },
+      { id: 'lo-lang', title: 'Lo lắng', subtitle: 'Tìm sự bình an', jsonKey: 'Lo lắng' },
+      { id: 'co-don', title: 'Cô đơn', subtitle: 'Chúa ở cùng bạn', jsonKey: 'Cô đơn' },
+      { id: 'that-vong', title: 'Thất vọng', subtitle: 'Hy vọng nơi Ngài', jsonKey: 'Thất vọng' },
+      { id: 'so-hai', title: 'Sợ hãi', subtitle: 'Vững lòng, vững chí', jsonKey: 'Sợ hãi' },
+      { id: 'dau-buon', title: 'Đau buồn', subtitle: 'Ngài xoa dịu vết thương', jsonKey: 'Đau buồn' },
+      { id: 'met-moi', title: 'Mệt mỏi, kiệt sức', subtitle: 'Nghỉ ngơi trong Ngài', jsonKey: 'Mệt mỏi, kiệt sức' },
     ],
   },
-  {
-    id: 'dong-doi',
-    title: 'GIỮA DÒNG ĐỜI & TƯƠNG GIAO',
-    starClass: 'text-[#E5C158]/80',
+  life: {
+    key: 'life',
+    label: 'Giữa dòng đời',
+    glowClass: 'bg-teal-400/10',
+    starClass: 'text-teal-300/85',
     pills: [
-      { id: 'mat-phuong-huong', title: 'Mất phương hướng', jsonKey: 'Mất phương hướng' },
-      { id: 'cong-viec', title: 'Công việc', jsonKey: 'Công việc' },
-      { id: 'tai-chinh', title: 'Tài chính', jsonKey: 'Tài chính' },
-      { id: 'tha-thu', title: 'Tha thứ', jsonKey: 'Tha thứ' },
-      { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', jsonKey: 'Tình yêu / hôn nhân' },
+      { id: 'mat-phuong-huong', title: 'Mất phương hướng', subtitle: 'Soi lối bước đi', jsonKey: 'Mất phương hướng' },
+      { id: 'cong-viec', title: 'Công việc', subtitle: 'Tận tâm phục vụ', jsonKey: 'Công việc' },
+      { id: 'tai-chinh', title: 'Tài chính', subtitle: 'Tin cậy Chúa tiếp trợ', jsonKey: 'Tài chính' },
+      { id: 'tha-thu', title: 'Tha thứ', subtitle: 'Nhẹ gánh thù hận', jsonKey: 'Tha thứ' },
+      { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', subtitle: 'Yêu thương bền chặt', jsonKey: 'Tình yêu / hôn nhân', colSpan: true },
     ],
   },
-  {
-    id: 've-chua',
-    title: 'HƯỚNG LÒNG VỀ CHÚA',
+  praise: {
+    key: 'praise',
+    label: 'Hướng về Chúa',
+    glowClass: 'bg-[#E5B84B]/15',
     starClass: 'text-[#FFF3B0] drop-shadow-[0_0_4px_rgba(229,184,75,0.6)]',
     pills: [
-      { id: 'biet-on', title: 'Biết ơn', jsonKey: 'Biết ơn' },
-      { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', jsonKey: 'Muốn gần Chúa hơn' },
-      { id: 'vui-mung', title: 'Vui mừng vì 1 chuyện gì đó', jsonKey: 'Vui mừng vì chuyện gì đó' },
+      { id: 'biet-on', title: 'Biết ơn', subtitle: 'Đếm các ơn lành', jsonKey: 'Biết ơn' },
+      { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', subtitle: 'Tương giao sâu nhiệm', jsonKey: 'Muốn gần Chúa hơn' },
+      { id: 'vui-mung', title: 'Vui mừng vì 1 chuyện gì đó', subtitle: 'Ca ngợi Danh Ngài', jsonKey: 'Vui mừng vì chuyện gì đó', colSpan: true },
     ],
   },
-]
+}
 
 /* ================== COMPONENT ================== */
 
@@ -272,6 +280,7 @@ export default function DevotionClient({
   const [activeView, setActiveView] = useState<'home' | 'daily' | 'topic'>('home')
   const [selectedTopic, setSelectedTopic] = useState<TopicConfig | null>(null)
   const [topicArticleIndex, setTopicArticleIndex] = useState(0)
+  const [activeMoodTab, setActiveMoodTab] = useState<MoodTabKey>('comfort')
 
   // Data states
   const [dailyLessons, setDailyLessons] = useState<DailyLessonItem[]>([])
@@ -868,7 +877,18 @@ export default function DevotionClient({
       {activeView === 'home' && (
         <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3 space-y-3.5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
           {/* HẠNG MỤC A: Vầng sáng Bình Minh phía sau Hero Card */}
-          <div className="pointer-events-none absolute top-24 left-1/2 -translate-x-1/2 w-[360px] h-[200px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[70px]" />
+          <div className="pointer-events-none absolute top-20 left-1/2 -translate-x-1/2 w-[360px] h-[180px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[70px]" />
+
+          {/* Hào quang nền đổi màu theo Tab cảm xúc đang chọn */}
+          <div
+            className={`pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 w-[380px] h-[260px] rounded-full blur-[85px] transition-colors duration-700 ${
+              activeMoodTab === 'comfort'
+                ? 'bg-amber-500/10'
+                : activeMoodTab === 'life'
+                ? 'bg-teal-400/10'
+                : 'bg-[#E5B84B]/15'
+            }`}
+          />
 
           {/* SECTION A: Tiêu đề chính font Serif */}
           <section className="relative z-10">
@@ -877,7 +897,7 @@ export default function DevotionClient({
             </h2>
           </section>
 
-          {/* SECTION B: Nâng cấp Hero Card "Tôi muốn bắt đầu ngày mới" */}
+          {/* SECTION B: ĐỘT PHÁ 1 — Khung cửa sổ phong cảnh sống động (Vivid Scenic Card) */}
           <section className="relative z-10">
             <button
               type="button"
@@ -885,97 +905,135 @@ export default function DevotionClient({
                 window.history.pushState({ vowSubPage: 'daily' }, '')
                 setActiveView('daily')
               }}
-              className="group relative overflow-hidden rounded-2xl p-4 sm:p-5 border border-[#D4AF37]/45 shadow-[0_12px_35px_-8px_rgba(212,175,55,0.22)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
+              className="group min-h-[155px] sm:min-h-[170px] flex flex-col justify-between p-5 rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_15px_40px_-10px_rgba(212,175,55,0.28)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
             >
-              {/* Lớp 1: Nền Phong Cảnh Theo Ngày Mờ Ảo & Gradient tối ấm */}
+              {/* Ảnh Phong Cảnh Có Màu Sắc Thật (wallpapers/w1.jpg .. w16.jpg) */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={wallpaperSrc}
                 alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-luminosity scale-105 group-hover:scale-100 transition-transform duration-700"
+                className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-75 scale-105 transition-transform duration-1000"
               />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0F0C08]/95 via-[#17130C]/85 to-[#1F180E]/70" />
 
-              {/* Lớp 2: Đường sáng lấp lánh cạnh trên & Họa tiết Mặt Trời Mọc (Sunburst rays SVG) */}
-              <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#F3E5AB]/80 to-transparent" />
-              <svg
-                viewBox="0 0 160 160"
-                className="pointer-events-none absolute -right-6 -top-6 w-44 h-44 text-[#D4AF37] opacity-[0.14]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                aria-hidden="true"
-              >
-                <circle cx="100" cy="60" r="18" strokeDasharray="3 3" />
-                <circle cx="100" cy="60" r="32" strokeDasharray="2 4" />
-                {Array.from({ length: 16 }).map((_, i) => {
-                  const angle = (i * 360) / 16
-                  const rad = (angle * Math.PI) / 180
-                  const x1 = 100 + 36 * Math.cos(rad)
-                  const y1 = 60 + 36 * Math.sin(rad)
-                  const x2 = 100 + 75 * Math.cos(rad)
-                  const y2 = 60 + 75 * Math.sin(rad)
-                  return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeLinecap="round" />
-                })}
-              </svg>
+              {/* Lớp Gradient nghệ thuật: trong suốt góc trên-phải, đậm dần về phía góc dưới-trái */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#090806] via-[#090806]/65 to-transparent" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#090806]/80 via-[#090806]/30 to-transparent" />
 
-              {/* Lớp 3: Nội dung & Badge Hé lộ Câu Gốc Hôm Nay */}
-              <div className="relative z-10 flex items-center justify-between gap-3">
+              {/* Đường sáng lấp lánh cạnh trên của thẻ */}
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#F3E5AB]/80 to-transparent" />
+
+              {/* Góc trên trái: Badge Kính mờ nổi trên nền ảnh */}
+              <div className="relative z-10 inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-[#F3E5AB]/35 text-[10px] uppercase tracking-[0.18em] text-[#FFF3B0] font-medium">
+                <span>✦</span>
+                <span>LỜI CHÚA HÔM NAY {todayVerseAddress ? `· ${todayVerseAddress}` : ''}</span>
+              </div>
+
+              {/* Góc dưới: Tiêu đề lớn + Nút tròn phát sáng */}
+              <div className="relative z-10 flex items-end justify-between gap-3 mt-4">
                 <div className="flex-1 min-w-0 pr-2">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[10px] uppercase tracking-[0.18em] text-[#F3E5AB] mb-2 font-medium">
-                    <span className="text-[#E5B84B]">✦</span>
-                    <span className="truncate">LỜI CHÚA HÔM NAY {todayVerseAddress ? `· ${todayVerseAddress}` : ''}</span>
-                  </div>
-                  <h3 className="font-serif text-[19px] sm:text-[21px] font-medium text-[#FFF8E7] tracking-wide drop-shadow-sm leading-snug">
+                  <h3 className="font-serif text-[21px] sm:text-[22px] font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] leading-tight tracking-wide">
                     Tôi muốn bắt đầu ngày mới
                   </h3>
-                  <p className="text-xs text-[#E5B84B]/85 mt-1 font-normal tracking-wide">
+                  <p className="text-xs text-[#F3E5AB]/90 mt-1 drop-shadow tracking-wide">
                     Một câu gốc  ·  Một suy gẫm  ·  Một ngày mới
                   </p>
                 </div>
 
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E5B84B]/30 to-[#D4AF37]/10 border border-[#F3E5AB]/50 shadow-[0_0_18px_rgba(229,184,75,0.25)] flex items-center justify-center text-[#FFF8E7] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
+                <div className="w-11 h-11 rounded-full bg-[#D4AF37]/30 backdrop-blur-md border border-[#FFF3B0]/60 shadow-[0_0_20px_rgba(229,184,75,0.4)] flex items-center justify-center text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
                   <ArrowRightIcon className="h-4 w-4" />
                 </div>
               </div>
             </button>
           </section>
 
-          {/* SECTION C: 3 Nhóm Cảm Xúc × Flowing Pills Cân Đối 2 Bên */}
-          <section className="relative z-10 space-y-3.5">
-            {MOOD_GROUPS.map((group) => (
-              <div key={group.id} className="space-y-2">
-                {/* Tiêu đề nhóm với biểu tượng kim cương mảnh và đường kẻ mờ kéo dài sang phải */}
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="text-[10px] uppercase tracking-[0.22em] text-[#E5B84B]/80 font-medium shrink-0">
-                    {group.title}
-                  </span>
-                  <div className="flex items-center flex-1">
-                    <span className="text-[8px] text-[#D4AF37]/40 mr-1.5">❖</span>
-                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#D4AF37]/25 to-transparent" />
-                  </div>
-                </div>
+          {/* SECTION C: ĐỘT PHÁ 2 — Thanh Chuyển Tâm Trạng & Lưới Bento Sống Động */}
+          <section className="relative z-10 space-y-3">
+            {/* Thanh Chuyển 3 Nhóm Cảm Xúc (Segmented Glass Pill Bar) */}
+            <div
+              className={`grid grid-cols-3 gap-1 p-1 rounded-2xl border backdrop-blur-md ${
+                lightMode
+                  ? 'bg-black/[0.04] border-black/[0.08]'
+                  : 'bg-white/[0.04] border-white/[0.08]'
+              }`}
+            >
+              {(
+                [
+                  { key: 'comfort', label: 'Khi trĩu nặng' },
+                  { key: 'life', label: 'Giữa dòng đời' },
+                  { key: 'praise', label: 'Hướng về Chúa' },
+                ] as const
+              ).map((tab) => {
+                const isActive = activeMoodTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveMoodTab(tab.key)}
+                    className={`py-2 px-1 text-center rounded-xl text-xs sm:text-[13px] tracking-wide transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? 'bg-gradient-to-b from-[#D4AF37]/25 to-[#D4AF37]/10 border border-[#D4AF37]/45 text-[#FFF3B0] shadow-[0_2px_12px_rgba(212,175,55,0.2)] font-medium'
+                        : lightMode
+                        ? 'text-neutral-600 hover:text-black font-normal border border-transparent'
+                        : 'text-zinc-400 hover:text-zinc-200 font-normal border border-transparent'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
 
-                {/* Danh sách Pill tự dàn đều cân đối 2 bên với chất liệu kính mờ 3D */}
-                <div className="flex flex-wrap gap-2">
-                  {group.pills.map((pill) => (
-                    <button
-                      key={pill.id}
-                      type="button"
-                      onClick={() => handleSelectTopic(pill)}
-                      className={`flex-1 min-w-fit inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full border border-t-white/[0.18] shadow-[0_4px_12px_rgba(0,0,0,0.35)] active:scale-[0.97] transition-all duration-200 text-[13px] font-normal whitespace-nowrap cursor-pointer ${
-                        lightMode
-                          ? 'bg-gradient-to-b from-stone-100 to-stone-50 hover:from-[#D4AF37]/20 hover:to-[#D4AF37]/5 border-stone-200 hover:border-[#D4AF37]/50 text-stone-800'
-                          : 'bg-gradient-to-b from-white/[0.075] to-white/[0.02] hover:from-[#D4AF37]/[0.2] hover:to-[#D4AF37]/[0.05] border-white/[0.07] hover:border-[#D4AF37]/50 text-zinc-100'
-                      }`}
-                    >
-                      <span className={`text-[10px] shrink-0 ${group.starClass}`}>✦</span>
-                      <span className="font-serif leading-none tracking-wide">{pill.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+            {/* Lưới Bento Cards cho Tab đang chọn */}
+            <div
+              key={activeMoodTab}
+              className="grid grid-cols-2 gap-2.5 animate-in fade-in slide-in-from-bottom-1 duration-200"
+            >
+              {MOOD_TABS[activeMoodTab].pills.map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => handleSelectTopic(pill)}
+                  className={`${
+                    pill.colSpan ? 'col-span-2' : 'col-span-1'
+                  } group relative p-3.5 sm:p-4 rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-lg active:scale-[0.98] transition-all duration-200 cursor-pointer text-left backdrop-blur-md overflow-hidden ${
+                    lightMode
+                      ? 'bg-gradient-to-br from-white/95 via-white/80 to-amber-50/40 border-stone-200/80'
+                      : 'bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent border-white/[0.1]'
+                  }`}
+                >
+                  {/* Subtle golden hover wash */}
+                  <div className="pointer-events-none absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/[0.05] transition-colors duration-200" />
+
+                  <div className="relative z-10 flex flex-col justify-between h-full">
+                    <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                      <span className={`text-[11px] ${MOOD_TABS[activeMoodTab].starClass}`}>✦</span>
+                      {pill.colSpan && (
+                        <span className="text-[10px] uppercase tracking-wider text-[#D4AF37]/75 font-sans font-medium">
+                          Tương giao sâu lắng
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h4
+                        className={`font-serif text-[15px] sm:text-[16px] font-medium tracking-wide leading-snug group-hover:text-[#FFF3B0] transition-colors ${
+                          lightMode ? 'text-neutral-900' : 'text-white'
+                        }`}
+                      >
+                        {pill.title}
+                      </h4>
+                      <p
+                        className={`text-[11px] mt-0.5 font-light tracking-wide truncate ${
+                          lightMode ? 'text-neutral-500' : 'text-zinc-400'
+                        }`}
+                      >
+                        {pill.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </section>
 
           {/* SECTION D: Subtle Closing Quote */}
