@@ -195,7 +195,15 @@ function QuoteWatermark({ className = '' }: { className?: string }) {
   )
 }
 
-/* ================== 14 TOPICS ================== */
+function ArrowRightIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/* ================== 3 NHÓM CẢM XÚC × 14 FLOWING PILLS ================== */
 
 interface TopicConfig {
   id: string
@@ -203,21 +211,49 @@ interface TopicConfig {
   jsonKey: string
 }
 
-const TOPICS: TopicConfig[] = [
-  { id: 'lo-lang', title: 'Lo lắng', jsonKey: 'Lo lắng' },
-  { id: 'co-don', title: 'Cô đơn', jsonKey: 'Cô đơn' },
-  { id: 'that-vong', title: 'Thất vọng', jsonKey: 'Thất vọng' },
-  { id: 'mat-phuong-huong', title: 'Mất phương hướng', jsonKey: 'Mất phương hướng' },
-  { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', jsonKey: 'Tình yêu / hôn nhân' },
-  { id: 'cong-viec', title: 'Công việc', jsonKey: 'Công việc' },
-  { id: 'tai-chinh', title: 'Tài chính', jsonKey: 'Tài chính' },
-  { id: 'tha-thu', title: 'Tha thứ', jsonKey: 'Tha thứ' },
-  { id: 'so-hai', title: 'Sợ hãi', jsonKey: 'Sợ hãi' },
-  { id: 'dau-buon', title: 'Đau buồn', jsonKey: 'Đau buồn' },
-  { id: 'met-moi', title: 'Mệt mỏi, kiệt sức', jsonKey: 'Mệt mỏi, kiệt sức' },
-  { id: 'biet-on', title: 'Biết ơn', jsonKey: 'Biết ơn' },
-  { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', jsonKey: 'Muốn gần Chúa hơn' },
-  { id: 'vui-mung', title: 'Vui mừng vì 1 chuyện gì đó', jsonKey: 'Vui mừng vì chuyện gì đó' },
+interface MoodGroup {
+  id: string
+  title: string
+  dotClass: string
+  pills: TopicConfig[]
+}
+
+const MOOD_GROUPS: MoodGroup[] = [
+  {
+    id: 'triu-nang',
+    title: 'KHI LÒNG TRĨU NẶNG',
+    dotClass: 'bg-amber-400/60',
+    pills: [
+      { id: 'lo-lang', title: 'Lo lắng', jsonKey: 'Lo lắng' },
+      { id: 'co-don', title: 'Cô đơn', jsonKey: 'Cô đơn' },
+      { id: 'that-vong', title: 'Thất vọng', jsonKey: 'Thất vọng' },
+      { id: 'so-hai', title: 'Sợ hãi', jsonKey: 'Sợ hãi' },
+      { id: 'dau-buon', title: 'Đau buồn', jsonKey: 'Đau buồn' },
+      { id: 'met-moi', title: 'Mệt mỏi, kiệt sức', jsonKey: 'Mệt mỏi, kiệt sức' },
+    ],
+  },
+  {
+    id: 'dong-doi',
+    title: 'GIỮA DÒNG ĐỜI',
+    dotClass: 'bg-stone-300/60',
+    pills: [
+      { id: 'mat-phuong-huong', title: 'Mất phương hướng', jsonKey: 'Mất phương hướng' },
+      { id: 'cong-viec', title: 'Công việc', jsonKey: 'Công việc' },
+      { id: 'tai-chinh', title: 'Tài chính', jsonKey: 'Tài chính' },
+      { id: 'tha-thu', title: 'Tha thứ', jsonKey: 'Tha thứ' },
+      { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', jsonKey: 'Tình yêu / hôn nhân' },
+    ],
+  },
+  {
+    id: 've-chua',
+    title: 'HƯỚNG LÒNG VỀ CHÚA',
+    dotClass: 'bg-[#E5B84B] shadow-[0_0_6px_#E5B84B]',
+    pills: [
+      { id: 'biet-on', title: 'Biết ơn', jsonKey: 'Biết ơn' },
+      { id: 'muon-gan-chua', title: 'Muốn gần Chúa hơn', jsonKey: 'Muốn gần Chúa hơn' },
+      { id: 'vui-mung', title: 'Vui mừng vì 1 chuyện gì đó', jsonKey: 'Vui mừng vì chuyện gì đó' },
+    ],
+  },
 ]
 
 /* ================== COMPONENT ================== */
@@ -701,7 +737,7 @@ export default function DevotionClient({
       )}
 
       {/* ================== FIXED TOP HEADER (4 ROWS) ================== */}
-      <header className="relative shrink-0 border-b border-[rgba(232,208,141,0.12)] px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
+      <header className="relative shrink-0 border-b border-black/[0.06] dark:border-white/[0.06] px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
         {/* Row 1: Logo & 4 Quick Actions */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -812,87 +848,84 @@ export default function DevotionClient({
 
       {/* ================== MAIN CONTENT: TAB HOME ================== */}
       {activeView === 'home' && (
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3.5">
-          {/* SECTION A: Title & Description */}
-          <section className="mb-3.5">
-            <h2 className="font-serif text-2xl sm:text-3xl font-semibold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-[#FFF4D4] via-[#E8D08D] to-[#C49A45]">
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3 space-y-3.5">
+          {/* SECTION A: Tiêu đề chính font Serif */}
+          <section>
+            <h2 className="text-[22px] sm:text-2xl font-serif text-[#F3E5AB] tracking-wide font-medium">
               Hôm nay, lòng bạn thế nào?
             </h2>
-            <p className={`mt-0.5 text-xs sm:text-sm font-light italic leading-relaxed ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
-              “Bạn đang cần điều gì hôm nay?”
-            </p>
           </section>
 
-          {/* SECTION B: Lựa chọn 1 (Bắt đầu ngày mới - Chỉ đúng 2 dòng chữ) */}
-          <section className="mb-5">
+          {/* SECTION B: Nâng cấp Hero Card "Tôi muốn bắt đầu ngày mới" */}
+          <section>
             <button
               type="button"
               onClick={() => {
                 window.history.pushState({ vowSubPage: 'daily' }, '')
                 setActiveView('daily')
               }}
-              className="group relative w-full overflow-hidden rounded-[1.6rem] border border-[rgba(232,208,141,0.45)] bg-gradient-to-br from-[rgba(232,208,141,0.12)] via-[rgba(255,255,255,0.03)] to-[rgba(20,20,24,0.7)] p-4 sm:p-5 text-left backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.3)] transition-all duration-200 hover:border-[#E8D08D] active:scale-[0.98]"
+              className="w-full rounded-2xl p-4 bg-gradient-to-r from-[#1A150E] via-[#14110C] to-[#211A10] border border-[#D4AF37]/35 shadow-[0_8px_30px_rgba(212,175,55,0.07)] hover:border-[#D4AF37]/60 active:scale-[0.99] transition-all duration-200 text-left cursor-pointer"
             >
-              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#E8D08D]/15 blur-xl transition-opacity group-hover:opacity-100" />
-              <h3 className={`font-serif text-lg sm:text-xl font-bold tracking-wide ${lightMode ? 'text-neutral-900' : 'text-[#F0F0F0]'}`}>
-                Tôi muốn bắt đầu ngày mới
-              </h3>
-              <p className={`mt-1 text-xs sm:text-sm font-light leading-relaxed ${lightMode ? 'text-neutral-600' : 'text-[#D0D0D5]'}`}>
-                Một câu gốc - Một suy gẫm - Một ngày mới
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="border-l-2 border-[#D4AF37]/70 pl-3.5">
+                  <h3 className="font-serif text-[18px] sm:text-[19px] font-medium text-white tracking-wide">
+                    Tôi muốn bắt đầu ngày mới
+                  </h3>
+                  <p className="text-xs text-[#E5B84B]/80 mt-1 font-light tracking-wide">
+                    Một câu gốc  ·  Một suy gẫm  ·  Một ngày mới
+                  </p>
+                </div>
+
+                <div className="w-9 h-9 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#E5B84B] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
+                  <ArrowRightIcon className="h-4 w-4" />
+                </div>
+              </div>
             </button>
           </section>
 
-          {/* SECTION C: Lựa chọn 2 (Tâm trạng và hoàn cảnh - 14 Ô nhỏ gọn, không icon) */}
-          <section className="mb-4">
-            <div className="mb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.25)] to-transparent" />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#E8D08D]">
-                  Tâm trạng và hoàn cảnh
-                </span>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.25)] to-transparent" />
-              </div>
-              <h3 className="mt-1.5 font-serif text-base sm:text-lg font-semibold tracking-wide">
-                Hay bạn đang trải qua điều gì?
-              </h3>
-              <p className={`mt-0.5 text-[11px] sm:text-xs font-light ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
-                Chọn điều gần nhất với tâm trạng hoặc hoàn cảnh của bạn.
-              </p>
-            </div>
-
-            {/* 14 COMPACT TOPIC BUTTONS: 2 COLUMNS, NO ICONS */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-              {TOPICS.map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => handleSelectTopic(topic)}
-                  className={`group flex items-center justify-center rounded-xl border px-3 py-2.5 text-center backdrop-blur-md transition-all duration-200 hover:border-[rgba(232,208,141,0.5)] active:scale-[0.98] min-h-[44px] ${
-                    lightMode
-                      ? 'border-neutral-200 bg-white/80 hover:bg-white shadow-sm'
-                      : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.025)] hover:bg-[rgba(232,208,141,0.08)] shadow-[0_2px_10px_rgba(0,0,0,0.3)]'
-                  }`}
-                >
-                  <span className={`font-serif text-xs sm:text-[13px] font-medium leading-snug tracking-wide transition-colors ${
-                    lightMode ? 'text-neutral-800 group-hover:text-black' : 'text-[#F0F0F0] group-hover:text-[#E8D08D]'
-                  }`}>
-                    {topic.title}
+          {/* SECTION C: 3 Nhóm Cảm Xúc × Flowing Pills */}
+          <section className="space-y-3.5">
+            {MOOD_GROUPS.map((group) => (
+              <div key={group.id} className="space-y-2">
+                {/* Tiêu đề nhóm với đường kẻ mờ kéo dài sang phải */}
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#D4AF37]/75 font-medium shrink-0">
+                    {group.title}
                   </span>
-                </button>
-              ))}
-            </div>
+                  <div className="h-[1px] flex-1 bg-gradient-to-r from-[#D4AF37]/20 to-transparent" />
+                </div>
+
+                {/* Danh sách Pill bo tròn tự co giãn theo độ dài chữ */}
+                <div className="flex flex-wrap gap-2">
+                  {group.pills.map((pill) => (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => handleSelectTopic(pill)}
+                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full border active:scale-[0.97] transition-all duration-200 text-[13px] whitespace-nowrap cursor-pointer ${
+                        lightMode
+                          ? 'bg-black/[0.035] hover:bg-[#D4AF37]/15 border-black/10 hover:border-[#D4AF37]/50 text-stone-800 hover:text-black'
+                          : 'bg-white/[0.035] hover:bg-[#D4AF37]/[0.1] border-white/[0.08] hover:border-[#D4AF37]/40 text-zinc-200 hover:text-white'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${group.dotClass}`} />
+                      <span className="font-serif leading-none tracking-wide">{pill.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </section>
 
           {/* SECTION D: Subtle Closing Quote */}
-          <section className="my-5 text-center px-4">
-            <div className="mx-auto mb-2.5 h-px w-20 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
-            <p className={`font-serif text-xs sm:text-[13px] italic leading-relaxed tracking-wide ${
+          <section className="pt-2 pb-1 text-center px-4">
+            <div className="mx-auto mb-2 h-px w-16 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
+            <p className={`font-serif text-xs italic leading-relaxed tracking-wide ${
               lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'
             }`}>
               “Bạn không cần phải ổn mới có thể đến với Chúa. Hãy bắt đầu từ chính nơi bạn đang đứng.”
             </p>
-            <div className="mx-auto mt-2.5 h-px w-20 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
+            <div className="mx-auto mt-2 h-px w-16 bg-gradient-to-r from-transparent via-[rgba(232,208,141,0.4)] to-transparent" />
           </section>
         </main>
       )}
