@@ -30,12 +30,6 @@ interface TopicArticle {
   noi_dung: string
 }
 
-interface FriendItem {
-  conversationId: string
-  name: string
-  avatarUrl: string | null
-}
-
 const DAY_NAMES = ['CHỦ NHẬT', 'THỨ HAI', 'THỨ BA', 'THỨ TƯ', 'THỨ NĂM', 'THỨ SÁU', 'THỨ BẢY']
 const WEEK_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 const MUSIC_STORAGE_KEY = 'fc_music_on'
@@ -248,7 +242,7 @@ export const MOOD_TABS: Record<MoodTabKey, MoodTabConfig> = {
       { id: 'cong-viec', title: 'Công việc', subtitle: 'Tận tâm phục vụ', jsonKey: 'Công việc' },
       { id: 'tai-chinh', title: 'Tài chính', subtitle: 'Tin cậy Chúa tiếp trợ', jsonKey: 'Tài chính' },
       { id: 'tha-thu', title: 'Tha thứ', subtitle: 'Nhẹ gánh thù hận', jsonKey: 'Tha thứ' },
-      { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', subtitle: 'Yêu thương bền chặt', jsonKey: 'Tình yêu / hôn nhân', colSpan: true },
+      { id: 'tinh-yeu', title: 'Tình yêu & các mối quan hệ', subtitle: 'Yêu thương bền chặt', jsonKey: 'Tình yêu & các mối quan hệ', colSpan: true },
     ],
   },
   praise: {
@@ -293,13 +287,8 @@ export default function DevotionClient({
   // Modals & settings
   const [showWallpaperModal, setShowWallpaperModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Friends for in-app sharing
-  const [friendList, setFriendList] = useState<FriendItem[]>([])
-  const [loadingFriends, setLoadingFriends] = useState(false)
-  const [sendingFriendId, setSendingFriendId] = useState<string | null>(null)
 
   // Music state
   const [musicOn, setMusicOn] = useState<boolean>(() => {
@@ -568,34 +557,43 @@ export default function DevotionClient({
     return ''
   })()
 
-  // Helper for topic articles
+  // Helper for topic articles (robust 14 topic mapping)
   const getTopicArticles = useCallback((topic: TopicConfig): TopicArticle[] => {
     if (!topicData) return []
 
+    // 1. Direct match with jsonKey
     if (topicData[topic.jsonKey] && topicData[topic.jsonKey].length > 0) {
       return topicData[topic.jsonKey]
     }
 
-    if (topic.id === 'met-moi') {
-      const targetVerses = ['Ma-thi-ơ 11:28', 'Ê-sai 40:31', 'Thi thiên 23:2-3', 'Thi thiên 127:2', 'Thi thiên 62:1', 'Thi thiên 55:22']
-      const collected: TopicArticle[] = []
-      Object.values(topicData).forEach((list) => {
-        list.forEach((art) => {
-          if (targetVerses.some((v) => art.dia_chi.includes(v)) && !collected.some((c) => c.dia_chi === art.dia_chi)) {
-            collected.push(art)
-          }
-        })
-      })
-      if (collected.length > 0) return collected
-      return topicData['Lo lắng'] || []
+    // 2. Direct match with topic.title
+    if (topicData[topic.title] && topicData[topic.title].length > 0) {
+      return topicData[topic.title]
     }
 
-    if (topic.id === 'biet-on') {
-      const vuiMungList = topicData['Vui mừng vì chuyện gì đó'] || []
-      const targetVerses = ['1 Tê-sa-lô-ni-ca 5:16-18', 'Thi thiên 103:2', 'Gia-cơ 1:17', 'Thi thiên 100:1-2', 'Thi thiên 9:1-2', '1 Cô-rinh-tô 4:7', 'Thi thiên 118:24']
-      const collected = vuiMungList.filter((art) => targetVerses.some((v) => art.dia_chi.includes(v)))
-      if (collected.length > 0) return collected
-      return vuiMungList
+    // 3. Robust alias mapping for all 14 topics
+    const aliasMap: Record<string, string[]> = {
+      'tinh-yeu': ['Tình yêu & các mối quan hệ', 'Tình yêu / hôn nhân'],
+      'vui-mung': ['Vui mừng vì chuyện gì đó', 'Vui mừng vì 1 chuyện gì đó'],
+      'met-moi': ['Mệt mỏi, kiệt sức', 'Mệt mỏi'],
+      'biet-on': ['Biết ơn'],
+      'muon-gan-chua': ['Muốn gần Chúa hơn'],
+      'tha-thu': ['Tha thứ'],
+      'tai-chinh': ['Tài chính'],
+      'cong-viec': ['Công việc'],
+      'mat-phuong-huong': ['Mất phương hướng'],
+      'that-vong': ['Thất vọng'],
+      'co-don': ['Cô đơn'],
+      'so-hai': ['Sợ hãi'],
+      'dau-buon': ['Đau buồn'],
+      'lo-lang': ['Lo lắng'],
+    }
+
+    const aliases = aliasMap[topic.id] || []
+    for (const key of aliases) {
+      if (topicData[key] && topicData[key].length > 0) {
+        return topicData[key]
+      }
     }
 
     return []
@@ -626,123 +624,56 @@ export default function DevotionClient({
     setTopicArticleIndex(nextIdx)
   }
 
-  // ================== SHARING HELPERS ==================
-  const loadFriendsForSharing = async () => {
-    if (friendList.length > 0) return
-    setLoadingFriends(true)
-    try {
-      // 1. Check cached conversations in sessionStorage
-      const cached = sessionStorage.getItem('vow_conversations_cache')
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const list: FriendItem[] = parsed.map((c: any) => ({
-              conversationId: c.conversationId || c.id,
-              name: c.partnerName || 'Bạn bè',
-              avatarUrl: c.partnerAvatar || null,
-            }))
-            setFriendList(list)
-            setLoadingFriends(false)
-            return
-          }
-        } catch {}
-      }
+  // ================== SHARING HELPER ==================
+  const handleShareVerse = async () => {
+    const rawText = currentDailyItem?.cau_goc || ''
+    const shareText = rawText.trim().startsWith('“') || rawText.trim().startsWith('"')
+      ? `${rawText.trim()}\n\n— Chia sẻ từ VOW`
+      : `“${rawText.trim()}”\n\n— Chia sẻ từ VOW`
 
-      // 2. Query Supabase conversation members
-      const { data: myConvs } = await supabase
-        .from('conversation_members')
-        .select('conversation_id')
-        .eq('user_id', userId)
-
-      const cids = (myConvs || []).map((c: any) => c.conversation_id)
-      if (cids.length > 0) {
-        const { data: others } = await supabase
-          .from('conversation_members')
-          .select(`
-            conversation_id,
-            user_id,
-            profiles:user_id (
-              id,
-              full_name,
-              username,
-              avatar_url
-            )
-          `)
-          .in('conversation_id', cids)
-          .neq('user_id', userId)
-
-        if (others && others.length > 0) {
-          const uniquePartners = new Map<string, FriendItem>()
-          others.forEach((o: any) => {
-            const p = o.profiles
-            const name = p?.full_name || p?.username || 'Bạn bè'
-            const uid = p?.id || o.user_id
-            if (!uniquePartners.has(uid)) {
-              uniquePartners.set(uid, {
-                conversationId: o.conversation_id,
-                name,
-                avatarUrl: p?.avatar_url || null,
-              })
-            }
-          })
-          setFriendList(Array.from(uniquePartners.values()))
-        }
-      }
-    } catch (err) {
-      console.error('Error loading friends for sharing:', err)
-    } finally {
-      setLoadingFriends(false)
-    }
-  }
-
-  const handleSendToFriend = async (friend: FriendItem) => {
-    setSendingFriendId(friend.conversationId)
-    const shareText = `"${currentDailyItem.cau_goc.trim()}"\n\nChia sẻ từ VOW`
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversation_id: friend.conversationId,
-          content: shareText,
-          idempotency_key: `share_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        }),
-      })
-      if (res.ok) {
-        setShowShareModal(false)
-        showToast(`Đã gửi cho ${friend.name}!`)
-      } else {
-        showToast('Không thể gửi. Vui lòng thử lại.')
-      }
-    } catch {
-      showToast('Lỗi kết nối khi gửi.')
-    } finally {
-      setSendingFriendId(null)
-    }
-  }
-
-  const handleShareExternal = async () => {
-    const shareText = `"${currentDailyItem.cau_goc.trim()}"\n\nChia sẻ từ VOW`
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    // 1. Native Web Share API (iOS Safari, Android Chrome, Mac Safari, etc.)
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
         await navigator.share({
           title: 'Lời Chúa hôm nay - VOW',
           text: shareText,
         })
-        setShowShareModal(false)
+        return
+      } catch (err: any) {
+        // User dismissed/aborted the share sheet — silent return
+        if (err?.name === 'AbortError') return
+      }
+    }
+
+    // 2. Fallback: Clipboard API
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(shareText)
+        showToast('Đã sao chép câu gốc')
         return
       } catch {}
     }
-    // Fallback: clipboard
+
+    // 3. Fallback: execCommand for older webviews
     try {
-      await navigator.clipboard.writeText(shareText)
-      setShowShareModal(false)
-      showToast('Đã sao chép câu gốc')
-    } catch {
-      showToast('Không thể sao chép')
-    }
+      const textarea = document.createElement('textarea')
+      textarea.value = shareText
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (ok) {
+        showToast('Đã sao chép câu gốc')
+        return
+      }
+    } catch {}
+
+    showToast('Không thể sao chép trên trình duyệt này')
   }
+
 
   return (
     <div
@@ -760,7 +691,7 @@ export default function DevotionClient({
       )}
 
       {/* ================== FIXED TOP HEADER (4 ROWS) ================== */}
-      <header className="relative shrink-0 border-b border-black/[0.06] dark:border-white/[0.06] px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
+      <header className="relative shrink-0 border-b border-black/[0.06] dark:border-white/[0.06] px-4 sm:px-5 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 backdrop-blur-xl">
         {/* Row 1: Logo & 4 Quick Actions */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -776,7 +707,7 @@ export default function DevotionClient({
               onClick={() => setMusicOn((prev) => !prev)}
               aria-label={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
               title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
                 lightMode
                   ? musicOn
                     ? 'border-[#D4AF37]/60 bg-amber-50 text-[#B38C3B] shadow-[0_0_12px_rgba(212,175,55,0.25)]'
@@ -799,7 +730,7 @@ export default function DevotionClient({
               onClick={toggleLightMode}
               aria-label={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
               title={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
                 lightMode
                   ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
@@ -818,7 +749,7 @@ export default function DevotionClient({
               onClick={() => setShowWallpaperModal(true)}
               aria-label="Tạo hình nền"
               title="Tạo hình nền"
-              className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
                 lightMode
                   ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
@@ -833,7 +764,7 @@ export default function DevotionClient({
               onClick={() => setShowSettingsModal(true)}
               aria-label="Cài đặt"
               title="Cài đặt"
-              className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
                 lightMode
                   ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
@@ -845,21 +776,21 @@ export default function DevotionClient({
         </div>
 
         {/* Row 2: Date in Gold uppercase & Streak flame pill */}
-        <div className="mt-2.5 flex items-center justify-between gap-3">
-          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#E8D08D]">
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          <p className="text-[10.5px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#E8D08D]">
             {headerDateStr}
           </p>
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] px-3 py-1 shadow-[0_0_12px_rgba(232,208,141,0.25)] backdrop-blur-md">
-            <FlameIcon className="h-3.5 w-3.5 text-[#E8D08D]" />
-            <span className="whitespace-nowrap text-xs font-semibold text-[#E8D08D] tracking-wide">
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] px-2.5 py-0.5 shadow-[0_0_10px_rgba(232,208,141,0.2)] backdrop-blur-md">
+            <FlameIcon className="h-3 w-3 text-[#E8D08D]" />
+            <span className="whitespace-nowrap text-[11px] font-semibold text-[#E8D08D] tracking-wide">
               {currentStreak} ngày
             </span>
           </div>
         </div>
 
         {/* Row 3: Personalized Greeting by time of day */}
-        <div className="mt-1">
-          <h1 className="font-serif text-lg sm:text-xl font-medium leading-snug tracking-normal truncate">
+        <div className="mt-0.5">
+          <h1 className="font-serif text-base sm:text-lg font-medium leading-snug tracking-normal truncate">
             Chào {getGreeting(now.getHours())}
             {userName ? `, ${userName}.` : '.'}
           </h1>
@@ -867,7 +798,7 @@ export default function DevotionClient({
 
         {/* Row 4: Fixed Motto */}
         <div className="mt-0.5">
-          <p className={`text-xs font-light leading-relaxed tracking-wide ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
+          <p className={`text-[11px] sm:text-xs font-light leading-relaxed tracking-wide ${lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'}`}>
             Tìm kiếm Chúa trước hết, mọi điều khác Ngài sẽ ban thêm.
           </p>
         </div>
@@ -875,13 +806,13 @@ export default function DevotionClient({
 
       {/* ================== MAIN CONTENT: TAB HOME ================== */}
       {activeView === 'home' && (
-        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-3 space-y-3.5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
+        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-2.5 space-y-2.5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
           {/* HẠNG MỤC A: Vầng sáng Bình Minh phía sau Hero Card */}
-          <div className="pointer-events-none absolute top-20 left-1/2 -translate-x-1/2 w-[360px] h-[180px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[70px]" />
+          <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 w-[340px] h-[160px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.15] via-[#E5B84B]/[0.06] to-transparent blur-[70px]" />
 
           {/* Hào quang nền đổi màu theo Tab cảm xúc đang chọn */}
           <div
-            className={`pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 w-[380px] h-[260px] rounded-full blur-[85px] transition-colors duration-700 ${
+            className={`pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 w-[360px] h-[240px] rounded-full blur-[85px] transition-colors duration-700 ${
               activeMoodTab === 'comfort'
                 ? 'bg-amber-500/10'
                 : activeMoodTab === 'life'
@@ -892,7 +823,7 @@ export default function DevotionClient({
 
           {/* SECTION A: Tiêu đề chính font Serif */}
           <section className="relative z-10">
-            <h2 className="text-[22px] sm:text-2xl font-serif text-[#F3E5AB] tracking-wide font-medium">
+            <h2 className="text-[17px] sm:text-[19px] font-serif text-[#F3E5AB] tracking-wide font-medium">
               Hôm nay, lòng bạn thế nào?
             </h2>
           </section>
@@ -905,7 +836,7 @@ export default function DevotionClient({
                 window.history.pushState({ vowSubPage: 'daily' }, '')
                 setActiveView('daily')
               }}
-              className="group min-h-[155px] sm:min-h-[170px] flex flex-col justify-between p-5 rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_15px_40px_-10px_rgba(212,175,55,0.28)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
+              className="group min-h-[125px] sm:min-h-[140px] flex flex-col justify-between p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_10px_30px_-10px_rgba(212,175,55,0.25)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
             >
               {/* Ảnh Phong Cảnh Có Màu Sắc Thật (wallpapers/w1.jpg .. w16.jpg) */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -923,34 +854,34 @@ export default function DevotionClient({
               <div className="pointer-events-none absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#F3E5AB]/80 to-transparent" />
 
               {/* Góc trên trái: Badge Kính mờ nổi trên nền ảnh */}
-              <div className="relative z-10 inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-[#F3E5AB]/35 text-[10px] uppercase tracking-[0.18em] text-[#FFF3B0] font-medium">
+              <div className="relative z-10 inline-flex items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-[#F3E5AB]/35 text-[9.5px] uppercase tracking-[0.16em] text-[#FFF3B0] font-medium">
                 <span>✦</span>
                 <span>LỜI CHÚA HÔM NAY {todayVerseAddress ? `· ${todayVerseAddress}` : ''}</span>
               </div>
 
               {/* Góc dưới: Tiêu đề lớn + Nút tròn phát sáng */}
-              <div className="relative z-10 flex items-end justify-between gap-3 mt-4">
-                <div className="flex-1 min-w-0 pr-2">
-                  <h3 className="font-serif text-[21px] sm:text-[22px] font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] leading-tight tracking-wide">
+              <div className="relative z-10 flex items-end justify-between gap-2.5 mt-2.5">
+                <div className="flex-1 min-w-0 pr-1">
+                  <h3 className="font-serif text-[15px] xs:text-[16px] sm:text-[18px] font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] leading-tight tracking-wide whitespace-nowrap">
                     Tôi muốn bắt đầu ngày mới
                   </h3>
-                  <p className="text-xs text-[#F3E5AB]/90 mt-1 drop-shadow tracking-wide">
+                  <p className="text-[11px] sm:text-xs text-[#F3E5AB]/90 mt-0.5 drop-shadow tracking-wide truncate">
                     Một câu gốc  ·  Một suy gẫm  ·  Một ngày mới
                   </p>
                 </div>
 
-                <div className="w-11 h-11 rounded-full bg-[#D4AF37]/30 backdrop-blur-md border border-[#FFF3B0]/60 shadow-[0_0_20px_rgba(229,184,75,0.4)] flex items-center justify-center text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
-                  <ArrowRightIcon className="h-4 w-4" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#D4AF37]/30 backdrop-blur-md border border-[#FFF3B0]/60 shadow-[0_0_16px_rgba(229,184,75,0.4)] flex items-center justify-center text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5">
+                  <ArrowRightIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </div>
               </div>
             </button>
           </section>
 
           {/* SECTION C: ĐỘT PHÁ 2 — Thanh Chuyển Tâm Trạng & Lưới Bento Sống Động */}
-          <section className="relative z-10 space-y-3">
+          <section className="relative z-10 space-y-2">
             {/* Thanh Chuyển 3 Nhóm Cảm Xúc (Segmented Glass Pill Bar) */}
             <div
-              className={`grid grid-cols-3 gap-1 p-1 rounded-2xl border backdrop-blur-md ${
+              className={`grid grid-cols-3 gap-1 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border backdrop-blur-md ${
                 lightMode
                   ? 'bg-black/[0.04] border-black/[0.08]'
                   : 'bg-white/[0.04] border-white/[0.08]'
@@ -969,9 +900,9 @@ export default function DevotionClient({
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveMoodTab(tab.key)}
-                    className={`py-2 px-1 text-center rounded-xl text-xs sm:text-[13px] tracking-wide transition-all duration-200 cursor-pointer ${
+                    className={`py-1.5 px-1 text-center rounded-lg sm:rounded-xl text-[11.5px] sm:text-[12.5px] tracking-wide transition-all duration-200 cursor-pointer ${
                       isActive
-                        ? 'bg-gradient-to-b from-[#D4AF37]/25 to-[#D4AF37]/10 border border-[#D4AF37]/45 text-[#FFF3B0] shadow-[0_2px_12px_rgba(212,175,55,0.2)] font-medium'
+                        ? 'bg-gradient-to-b from-[#D4AF37]/25 to-[#D4AF37]/10 border border-[#D4AF37]/45 text-[#FFF3B0] shadow-[0_2px_10px_rgba(212,175,55,0.2)] font-medium'
                         : lightMode
                         ? 'text-neutral-600 hover:text-black font-normal border border-transparent'
                         : 'text-zinc-400 hover:text-zinc-200 font-normal border border-transparent'
@@ -986,7 +917,7 @@ export default function DevotionClient({
             {/* Lưới Bento Cards cho Tab đang chọn */}
             <div
               key={activeMoodTab}
-              className="grid grid-cols-2 gap-2.5 animate-in fade-in slide-in-from-bottom-1 duration-200"
+              className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200"
             >
               {MOOD_TABS[activeMoodTab].pills.map((pill) => (
                 <button
@@ -995,7 +926,7 @@ export default function DevotionClient({
                   onClick={() => handleSelectTopic(pill)}
                   className={`${
                     pill.colSpan ? 'col-span-2' : 'col-span-1'
-                  } group relative p-3.5 sm:p-4 rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-lg active:scale-[0.98] transition-all duration-200 cursor-pointer text-left backdrop-blur-md overflow-hidden ${
+                  } group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer text-left backdrop-blur-md overflow-hidden ${
                     lightMode
                       ? 'bg-gradient-to-br from-white/95 via-white/80 to-amber-50/40 border-stone-200/80'
                       : 'bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent border-white/[0.1]'
@@ -1005,10 +936,10 @@ export default function DevotionClient({
                   <div className="pointer-events-none absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/[0.05] transition-colors duration-200" />
 
                   <div className="relative z-10 flex flex-col justify-between h-full">
-                    <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                      <span className={`text-[11px] ${MOOD_TABS[activeMoodTab].starClass}`}>✦</span>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className={`text-[10px] ${MOOD_TABS[activeMoodTab].starClass}`}>✦</span>
                       {pill.colSpan && (
-                        <span className="text-[10px] uppercase tracking-wider text-[#D4AF37]/75 font-sans font-medium">
+                        <span className="text-[9.5px] uppercase tracking-wider text-[#D4AF37]/75 font-sans font-medium">
                           Tương giao sâu lắng
                         </span>
                       )}
@@ -1016,14 +947,14 @@ export default function DevotionClient({
 
                     <div>
                       <h4
-                        className={`font-serif text-[15px] sm:text-[16px] font-medium tracking-wide leading-snug group-hover:text-[#FFF3B0] transition-colors ${
+                        className={`font-serif text-[13.5px] sm:text-[14.5px] font-medium tracking-wide leading-tight group-hover:text-[#FFF3B0] transition-colors ${
                           lightMode ? 'text-neutral-900' : 'text-white'
                         }`}
                       >
                         {pill.title}
                       </h4>
                       <p
-                        className={`text-[11px] mt-0.5 font-light tracking-wide truncate ${
+                        className={`text-[10.5px] sm:text-[11px] mt-0.5 font-light tracking-wide truncate ${
                           lightMode ? 'text-neutral-500' : 'text-zinc-400'
                         }`}
                       >
@@ -1037,12 +968,12 @@ export default function DevotionClient({
           </section>
 
           {/* SECTION D: Subtle Closing Quote */}
-          <section className="relative z-10 pt-2 pb-1 text-center px-4">
-            <div className="text-center text-[10px] tracking-[0.3em] text-[#D4AF37]/40 mb-1">─── ✦ ───</div>
-            <p className={`font-serif text-xs italic leading-relaxed tracking-wide ${
+          <section className="relative z-10 pt-1 pb-0.5 text-center px-3">
+            <div className="text-center text-[9px] tracking-[0.3em] text-[#D4AF37]/40 mb-0.5">─── ✦ ───</div>
+            <p className={`font-serif text-[11.5px] sm:text-xs italic leading-snug tracking-wide ${
               lightMode ? 'text-neutral-600' : 'text-[#A0A0A5]'
             }`}>
-              “Bạn không cần phải ổn mới có thể đến với Chúa. Hãy bắt đầu từ chính nơi bạn đang đứng.”
+              “Bạn không cần phải ổn mới có thể đến với Chúa.”
             </p>
           </section>
         </main>
@@ -1067,14 +998,12 @@ export default function DevotionClient({
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  loadFriendsForSharing()
-                  setShowShareModal(true)
-                }}
-                className="flex items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.1)] px-3 py-1 text-xs font-semibold text-[#E8D08D] backdrop-blur transition hover:bg-[rgba(232,208,141,0.2)] active:scale-95 shadow-sm"
+                onClick={handleShareVerse}
+                aria-label="Chia sẻ câu gốc"
+                title="Chia sẻ câu gốc"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] text-[#E8D08D] backdrop-blur transition hover:bg-[rgba(232,208,141,0.22)] active:scale-95 shadow-sm cursor-pointer"
               >
-                <ShareSvg className="h-3.5 w-3.5 text-[#E8D08D]" />
-                <span>Chia sẻ</span>
+                <ShareSvg className="h-4 w-4 text-[#E8D08D]" />
               </button>
             </div>
 
@@ -1258,89 +1187,7 @@ export default function DevotionClient({
         </main>
       )}
 
-      {/* ================== SHARE MODAL / MENU ================== */}
-      {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-fade-in">
-          <div
-            className={`w-full max-w-sm rounded-t-[2rem] sm:rounded-[2rem] border p-5 backdrop-blur-2xl shadow-2xl transition-all ${
-              lightMode ? 'border-neutral-200 bg-white text-black' : 'border-[rgba(232,208,141,0.35)] bg-[#121214] text-white'
-            }`}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[rgba(232,208,141,0.15)]">
-              <div className="flex items-center gap-2">
-                <ShareSvg className="h-4 w-4 text-[#E8D08D]" />
-                <h3 className="font-serif text-lg font-bold tracking-wide">Chia sẻ câu gốc</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowShareModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Preview text */}
-            <div className="my-3 rounded-xl border border-[rgba(232,208,141,0.2)] bg-black/20 p-3 text-xs italic text-[#D8D8DC] line-clamp-3">
-              &quot;{currentDailyItem.cau_goc}&quot;
-            </div>
-
-            {/* Option 1: Send to friends in chat */}
-            <div className="mb-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#E8D08D] mb-2">
-                Gửi trong tin nhắn Bạn bè
-              </p>
-              {loadingFriends ? (
-                <div className="py-4 text-center text-xs text-neutral-400">Đang tìm bạn bè...</div>
-              ) : friendList.length > 0 ? (
-                <div className="max-h-44 overflow-y-auto space-y-1.5 nice-scroll">
-                  {friendList.map((f) => (
-                    <button
-                      key={f.conversationId}
-                      type="button"
-                      disabled={sendingFriendId === f.conversationId}
-                      onClick={() => handleSendToFriend(f)}
-                      className="flex w-full items-center justify-between rounded-xl p-2 hover:bg-white/5 active:scale-95 transition"
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        {f.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={f.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-[#E8D08D]/20 text-[#E8D08D] flex items-center justify-center text-xs font-bold shrink-0">
-                            {f.name.charAt(0)}
-                          </div>
-                        )}
-                        <span className="text-xs font-medium truncate">{f.name}</span>
-                      </div>
-                      <span className="text-[11px] font-semibold text-[#E8D08D] px-2.5 py-1 rounded-full bg-[#E8D08D]/10 border border-[#E8D08D]/30 shrink-0">
-                        {sendingFriendId === f.conversationId ? 'Đang gửi...' : 'Gửi'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-neutral-400 italic py-2">
-                  Chưa có cuộc trò chuyện nào để gửi trực tiếp.
-                </p>
-              )}
-            </div>
-
-            {/* Option 2: Share externally */}
-            <div className="pt-2 border-t border-[rgba(232,208,141,0.15)]">
-              <button
-                type="button"
-                onClick={handleShareExternal}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-[#E8D08D] bg-[#E8D08D] py-2.5 text-xs font-semibold text-black shadow-md transition active:scale-95"
-              >
-                <ShareSvg className="h-3.5 w-3.5 text-black" />
-                <span>Chia sẻ ra ngoài (Zalo, Messenger hoặc Sao chép)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ================== MODALS ================== */}
       {showWallpaperModal && <WallpaperModal onClose={() => setShowWallpaperModal(false)} />}

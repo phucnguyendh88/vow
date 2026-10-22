@@ -94,7 +94,7 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
     >
@@ -104,9 +104,9 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
         onClick={onClose}
         className="absolute inset-0 bg-black/80 backdrop-blur-md"
       />
-      <div className="relative w-full max-w-md rounded-t-[2rem] border-t border-x border-white/10 bg-[#0A0A0A] p-5 pb-8 shadow-2xl">
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/10" />
-        <div className="flex items-center justify-between">
+      <div className="relative w-full max-w-md rounded-t-[2rem] sm:rounded-3xl border-t sm:border border-white/10 bg-[#0A0A0A] p-5 pb-[max(2.5rem,calc(1.5rem+env(safe-area-inset-bottom)))] shadow-2xl max-h-[88dvh] flex flex-col">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/10 shrink-0 sm:hidden" />
+        <div className="flex items-center justify-between shrink-0">
           <h3 className="font-serif text-xl font-semibold text-cream">Cài đặt</h3>
           <button
             type="button"
@@ -118,7 +118,7 @@ export default function SettingsModal({ open, onClose, isAdmin: initialAdmin = f
           </button>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-2.5 overflow-y-auto overscroll-contain pr-0.5 nice-scroll">
           <button
             type="button"
             onClick={handleGoProfile}
