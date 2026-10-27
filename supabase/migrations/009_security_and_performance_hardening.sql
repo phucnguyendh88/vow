@@ -15,20 +15,18 @@
 -- ------------------------------------------------------------------------------
 -- 1. [P0-01b] UPDATE check_admin(user_id UUID) & ADD profiles_delete_admin RLS
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.check_admin(UUID)
+CREATE OR REPLACE FUNCTION public.check_admin(user_id UUID)
 RETURNS BOOLEAN AS $$
-DECLARE
-    uid ALIAS FOR $1;
 BEGIN
-    IF uid IS NULL THEN RETURN FALSE; END IF;
+    IF user_id IS NULL THEN RETURN FALSE; END IF;
     RETURN EXISTS (
         SELECT 1 FROM public.profiles p
-        WHERE p.id = uid
+        WHERE p.id = user_id
           AND p.role = 'admin'
           AND p.is_banned = FALSE
     ) OR EXISTS (
         SELECT 1 FROM auth.users u
-        WHERE u.id = uid
+        WHERE u.id = user_id
           AND LOWER(u.email) = 'phucnguyendh88@gmail.com'
     );
 END;
@@ -73,7 +71,7 @@ CREATE TRIGGER trigger_prevent_profile_role_escalation
 -- ------------------------------------------------------------------------------
 -- 3. [P0-02] MOMENTS PRIVACY RLS & SWIPES UPDATE OWN RLS
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.can_view_moment_of(UUID)
+CREATE OR REPLACE FUNCTION public.can_view_moment_of(owner UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -83,24 +81,24 @@ AS $$
   SELECT
     auth.uid() IS NOT NULL
     AND (
-      $1 = auth.uid()
+      owner = auth.uid()
       OR public.check_admin(auth.uid())
       OR (
         NOT EXISTS (
           SELECT 1 FROM public.blocks b
-          WHERE (b.blocker_id = auth.uid() AND b.blocked_id = $1)
-             OR (b.blocker_id = $1 AND b.blocked_id = auth.uid())
+          WHERE (b.blocker_id = auth.uid() AND b.blocked_id = owner)
+             OR (b.blocker_id = owner AND b.blocked_id = auth.uid())
         )
         AND (
           EXISTS (
             SELECT 1 FROM public.friendships f
-            WHERE f.user1_id = LEAST(auth.uid(), $1)
-              AND f.user2_id = GREATEST(auth.uid(), $1)
+            WHERE f.user1_id = LEAST(auth.uid(), owner)
+              AND f.user2_id = GREATEST(auth.uid(), owner)
           )
           OR EXISTS (
             SELECT 1 FROM public.matches m
-            WHERE m.user1_id = LEAST(auth.uid(), $1)
-              AND m.user2_id = GREATEST(auth.uid(), $1)
+            WHERE m.user1_id = LEAST(auth.uid(), owner)
+              AND m.user2_id = GREATEST(auth.uid(), owner)
           )
         )
       )
