@@ -15,6 +15,7 @@
 -- ------------------------------------------------------------------------------
 -- 1. [P0-01b] UPDATE check_admin(user_id UUID) & ADD profiles_delete_admin RLS
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.check_admin(UUID);
 CREATE OR REPLACE FUNCTION public.check_admin(user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -40,6 +41,7 @@ CREATE POLICY "profiles_delete_admin" ON public.profiles
 -- ------------------------------------------------------------------------------
 -- 2. [P0-01] PRIVILEGE ESCALATION FIX ON public.profiles (BEFORE INSERT OR UPDATE)
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.prevent_profile_role_escalation();
 CREATE OR REPLACE FUNCTION public.prevent_profile_role_escalation()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -70,6 +72,7 @@ CREATE TRIGGER trigger_prevent_profile_role_escalation
 -- ------------------------------------------------------------------------------
 -- 3. [P0-02] MOMENTS PRIVACY RLS & SWIPES UPDATE OWN RLS
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.can_view_moment_of(UUID);
 CREATE OR REPLACE FUNCTION public.can_view_moment_of(owner UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -285,6 +288,7 @@ CREATE POLICY "conversation_members_insert" ON public.conversation_members
     WITH CHECK (public.check_admin(auth.uid()));
 
 -- Cập nhật get_or_create_direct_conversation: kiểm tra blocks 2 chiều và is_banned
+DROP FUNCTION IF EXISTS public.get_or_create_direct_conversation(UUID);
 CREATE OR REPLACE FUNCTION public.get_or_create_direct_conversation(other_user UUID)
 RETURNS UUID
 LANGUAGE plpgsql
@@ -358,6 +362,7 @@ GRANT EXECUTE ON FUNCTION public.get_or_create_direct_conversation(UUID) TO auth
 -- ------------------------------------------------------------------------------
 -- 6. [P0-05] INVITE CODE LOOKUP RPC (find_profile_by_invite_code)
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.find_profile_by_invite_code(TEXT);
 CREATE OR REPLACE FUNCTION public.find_profile_by_invite_code(code TEXT)
 RETURNS TABLE (
     id UUID,
