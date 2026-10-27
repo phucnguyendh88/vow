@@ -201,23 +201,7 @@ function GridFourSvg({ className = 'h-6 w-6' }: { className?: string }) {
   )
 }
 
-function ShareSvg({ className = 'h-5 w-5' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
-    </svg>
-  )
-}
+
 
 /* --- Reply Box inside History Viewer (Vp) --- */
 function MomentReplyBox({
@@ -228,7 +212,6 @@ function MomentReplyBox({
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [openStickers, setOpenStickers] = useState(false)
-  const QUICK_EMOJIS = ['💛', '😍', '🔥']
 
   const handleSend = useCallback(
     async (msg: string, sticker?: string) => {
@@ -261,27 +244,13 @@ function MomentReplyBox({
           className="min-w-0 flex-1 bg-transparent text-[14px] text-white placeholder:text-white/40 focus:outline-none"
         />
 
-        {/* Quick Reaction Emojis: 💛, 😍, 🔥 */}
-        <div className="flex items-center gap-0.5">
-          {QUICK_EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => void handleSend(emoji)}
-              disabled={sending}
-              aria-label={`Gửi ${emoji}`}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[17px] transition active:scale-90 hover:bg-white/10 disabled:opacity-40"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-
         <button
           type="button"
           onClick={() => setOpenStickers((v) => !v)}
           aria-label="Chọn sticker"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[18px] transition active:scale-90 hover:bg-white/10"
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[18px] transition active:scale-90 hover:bg-white/10 ${
+            openStickers ? 'bg-white/15' : ''
+          }`}
         >
           😊
         </button>
@@ -300,7 +269,7 @@ function MomentReplyBox({
       </div>
 
       {openStickers && (
-        <div className="grid grid-cols-4 gap-2 rounded-2xl border border-white/10 bg-[#1c1c1e] p-3 shadow-xl">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 max-h-64 overflow-y-auto nice-scroll rounded-2xl bg-[#1c1c1e] border border-white/10 shadow-2xl">
           {STICKERS.map((s) => (
             <button
               key={s.key}
@@ -309,10 +278,18 @@ function MomentReplyBox({
               disabled={sending}
               aria-label={s.label}
               title={s.label}
-              className="flex items-center justify-center rounded-xl bg-white/5 p-2 transition active:scale-95 hover:bg-white/10 disabled:opacity-40"
+              className="group flex flex-col items-center justify-center rounded-xl bg-white/[0.04] p-3 transition active:scale-95 hover:bg-white/[0.08] border border-transparent hover:border-white/15 disabled:opacity-40"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.src} alt={s.label} className="h-12 w-12 object-contain" loading="lazy" />
+              <img
+                src={s.src}
+                alt={s.label}
+                className="h-20 w-20 sm:h-24 sm:w-24 object-contain mx-auto transition-transform duration-200 group-hover:scale-105"
+                loading="lazy"
+              />
+              <span className="mt-2 w-full text-center text-xs font-medium text-white/75 truncate group-hover:text-white transition-colors">
+                {s.label}
+              </span>
             </button>
           ))}
         </div>
@@ -396,7 +373,6 @@ function HistoryViewer({
   ownAvatar,
   onOpenProfile,
   onOpenUserProfile,
-  onOpenGrid,
 }: {
   moments: MomentWithProfile[]
   initialId: string | null
@@ -430,28 +406,6 @@ function HistoryViewer({
   const animatingRef = useRef(false)
   const dragRef = useRef<{ startY: number; baseOffset: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
-
-  const handleShareCurrent = useCallback(async () => {
-    const currentMoment = moments[indexRef.current]
-    if (!currentMoment) return
-    const shareUrl = currentMoment.media_url
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Khoảnh khắc trên VOW',
-          text: currentMoment.caption || 'Xem khoảnh khắc trên VOW',
-          url: shareUrl,
-        })
-        return
-      } catch {}
-    }
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(shareUrl)
-        setEdgeNotice('start')
-      } catch {}
-    }
-  }, [moments])
 
   useEffect(() => {
     const el = containerRef.current
@@ -769,43 +723,6 @@ function HistoryViewer({
             </p>
           </div>
         )}
-
-        {/* Hàng nút điều khiển viewer: Nút Grid (trái), Nút Camera tròn (giữa - bấm vào để quay về camera chụp), Nút Chia sẻ (phải) */}
-        <div className="flex items-center justify-around w-full max-w-xs mx-auto px-4">
-          {/* Nút Grid (trái) */}
-          <button
-            type="button"
-            onClick={onOpenGrid}
-            aria-label="Xem lưới khoảnh khắc"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-[#E8D08D] hover:bg-white/10 active:scale-95 transition shadow-lg"
-          >
-            <GridFourSvg className="h-5 w-5 stroke-[1.8]" />
-          </button>
-
-          {/* Nút Camera tròn (giữa - quay lại camera chụp) */}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Quay lại camera chụp"
-            className="relative flex h-14 w-14 items-center justify-center rounded-full transition-transform active:scale-95 shadow-[0_0_20px_rgba(232,208,141,0.4)]"
-          >
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FFF8E7] via-[#E8D08D] to-[#99732B]" />
-            <div className="absolute inset-[3px] rounded-full bg-[#121214]" />
-            <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-[0_0_10px_rgba(255,255,255,0.8)]">
-              <CameraOutlineSvg className="h-5 w-5 stroke-[2] text-black" />
-            </span>
-          </button>
-
-          {/* Nút Chia sẻ (phải) */}
-          <button
-            type="button"
-            onClick={() => void handleShareCurrent()}
-            aria-label="Chia sẻ khoảnh khắc"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition shadow-lg"
-          >
-            <ShareSvg className="h-5 w-5" />
-          </button>
-        </div>
 
         {/* GIỮ NGUYÊN thanh Bottom bar như cũ của app VOW */}
         <LocketFloatingNav onTabClick={onClose} />
