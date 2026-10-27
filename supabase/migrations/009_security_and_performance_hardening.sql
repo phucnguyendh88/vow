@@ -422,6 +422,9 @@ CREATE POLICY "profiles_select_privacy" ON public.profiles
 -- ------------------------------------------------------------------------------
 ALTER TABLE public.message_reactions REPLICA IDENTITY FULL;
 
+-- Xóa bỏ index cũ tham chiếu cột is_read (nếu có từ trước) vì VOW quản lý unread qua conversation_members.last_read_at
+DROP INDEX IF EXISTS public.idx_messages_unread_perf;
+
 -- 1. Index tối ưu lấy tin nhắn mới nhất chưa xóa theo conversation_id
 CREATE INDEX IF NOT EXISTS idx_messages_conv_created_active 
 ON public.messages (conversation_id, created_at DESC) 
