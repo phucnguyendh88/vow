@@ -145,14 +145,32 @@ function FlipCameraSvg({ className = 'h-8 w-8' }: { className?: string }) {
   )
 }
 
-function FlashBoltSvg({ className = 'h-5 w-5', off = false }: { className?: string; off?: boolean }) {
+function FlashIcon({ mode, className = 'h-4 w-4' }: { mode: 'auto' | 'on' | 'off'; className?: string }) {
+  if (mode === 'auto') {
+    return (
+      <div className="flex items-center justify-center gap-0.5 leading-none">
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+          <path d="M13 2L4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z" />
+        </svg>
+        <span className="text-[10px] font-black tracking-tight text-[#E8D08D]">A</span>
+      </div>
+    )
+  }
+  if (mode === 'off') {
+    return (
+      <div className="relative flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="currentColor" className={`${className} opacity-35`} aria-hidden="true">
+          <path d="M13 2L4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z" />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="h-[1.5px] w-4 bg-white/70 rotate-45 rounded-full" />
+        </div>
+      </div>
+    )
+  }
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      {off ? (
-        <path d="M13 2L4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z" opacity="0.35" />
-      ) : (
-        <path d="M13 2L4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z" />
-      )}
+      <path d="M13 2L4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z" />
     </svg>
   )
 }
@@ -373,6 +391,8 @@ function HistoryViewer({
   ownAvatar,
   onOpenProfile,
   onOpenUserProfile,
+  onOpenGrid,
+  unreadCount = 0,
 }: {
   moments: MomentWithProfile[]
   initialId: string | null
@@ -388,7 +408,9 @@ function HistoryViewer({
   onOpenProfile: () => void
   onOpenUserProfile?: (id: string) => void
   onOpenGrid?: () => void
+  unreadCount?: number
 }) {
+  const router = useRouter()
   const total = moments.length
   const containerRef = useRef<HTMLDivElement | null>(null)
   const trackRef = useRef<HTMLDivElement | null>(null)
@@ -531,48 +553,84 @@ function HistoryViewer({
       aria-modal="true"
       aria-label="Xem khoảnh khắc"
     >
-      <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Đóng"
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1c1c1e] text-white active:scale-95"
-        >
-          <CloseSvg />
-        </button>
+      {/* Top Header Controls */}
+      <div className="relative flex shrink-0 items-start justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] z-20">
+        {/* Góc trên bên trái: Cột dọc gồm Grid View (phía trên) và Nút 'x' (ngay phía dưới) */}
+        <div className="flex flex-col items-center gap-2 z-10">
+          <button
+            type="button"
+            onClick={onOpenGrid}
+            aria-label="Xem lưới khoảnh khắc"
+            title="Lưới khoảnh khắc"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-[#E8D08D] shadow-lg backdrop-blur transition active:scale-95 hover:border-[rgba(232,208,141,0.4)]"
+          >
+            <GridFourSvg className="h-5 w-5 stroke-[1.8]" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng lịch sử"
+            title="Đóng"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-white/90 shadow-lg backdrop-blur transition active:scale-95 hover:bg-white/10"
+          >
+            <CloseSvg className="h-5 w-5" />
+          </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={filterName ? onClearFilter : onOpenFriends}
-          aria-label={filterName ? `Bỏ lọc ${filterName}` : 'Lọc theo bạn bè'}
-          className="flex h-12 items-center gap-2 rounded-full bg-[#1c1c1e] px-5 text-[17px] font-semibold text-white active:scale-95"
-        >
-          {filterName ? (
-            <>
-              <span className="max-w-40 truncate">{filterName}</span>
-              <CloseSvg className="h-4 w-4" />
-            </>
-          ) : (
-            <>
-              <span>All Friends</span>
-              <ChevronDownSvg />
-            </>
-          )}
-        </button>
+        {/* Ở giữa: Nút "All Friends ⌄" (lọc theo bạn bè) */}
+        <div className="absolute left-1/2 -translate-x-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-10 pt-0.5 pointer-events-auto">
+          <button
+            type="button"
+            onClick={filterName ? onClearFilter : onOpenFriends}
+            aria-label={filterName ? `Bỏ lọc ${filterName}` : 'Lọc theo bạn bè'}
+            className="flex h-11 items-center gap-2 rounded-full border border-white/10 bg-[#1c1c1e] px-4 text-[15px] font-semibold text-white shadow-lg backdrop-blur active:scale-95 transition"
+          >
+            {filterName ? (
+              <>
+                <span className="max-w-32 truncate">{filterName}</span>
+                <CloseSvg className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                <span>All Friends</span>
+                <ChevronDownSvg />
+              </>
+            )}
+          </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          aria-label="Hồ sơ của tôi"
-          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.4)] bg-[#1c1c1e] text-[17px] font-bold text-white/70 active:scale-95"
-        >
-          {ownAvatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ownAvatar} alt="Tôi" className="h-full w-full object-cover" />
-          ) : (
-            <span>PR</span>
-          )}
-        </button>
+        {/* Góc trên bên phải: Nút Tin nhắn (có badge unreadCount) & Nút Avatar cá nhân */}
+        <div className="flex items-center gap-2.5 z-10 pt-0.5">
+          <button
+            type="button"
+            onClick={() => router.push('/tin-nhan')}
+            aria-label="Tin nhắn"
+            title="Tin nhắn"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-[#E8D08D] shadow-lg backdrop-blur transition active:scale-95 hover:border-[rgba(232,208,141,0.4)]"
+          >
+            <ChatBubbleSvg className="h-5 w-5 stroke-[1.8]" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            aria-label="Hồ sơ của tôi"
+            title="Hồ sơ của tôi"
+            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.4)] bg-[#1c1c1e] text-[15px] font-bold text-white/70 shadow-lg backdrop-blur active:scale-95 transition"
+          >
+            {ownAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={ownAvatar} alt="Tôi" className="h-full w-full object-cover" />
+            ) : (
+              <span>PR</span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1">
@@ -1125,7 +1183,8 @@ export default function MomentsClient({
   const [cameraErrorKind, setCameraErrorKind] = useState<
     'permission' | 'notfound' | 'busy' | 'unsupported' | 'unknown' | null
   >(null)
-  const [torchOn, setTorchOn] = useState(false)
+  const [flashMode, setFlashMode] = useState<'auto' | 'on' | 'off'>('auto')
+  const [showScreenFlash, setShowScreenFlash] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [zoomRange, setZoomRange] = useState<{ min: number; max: number; step: number } | null>(null)
   const [isRecordingVideo, setIsRecordingVideo] = useState(false)
@@ -1191,7 +1250,6 @@ export default function MomentsClient({
   const startCamera = useCallback(
     async (mode: 'user' | 'environment', forcePrompt = false) => {
       setCameraErrorKind(null)
-      setTorchOn(false)
       setZoomRange(null)
       setZoom(1)
 
@@ -1330,16 +1388,13 @@ export default function MomentsClient({
     }
   }, [capturedDataUrl, cameraErrorKind, attachStream])
 
-  const handleToggleTorch = useCallback(async () => {
-    const track = streamRef.current?.getVideoTracks()[0]
-    const next = !torchOn
-    setTorchOn(next)
-    if (track) {
-      try {
-        await track.applyConstraints({ advanced: [{ torch: next } as any] })
-      } catch {}
-    }
-  }, [torchOn])
+  const handleCycleFlashMode = useCallback(() => {
+    setFlashMode((prev) => {
+      if (prev === 'auto') return 'on'
+      if (prev === 'on') return 'off'
+      return 'auto'
+    })
+  }, [])
 
   const handleSetZoom = useCallback(
     async (targetZoom: number) => {
@@ -1383,26 +1438,55 @@ export default function MomentsClient({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    if (facingMode === 'user') {
-      ctx.translate(targetSize, 0)
-      ctx.scale(-1, 1)
+    const isFlashActive = flashMode === 'auto' || flashMode === 'on'
+    const track = streamRef.current?.getVideoTracks()[0]
+
+    // 1. Chớp Flash trước khi chụp nếu flashMode là 'auto' hoặc 'on'
+    if (isFlashActive) {
+      if (facingMode === 'environment' && track) {
+        try {
+          await track.applyConstraints({ advanced: [{ torch: true } as any] })
+        } catch {}
+        await new Promise((r) => setTimeout(r, 120))
+      } else if (facingMode === 'user') {
+        setShowScreenFlash(true)
+        await new Promise((r) => setTimeout(r, 200))
+      }
     }
 
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, targetSize, targetSize)
+    try {
+      if (facingMode === 'user') {
+        ctx.translate(targetSize, 0)
+        ctx.scale(-1, 1)
+      }
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return
-        setCapturedBlob(blob)
-        setCapturedMediaType('image')
-        setCapturedDataUrl(canvas.toDataURL('image/jpeg', 0.88))
-        setProcessError('')
-        setPostFailed(false)
-      },
-      'image/jpeg',
-      0.88
-    )
-  }, [cameraErrorKind, facingMode, zoom, zoomRange])
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, targetSize, targetSize)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return
+          setCapturedBlob(blob)
+          setCapturedMediaType('image')
+          setCapturedDataUrl(canvas.toDataURL('image/jpeg', 0.88))
+          setProcessError('')
+          setPostFailed(false)
+        },
+        'image/jpeg',
+        0.88
+      )
+    } finally {
+      // 2. Tắt Flash ngay sau khi chụp xong
+      if (isFlashActive) {
+        if (facingMode === 'environment' && track) {
+          try {
+            await track.applyConstraints({ advanced: [{ torch: false } as any] })
+          } catch {}
+        } else if (facingMode === 'user') {
+          setShowScreenFlash(false)
+        }
+      }
+    }
+  }, [cameraErrorKind, facingMode, flashMode, zoom, zoomRange])
 
   // Support 3-second short video on long press
   const startShortVideoRecording = useCallback(() => {
@@ -2464,19 +2548,22 @@ export default function MomentsClient({
               </div>
             )}
 
-            {/* Top-left Flash button inside viewfinder (⚡ Sleek Gold Lightning Bolt) */}
+            {/* Top-left Flash button inside viewfinder (Auto / On / Off) */}
             {!cameraErrorKind && (
               <button
                 type="button"
-                onClick={() => void handleToggleTorch()}
-                aria-label={torchOn ? 'Tắt flash' : 'Bật flash'}
-                className={`absolute left-3.5 top-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] backdrop-blur-md transition active:scale-95 touch-manipulation ${
-                  torchOn
-                    ? 'bg-[#E8D08D] text-black shadow-[0_0_15px_#E8D08D]'
-                    : 'bg-black/45 text-[#E8D08D]'
+                onClick={handleCycleFlashMode}
+                aria-label={`Chế độ flash: ${flashMode === 'auto' ? 'Tự động' : flashMode === 'on' ? 'Bật' : 'Tắt'}`}
+                title={`Flash: ${flashMode.toUpperCase()}`}
+                className={`absolute left-3.5 top-3.5 z-10 flex h-9 min-w-[36px] items-center justify-center rounded-full px-2 backdrop-blur-md transition-all active:scale-95 touch-manipulation ${
+                  flashMode === 'on'
+                    ? 'bg-[#E8D08D] text-black shadow-[0_0_15px_#E8D08D] border border-[#E8D08D]'
+                    : flashMode === 'auto'
+                    ? 'bg-black/60 text-[#E8D08D] border border-[rgba(232,208,141,0.45)] shadow-[0_0_10px_rgba(232,208,141,0.25)]'
+                    : 'bg-black/45 text-white/40 border border-white/10'
                 }`}
               >
-                <FlashBoltSvg off={!torchOn} className="h-4 w-4" />
+                <FlashIcon mode={flashMode} className="h-4 w-4" />
               </button>
             )}
 
@@ -2626,6 +2713,7 @@ export default function MomentsClient({
           onDelete={(id) => void handleDeleteMoment(id)}
           onReplyMoment={handleReplyMoment}
           ownAvatar={currentUser?.avatar_url ?? null}
+          unreadCount={unreadCount}
           onOpenProfile={() => {
             setShowHistoryViewer(false)
             router.push('/ho-so')
@@ -2633,6 +2721,14 @@ export default function MomentsClient({
           onOpenUserProfile={(targetUserId) => {
             setViewingProfileUserId(targetUserId)
           }}
+        />
+      )}
+
+      {/* Screen Flash Overlay for Front Camera (Selfie) */}
+      {showScreenFlash && (
+        <div
+          className="fixed inset-0 z-[100] bg-white pointer-events-none transition-opacity duration-75"
+          aria-hidden="true"
         />
       )}
 
