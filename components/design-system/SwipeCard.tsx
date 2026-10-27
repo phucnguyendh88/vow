@@ -1,11 +1,9 @@
 // components/design-system/SwipeCard.tsx
 import React from 'react';
 import { Card } from '@/components/design-system/Card';
-import { Avatar } from '@/components/design-system/Avatar';
 import { Button } from '@/components/design-system/Button';
 import { Icon } from '@/components/design-system/Icon';
 import { Heart, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export type Profile = {
   id: string;
@@ -43,6 +41,7 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
   return (
     <Card className="relative w-full max-w-md mx-auto rounded-lg overflow-hidden shadow-lg">
       <div className="relative aspect-square">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={profile.avatar_url ?? '/placeholder-avatar.svg'}
           alt={profile.full_name ?? profile.username}

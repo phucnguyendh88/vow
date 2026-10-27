@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STICKERS } from '@/lib/stickers'
@@ -40,7 +40,11 @@ function safeUUID(): string {
       return crypto.randomUUID()
     } catch {}
   }
-  return 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 
 function safeText(val: unknown): string {
@@ -385,6 +389,8 @@ export default function ChatClient({
   })
 
   // Lưu 30 tin nhắn mới nhất vào sessionStorage cache để mở lại lần sau với tốc độ 0ms
+  // Đồng thời cập nhật ngay preview tin nhắn cuối vào vow_last_msg_updates và vow_conversations_cache
+  // để khi thoát ra trang /tin-nhan trên iPhone (router.back / BFCache), tin nhắn mới hiện ngay lập tức!
   useEffect(() => {
     if (Array.isArray(messages) && messages.length > 0) {
       try {
@@ -393,10 +399,34 @@ export default function ChatClient({
             `vow_chat_messages_${conversationId}`,
             JSON.stringify(messages.slice(-30))
           )
+
+          const lastMsg = messages[messages.length - 1]
+          if (lastMsg && lastMsg.content) {
+            const rawUpdates = sessionStorage.getItem('vow_last_msg_updates')
+            const updatesMap: Record<
+              string,
+              { content: string; createdAt: string; senderId: string; readAt: number }
+            > = rawUpdates ? JSON.parse(rawUpdates) : {}
+
+            const entry = {
+              content: lastMsg.content,
+              createdAt: lastMsg.created_at || new Date().toISOString(),
+              senderId: lastMsg.sender_id || currentUserId,
+              readAt: Date.now(),
+            }
+
+            updatesMap[conversationId] = entry
+            if (Array.isArray(allConversationIds)) {
+              for (const cid of allConversationIds) {
+                if (cid) updatesMap[cid] = entry
+              }
+            }
+            sessionStorage.setItem('vow_last_msg_updates', JSON.stringify(updatesMap))
+          }
         }
       } catch {}
     }
-  }, [conversationId, messages])
+  }, [conversationId, allConversationIds, currentUserId, messages])
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [showStickers, setShowStickers] = useState(false)
@@ -407,26 +437,79 @@ export default function ChatClient({
   const [sendError, setSendError] = useState<string | null>(null)
   const [showPartnerProfile, setShowPartnerProfile] = useState(false)
 
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null)
+
   const streamRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const longPressTimerRef = useRef<number | null>(null)
+  const isInitialScrollRef = useRef<boolean>(true)
+  const fetchedReactionMsgIdsRef = useRef<Set<string>>(new Set())
+  const optimisticMsgIdsRef = useRef<Set<string>>(new Set())
   const supabase = createClient()
 
-  const mergedConvIds = Array.from(
+  const mergedConvIdsKey = Array.from(
     new Set(
       [conversationId, ...(Array.isArray(allConversationIds) ? allConversationIds : [])].filter(
         (id): id is string => typeof id === 'string' && id.trim().length > 0
       )
     )
+  ).join(',')
+
+  const mergedConvIds = useMemo(
+    () => mergedConvIdsKey.split(',').filter(Boolean),
+    [mergedConvIdsKey]
   )
-  const mergedConvIdsKey = mergedConvIds.join(',')
+
+  useEffect(() => {
+    isInitialScrollRef.current = true
+    fetchedReactionMsgIdsRef.current.clear()
+    optimisticMsgIdsRef.current.clear()
+  }, [conversationId])
 
   useEffect(() => {
     const el = streamRef.current
-    if (el) {
+    if (!el) return
+    const safeList = Array.isArray(messages) ? messages : []
+    const lastMsg = safeList.length > 0 ? safeList[safeList.length - 1] : null
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160
+    const isOwnLatest = lastMsg?.sender_id === currentUserId
+
+    if (isInitialScrollRef.current || isNearBottom || isOwnLatest) {
       el.scrollTop = el.scrollHeight
+      isInitialScrollRef.current = false
     }
-  }, [messages])
+  }, [messages, currentUserId])
+
+  // Hỗ trợ iOS Safari visualViewport khi bàn phím ảo bật/tắt
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    const handleResize = () => {
+      const el = streamRef.current
+      const wasNearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 160 : true
+      setViewportHeight(Math.round(vv.height))
+      if (el && wasNearBottom) {
+        requestAnimationFrame(() => {
+          if (streamRef.current) {
+            streamRef.current.scrollTop = streamRef.current.scrollHeight
+          }
+        })
+      }
+    }
+    vv.addEventListener('resize', handleResize)
+    return () => {
+      vv.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        window.clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+    }
+  }, [])
 
   // Đánh dấu đã đọc tất cả cuộc trò chuyện gộp của đối phương khi mở
   useEffect(() => {
@@ -437,24 +520,39 @@ export default function ChatClient({
         ).catch(() => {})
       } catch {}
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergedConvIdsKey, supabase])
+  }, [mergedConvIds, supabase])
 
-  // Lấy danh sách cảm xúc hiện có cho các tin nhắn
+  // Lấy danh sách cảm xúc hiện có cho các tin nhắn mới chưa được tải
   useEffect(() => {
-    const msgIds = (Array.isArray(messages) ? messages : [])
+    const unfetchedIds = (Array.isArray(messages) ? messages : [])
       .map((m) => m?.id)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-    if (msgIds.length === 0) return
+      .filter(
+        (id): id is string =>
+          typeof id === 'string' &&
+          id.length > 0 &&
+          !optimisticMsgIdsRef.current.has(id) &&
+          !fetchedReactionMsgIdsRef.current.has(id)
+      )
+    if (unfetchedIds.length === 0) return
+
+    for (const id of unfetchedIds) {
+      fetchedReactionMsgIdsRef.current.add(id)
+    }
 
     try {
       Promise.resolve(
         (supabase.from('message_reactions') as any)
           .select('message_id, user_id, reaction')
-          .in('message_id', msgIds)
+          .in('message_id', unfetchedIds)
       )
         .then(({ data, error }: any) => {
-          if (error || !Array.isArray(data)) return
+          if (error) {
+            for (const id of unfetchedIds) {
+              fetchedReactionMsgIdsRef.current.delete(id)
+            }
+            return
+          }
+          if (!Array.isArray(data)) return
           setReactionsMap((prev) => {
             const next = { ...prev }
             for (const row of data) {
@@ -473,7 +571,11 @@ export default function ChatClient({
             return next
           })
         })
-        .catch(() => {})
+        .catch(() => {
+          for (const id of unfetchedIds) {
+            fetchedReactionMsgIdsRef.current.delete(id)
+          }
+        })
     } catch {}
   }, [messages, supabase])
 
@@ -512,7 +614,7 @@ export default function ChatClient({
         )
       })
     } catch {}
-  }, [conversationId, mergedConvIdsKey])
+  }, [conversationId, mergedConvIds])
 
   // Đồng bộ tin nhắn ngay khi mount, khi tab hiển thị lại và định kỳ an toàn
   useEffect(() => {
@@ -532,7 +634,7 @@ export default function ChatClient({
           void syncLatestMessages()
         }
       } catch {}
-    }, 3500)
+    }, 15000)
 
     if (typeof window !== 'undefined') {
       window.addEventListener('visibilitychange', handleVisibility)
@@ -554,6 +656,13 @@ export default function ChatClient({
     let channel: any = null
 
     try {
+      const convFilter =
+        mergedConvIds.length === 1
+          ? `conversation_id=eq.${conversationId}`
+          : mergedConvIds.length > 1
+            ? `conversation_id=in.(${mergedConvIds.join(',')})`
+            : undefined
+
       channel = supabase
         .channel(`chat_${conversationId}`)
         .on(
@@ -562,6 +671,7 @@ export default function ChatClient({
             event: 'INSERT',
             schema: 'public',
             table: 'messages',
+            ...(convFilter ? { filter: convFilter } : {}),
           },
           (payload) => {
             try {
@@ -653,7 +763,7 @@ export default function ChatClient({
         } catch {}
       }
     }
-  }, [conversationId, mergedConvIdsKey, supabase, syncLatestMessages])
+  }, [conversationId, mergedConvIds, supabase, syncLatestMessages])
 
   const handleSendMessage = async (textOverride?: string) => {
     const text = (textOverride ?? inputText).trim()
@@ -661,6 +771,7 @@ export default function ChatClient({
 
     // 1. Phản hồi tức thì 0ms (Optimistic UI Update): hiển thị tin nhắn ngay trên màn hình
     const tempId = safeUUID()
+    optimisticMsgIdsRef.current.add(tempId)
     const optimisticMsg: ChatMessage = {
       id: tempId,
       conversation_id: conversationId,
@@ -688,6 +799,7 @@ export default function ChatClient({
       })
 
       if (!res.ok) {
+        optimisticMsgIdsRef.current.delete(tempId)
         setSendError('Gửi tin nhắn thất bại. Thử lại.')
         // Rollback nếu thất bại
         setMessages((prev) => (Array.isArray(prev) ? prev.filter((m) => m.id !== tempId) : []))
@@ -695,6 +807,7 @@ export default function ChatClient({
       }
 
       const { message } = await res.json()
+      optimisticMsgIdsRef.current.delete(tempId)
       if (message) {
         const normalized = normalizeMessage(message, conversationId)
         setMessages((prev) => {
@@ -705,6 +818,7 @@ export default function ChatClient({
         })
       }
     } catch {
+      optimisticMsgIdsRef.current.delete(tempId)
       setSendError('Gửi tin nhắn thất bại. Thử lại.')
       setMessages((prev) => (Array.isArray(prev) ? prev.filter((m) => m.id !== tempId) : []))
     } finally {
@@ -780,7 +894,10 @@ export default function ChatClient({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#050505] overscroll-none text-cream">
+    <div
+      style={viewportHeight ? { height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` } : undefined}
+      className="fixed inset-0 z-50 flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#050505] overscroll-none text-cream"
+    >
       {/* Khối 1 — Header cuộc trò chuyện (Cố định ở trên cùng) */}
       <header className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#050505]/95 backdrop-blur-md border-b border-white/10 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button

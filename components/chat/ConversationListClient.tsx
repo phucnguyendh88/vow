@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -146,31 +146,98 @@ function ConversationAvatar({
   )
 }
 
+function applyLocalUpdates(list: EnrichedConversation[]): EnrichedConversation[] {
+  if (!Array.isArray(list) || list.length === 0) return list
+  if (typeof window === 'undefined') return list
+  try {
+    const rawUpdates = sessionStorage.getItem('vow_last_msg_updates')
+    if (!rawUpdates) return list
+    const updatesMap: Record<
+      string,
+      { content: string; createdAt: string; senderId: string; readAt?: number }
+    > = JSON.parse(rawUpdates)
+    if (!updatesMap || typeof updatesMap !== 'object') return list
+
+    let changed = false
+    const merged = list.map((conv) => {
+      const candidateIds = [conv.id, ...(Array.isArray(conv.mergedConvIds) ? conv.mergedConvIds : [])]
+      let bestUpdate: { content: string; createdAt: string; senderId: string; readAt?: number } | null = null
+      for (const cid of candidateIds) {
+        const u = updatesMap[cid]
+        if (u && u.createdAt) {
+          if (!bestUpdate || u.createdAt.localeCompare(bestUpdate.createdAt) > 0) {
+            bestUpdate = u
+          }
+        }
+      }
+      if (!bestUpdate) return conv
+
+      const existingTime = conv.lastMessageAt ? new Date(conv.lastMessageAt).getTime() : 0
+      const updateTime = new Date(bestUpdate.createdAt).getTime()
+      if (!isNaN(updateTime) && updateTime >= existingTime) {
+        const nextPreview = formatMessagePreview(bestUpdate.content)
+        if (
+          conv.lastMessage !== nextPreview ||
+          conv.lastMessageAt !== bestUpdate.createdAt ||
+          !conv.hasActualMessage ||
+          conv.unreadCount !== 0
+        ) {
+          changed = true
+          return {
+            ...conv,
+            hasActualMessage: true,
+            lastMessage: nextPreview,
+            lastMessageAt: bestUpdate.createdAt,
+            unreadCount: 0,
+          }
+        }
+      }
+      return conv
+    })
+
+    if (!changed) return list
+    return [...merged].sort((a, b) => {
+      if (a.hasActualMessage !== b.hasActualMessage) return a.hasActualMessage ? -1 : 1
+      return (b.lastMessageAt || '').localeCompare(a.lastMessageAt || '')
+    })
+  } catch {
+    return list
+  }
+}
+
 export default function ConversationListClient({ initialConversations, currentUserId }: Props) {
   const router = useRouter()
   const [conversations, setConversations] = useState<EnrichedConversation[]>(() => {
+    let baseList = initialConversations
     if (typeof window !== 'undefined') {
       try {
         const cached = sessionStorage.getItem('vow_conversations_cache')
         if (cached) {
           const parsed = JSON.parse(cached)
-          if (Array.isArray(parsed) && parsed.length > 0 && (!initialConversations || initialConversations.length === 0)) {
-            return parsed
+          if (
+            Array.isArray(parsed) &&
+            parsed.length > 0 &&
+            (!initialConversations || initialConversations.length === 0)
+          ) {
+            baseList = parsed
           }
         }
       } catch {}
     }
-    return initialConversations
+    return applyLocalUpdates(baseList)
   })
+  const conversationsRef = useRef(conversations)
+  conversationsRef.current = conversations
   const supabase = createClient()
 
-  // Đồng bộ khi server gửi dữ liệu mới (ví dụ sau router.refresh) và lưu cache
+  // Đồng bộ khi server gửi dữ liệu mới (ví dụ sau router.refresh) nhưng luôn giữ lại tin nhắn mới hơn vừa gửi/nhận ở client
   useEffect(() => {
     if (Array.isArray(initialConversations) && initialConversations.length > 0) {
-      setConversations(initialConversations)
+      const merged = applyLocalUpdates(initialConversations)
+      setConversations(merged)
       try {
         if (typeof window !== 'undefined') {
-          sessionStorage.setItem('vow_conversations_cache', JSON.stringify(initialConversations))
+          sessionStorage.setItem('vow_conversations_cache', JSON.stringify(merged))
         }
       } catch {}
     }
@@ -193,9 +260,79 @@ export default function ConversationListClient({ initialConversations, currentUs
     } catch {}
   }
 
-  // Lắng nghe Realtime tin nhắn mới để cập nhật tức thì danh sách mà không cần tải lại trang
+  // Lắng nghe Realtime tin nhắn mới & đồng bộ trực tiếp từ DB khi thoát khỏi trang chat trên iPhone
   useEffect(() => {
     let channel: any = null
+
+    const syncLatestFromDb = async () => {
+      try {
+        setConversations((prev) => applyLocalUpdates(prev))
+
+        const currentList = conversationsRef.current
+        const allConvIds: string[] = []
+        for (const c of currentList) {
+          allConvIds.push(c.id)
+          if (Array.isArray(c.mergedConvIds)) {
+            for (const mid of c.mergedConvIds) {
+              if (!allConvIds.includes(mid)) allConvIds.push(mid)
+            }
+          }
+        }
+
+        if (allConvIds.length === 0) {
+          return
+        }
+
+        const { data: recentMsgs } = await (supabase.from('messages') as any)
+          .select('id, conversation_id, sender_id, content, created_at')
+          .in('conversation_id', allConvIds)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: false })
+          .limit(60)
+
+        if (!Array.isArray(recentMsgs) || recentMsgs.length === 0) return
+
+        setConversations((prev) => {
+          const safePrev = applyLocalUpdates(Array.isArray(prev) ? prev : [])
+          let updated = false
+          const nextList = safePrev.map((conv) => {
+            const cids = [conv.id, ...(Array.isArray(conv.mergedConvIds) ? conv.mergedConvIds : [])]
+            const newest = recentMsgs.find((m: any) => cids.includes(m.conversation_id))
+            if (!newest) return conv
+
+            const existingTs = conv.lastMessageAt ? new Date(conv.lastMessageAt).getTime() : 0
+            const newestTs = newest.created_at ? new Date(newest.created_at).getTime() : 0
+            const preview = formatMessagePreview(newest.content)
+
+            if (newestTs > existingTs || (newestTs === existingTs && conv.lastMessage !== preview)) {
+              updated = true
+              return {
+                ...conv,
+                hasActualMessage: true,
+                lastMessage: preview,
+                lastMessageAt: newest.created_at,
+              }
+            }
+            return conv
+          })
+
+          if (!updated) return safePrev
+          const sorted = [...nextList].sort((a, b) => {
+            if (a.hasActualMessage !== b.hasActualMessage) return a.hasActualMessage ? -1 : 1
+            return (b.lastMessageAt || '').localeCompare(a.lastMessageAt || '')
+          })
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('vow_conversations_cache', JSON.stringify(sorted))
+            }
+          } catch {}
+          return sorted
+        })
+      } catch {}
+    }
+
+    // Đồng bộ tin nhắn mới từ DB khi vào trang danh sách
+    void syncLatestFromDb()
 
     try {
       channel = supabase
@@ -238,7 +375,13 @@ export default function ConversationListClient({ initialConversations, currentUs
 
               // Đẩy cuộc trò chuyện vừa có tin nhắn lên đầu bảng
               const remaining = safePrev.filter((_, i) => i !== idx)
-              return [updatedItem, ...remaining]
+              const next = [updatedItem, ...remaining]
+              try {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('vow_conversations_cache', JSON.stringify(next))
+                }
+              } catch {}
+              return next
             })
           }
         )
@@ -247,11 +390,18 @@ export default function ConversationListClient({ initialConversations, currentUs
       console.warn('Realtime conversation list error:', err)
     }
 
-    // Tự động làm mới khi người dùng mở lại tab hoặc mở khóa màn hình điện thoại
+    // Tự động làm mới khi người dùng mở lại tab hoặc vuốt Back trên iOS (BFCache pageshow)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        void syncLatestFromDb()
+        router.refresh()
+      }
+    }
+
     const handleVisibility = () => {
       try {
         if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-          router.refresh()
+          void syncLatestFromDb()
         }
       } catch {}
     }
@@ -259,6 +409,7 @@ export default function ConversationListClient({ initialConversations, currentUs
     if (typeof window !== 'undefined') {
       window.addEventListener('visibilitychange', handleVisibility)
       window.addEventListener('focus', handleVisibility)
+      window.addEventListener('pageshow', handlePageShow)
     }
 
     return () => {
@@ -270,6 +421,7 @@ export default function ConversationListClient({ initialConversations, currentUs
       if (typeof window !== 'undefined') {
         window.removeEventListener('visibilitychange', handleVisibility)
         window.removeEventListener('focus', handleVisibility)
+        window.removeEventListener('pageshow', handlePageShow)
       }
     }
   }, [currentUserId, router, supabase])

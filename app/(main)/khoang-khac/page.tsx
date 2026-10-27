@@ -26,41 +26,35 @@ export default async function KhoangKhacPage() {
 
   const myInviteCode = 'VOW-' + user.id.replace(/-/g, '').slice(0, 6).toUpperCase()
 
-  const [profileRes, friendshipsRes, matchesRes, blocksRes, incomingReqRes, outgoingReqRes] =
-    await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, username, full_name, avatar_url, church_name')
-        .eq('id', user.id)
-        .maybeSingle(),
+  // Vòng 1: Chạy song song 5 truy vấn cơ bản (gộp incoming & outgoing friend_requests làm 1)
+  const [profileRes, friendshipsRes, matchesRes, blocksRes, pendingReqsRes] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url, church_name')
+      .eq('id', user.id)
+      .maybeSingle(),
 
-      supabase
-        .from('friendships')
-        .select('id, user1_id, user2_id, created_at')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
+    supabase
+      .from('friendships')
+      .select('id, user1_id, user2_id, created_at')
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
 
-      supabase
-        .from('matches')
-        .select('user1_id, user2_id')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
+    supabase
+      .from('matches')
+      .select('user1_id, user2_id')
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
 
-      supabase
-        .from('blocks')
-        .select('blocker_id, blocked_id')
-        .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
+    supabase
+      .from('blocks')
+      .select('blocker_id, blocked_id')
+      .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
 
-      supabase
-        .from('friend_requests')
-        .select('id, sender_id, receiver_id, status, created_at')
-        .eq('receiver_id', user.id)
-        .eq('status', 'pending'),
-
-      supabase
-        .from('friend_requests')
-        .select('id, sender_id, receiver_id, status, created_at')
-        .eq('sender_id', user.id)
-        .eq('status', 'pending'),
-    ])
+    supabase
+      .from('friend_requests')
+      .select('id, sender_id, receiver_id, status, created_at')
+      .or(`receiver_id.eq.${user.id},sender_id.eq.${user.id}`)
+      .eq('status', 'pending'),
+  ])
 
   // Privacy: only self + accepted friends + mutual matches, minus blocked users.
   const blockedIds = new Set<string>()
@@ -76,75 +70,77 @@ export default async function KhoangKhacPage() {
   }
   blockedIds.forEach((id) => visibleIds.delete(id))
 
-  const momentsRes = await supabase
-    .from('moments')
-    .select(`
-      id,
-      user_id,
-      media_url,
-      media_type,
-      thumbnail_url,
-      caption,
-      is_deleted,
-      deleted_at,
-      created_at,
-      profiles:user_id (
-        id,
-        username,
-        full_name,
-        avatar_url
-      )
-    `)
-    .in('user_id', Array.from(visibleIds))
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false })
-    .limit(60)
-
   const friendships = (friendshipsRes.data ?? []) as Array<{
     id: string
     user1_id: string
     user2_id: string
     created_at: string
   }>
-  const incomingReqs = (incomingReqRes.data ?? []) as Array<{
+  const allPendingReqs = (pendingReqsRes.data ?? []) as Array<{
     id: string
     sender_id: string
     receiver_id: string
     status: string
     created_at: string
   }>
-  const outgoingReqs = (outgoingReqRes.data ?? []) as Array<{
-    id: string
-    sender_id: string
-    receiver_id: string
-    status: string
-    created_at: string
-  }>
+  const incomingReqs = allPendingReqs.filter((r) => r.receiver_id === user.id)
+  const outgoingReqs = allPendingReqs.filter((r) => r.sender_id === user.id)
 
   const peerIds = new Set<string>()
   friendships.forEach((f) => peerIds.add(f.user1_id === user.id ? f.user2_id : f.user1_id))
   incomingReqs.forEach((r) => peerIds.add(r.sender_id))
   outgoingReqs.forEach((r) => peerIds.add(r.receiver_id))
 
+  // Vòng 2: Chạy song song moments và peerProfiles trong cùng 1 Promise.all (xóa bỏ Vòng 3 tuần tự)
+  const [momentsRes, peerProfilesRes] = await Promise.all([
+    supabase
+      .from('moments')
+      .select(`
+        id,
+        user_id,
+        media_url,
+        media_type,
+        thumbnail_url,
+        caption,
+        is_deleted,
+        deleted_at,
+        created_at,
+        profiles:user_id (
+          id,
+          username,
+          full_name,
+          avatar_url
+        )
+      `)
+      .in('user_id', Array.from(visibleIds))
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(60),
+
+    peerIds.size > 0
+      ? supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, church_name')
+          .in('id', Array.from(peerIds))
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  if (momentsRes.error) {
+    console.error('[KhoangKhacPage] Error fetching moments:', momentsRes.error)
+  }
+
   const peerProfilesMap = new Map<
     string,
     { id: string; name: string; avatar: string | null; church: string }
   >()
 
-  if (peerIds.size > 0) {
-    const { data: peerProfiles } = await supabase
-      .from('profiles')
-      .select('id, username, full_name, avatar_url, church_name')
-      .in('id', Array.from(peerIds))
-
-    for (const p of (peerProfiles ?? []) as any[]) {
-      peerProfilesMap.set(p.id, {
-        id: p.id,
-        name: p.full_name || p.username || 'Người dùng VOW',
-        avatar: p.avatar_url || null,
-        church: p.church_name || '',
-      })
-    }
+  for (const p of (peerProfilesRes.data ?? []) as any[]) {
+    peerProfilesMap.set(p.id, {
+      id: p.id,
+      name: p.full_name || p.username || 'Người dùng VOW',
+      avatar: p.avatar_url || null,
+      church: p.church_name || '',
+    })
   }
 
   const initialFriends = friendships.map((f) => {
@@ -227,7 +223,7 @@ export default async function KhoangKhacPage() {
         userId={user.id}
         currentUser={currentUser}
         myInviteCode={myInviteCode}
-        fetchError={momentsRes.error?.message ?? null}
+        fetchError={momentsRes.error ? 'Không thể tải khoảnh khắc lúc này.' : null}
         initialFriends={initialFriends}
         initialIncoming={initialIncoming}
         initialOutgoing={initialOutgoing}
@@ -235,4 +231,3 @@ export default async function KhoangKhacPage() {
     </Suspense>
   )
 }
-

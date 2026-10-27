@@ -62,8 +62,10 @@ export interface Database {
           is_complete?: boolean
           is_active?: boolean
           is_banned?: boolean
+          role?: 'user' | 'admin'
           updated_at?: string
         }
+        Relationships: []
       }
       daily_verses: {
         Row: {
@@ -93,6 +95,7 @@ export interface Database {
           background_image_url?: string | null
           audio_url?: string | null
         }
+        Relationships: []
       }
       reading_streaks: {
         Row: {
@@ -107,7 +110,8 @@ export interface Database {
           date: string
           created_at?: string
         }
-        Update: never
+        Update: Record<string, never>
+        Relationships: []
       }
       moments: {
         Row: {
@@ -137,6 +141,7 @@ export interface Database {
           is_deleted?: boolean
           deleted_at?: string | null
         }
+        Relationships: []
       }
       moment_comments: {
         Row: {
@@ -159,6 +164,7 @@ export interface Database {
           content?: string
           is_deleted?: boolean
         }
+        Relationships: []
       }
       swipes: {
         Row: {
@@ -177,7 +183,12 @@ export interface Database {
           context?: string
           created_at?: string
         }
-        Update: never
+        Update: {
+          action?: 'like' | 'pass'
+          context?: string
+          created_at?: string
+        }
+        Relationships: []
       }
       matches: {
         Row: {
@@ -192,7 +203,8 @@ export interface Database {
           user2_id: string
           created_at?: string
         }
-        Update: never
+        Update: Record<string, never>
+        Relationships: []
       }
       friend_requests: {
         Row: {
@@ -215,6 +227,7 @@ export interface Database {
           status?: 'pending' | 'accepted' | 'rejected' | 'cancelled'
           updated_at?: string
         }
+        Relationships: []
       }
       friendships: {
         Row: {
@@ -229,7 +242,8 @@ export interface Database {
           user2_id: string
           created_at?: string
         }
-        Update: never
+        Update: Record<string, never>
+        Relationships: []
       }
       conversations: {
         Row: {
@@ -244,7 +258,10 @@ export interface Database {
           match_id?: string | null
           created_at?: string
         }
-        Update: never
+        Update: {
+          match_id?: string | null
+        }
+        Relationships: []
       }
       conversation_members: {
         Row: {
@@ -252,14 +269,19 @@ export interface Database {
           conversation_id: string
           user_id: string
           joined_at: string
+          last_read_at: string | null
         }
         Insert: {
           id?: string
           conversation_id: string
           user_id: string
           joined_at?: string
+          last_read_at?: string | null
         }
-        Update: never
+        Update: {
+          last_read_at?: string | null
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -283,6 +305,27 @@ export interface Database {
         Update: {
           is_deleted?: boolean
         }
+        Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          id: string
+          message_id: string
+          user_id: string
+          reaction: 'heart' | 'laugh' | 'like'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          user_id: string
+          reaction: 'heart' | 'laugh' | 'like'
+          created_at?: string
+        }
+        Update: {
+          reaction?: 'heart' | 'laugh' | 'like'
+        }
+        Relationships: []
       }
       blocks: {
         Row: {
@@ -297,7 +340,8 @@ export interface Database {
           blocked_id: string
           created_at?: string
         }
-        Update: never
+        Update: Record<string, never>
+        Relationships: []
       }
       reports: {
         Row: {
@@ -330,6 +374,7 @@ export interface Database {
           reviewed_by?: string | null
           reviewed_at?: string | null
         }
+        Relationships: []
       }
       audit_logs: {
         Row: {
@@ -350,7 +395,8 @@ export interface Database {
           details?: Json
           created_at?: string
         }
-        Update: never
+        Update: Record<string, never>
+        Relationships: []
       }
     }
     Views: Record<string, never>
@@ -362,6 +408,36 @@ export interface Database {
       is_conversation_member: {
         Args: { conv_id: string; check_user_id?: string }
         Returns: boolean
+      }
+      can_view_moment_of: {
+        Args: { owner: string }
+        Returns: boolean
+      }
+      get_or_create_direct_conversation: {
+        Args: { other_user: string }
+        Returns: string
+      }
+      mark_conversation_read: {
+        Args: { conv_id: string }
+        Returns: undefined
+      }
+      get_unread_messages_count: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      is_friend_or_self: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
+      find_profile_by_invite_code: {
+        Args: { code: string }
+        Returns: Array<{
+          id: string
+          username: string | null
+          full_name: string | null
+          avatar_url: string | null
+          church_name: string | null
+        }>
       }
     }
     Enums: Record<string, never>
@@ -381,6 +457,7 @@ export type Friendship = Database['public']['Tables']['friendships']['Row']
 export type Conversation = Database['public']['Tables']['conversations']['Row']
 export type ConversationMember = Database['public']['Tables']['conversation_members']['Row']
 export type Message = Database['public']['Tables']['messages']['Row']
+export type MessageReaction = Database['public']['Tables']['message_reactions']['Row']
 export type Block = Database['public']['Tables']['blocks']['Row']
 export type Report = Database['public']['Tables']['reports']['Row']
 export type AuditLog = Database['public']['Tables']['audit_logs']['Row']

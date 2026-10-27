@@ -278,9 +278,9 @@ export default function ProfileClient({ initialProfile, userId, userEmail }: Pro
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-[#050505] text-[#F0F0F0] pb-32 max-w-md mx-auto px-5">
+    <div className="flex flex-col min-h-dvh bg-[#050505] text-[#F0F0F0] pt-[max(1.25rem,env(safe-area-inset-top))] pb-32 max-w-md mx-auto px-5">
       {/* Top Header */}
-      <header className="flex items-center justify-between pt-6 pb-4 border-b border-[rgba(232,208,141,0.15)]">
+      <header className="flex items-center justify-between pt-2 pb-4 border-b border-[rgba(232,208,141,0.15)]">
         <button
           type="button"
           onClick={() => router.push('/tim-chua-truoc')}

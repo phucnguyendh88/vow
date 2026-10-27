@@ -36,9 +36,24 @@ export default function OnboardingPage() {
     })
   }, [supabase, router])
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        try {
+          URL.revokeObjectURL(avatarPreview)
+        } catch {}
+      }
+    }
+  }, [avatarPreview])
+
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (avatarPreview) {
+      try {
+        URL.revokeObjectURL(avatarPreview)
+      } catch {}
+    }
     setAvatarFile(file)
     const previewUrl = URL.createObjectURL(file)
     setAvatarPreview(previewUrl)
@@ -111,12 +126,23 @@ export default function OnboardingPage() {
 
       const dob = `${year}-01-01`
       const genderDb = gender === 'Nam' ? 'male' : 'female'
+      const safeUsername =
+        name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'd')
+          .replace(/Đ/g, 'd')
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '_') +
+        '_' +
+        currentUid.replace(/-/g, '').slice(0, 6)
 
       // Gom toàn bộ payload và update duy nhất 1 lần
       const profilePayload: Record<string, any> = {
         id: currentUid,
         full_name: name.trim(),
-        username: name.trim().toLowerCase().replace(/\s+/g, '_') + '_' + Math.floor(Math.random() * 1000),
+        username: safeUsername,
         date_of_birth: dob,
         gender: genderDb,
         church_name: church.trim() || null,

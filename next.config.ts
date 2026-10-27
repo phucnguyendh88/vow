@@ -19,6 +19,35 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=()',
+          },
+        ],
+      },
+    ]
+  },
   async rewrites() {
     return [
       { source: '/auth', destination: '/dang-nhap' },
@@ -34,4 +63,3 @@ const nextConfig: NextConfig = {
 }
 
 export default nextConfig
-

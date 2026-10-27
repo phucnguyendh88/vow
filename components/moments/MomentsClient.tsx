@@ -815,6 +815,29 @@ function MemoriesCalendarView({
   )
 }
 
+// Module-level singleton cache for camera stream & permission state on iOS
+// Reusing a live MediaStream across in-app tab navigations avoids re-triggering
+// iOS Safari's getUserMedia permission prompt every time the user returns to Khoảnh khắc.
+const CAMERA_PERM_STORAGE_KEY = 'vow_camera_perm_state'
+let cachedCameraStream: MediaStream | null = null
+let cachedCameraFacingMode: 'user' | 'environment' | null = null
+
+function hasLiveVideoTrack(stream: MediaStream | null): boolean {
+  if (!stream) return false
+  const tracks = stream.getVideoTracks()
+  return tracks.length > 0 && tracks.every((t) => t.readyState === 'live')
+}
+
+function stopCachedCameraStream() {
+  if (cachedCameraStream) {
+    try {
+      cachedCameraStream.getTracks().forEach((t) => t.stop())
+    } catch {}
+    cachedCameraStream = null
+    cachedCameraFacingMode = null
+  }
+}
+
 export default function MomentsClient({
   initialMoments,
   userId,
@@ -896,8 +919,141 @@ export default function MomentsClient({
     }
   }, [searchParams])
 
+  // ================== REALTIME FRIEND REQUESTS & FRIENDSHIPS SYNC ==================
+  const refreshConnections = useCallback(async () => {
+    if (!userId) return
+    try {
+      const [{ data: rawFriendships }, { data: rawRequests }] = await Promise.all([
+        supabase
+          .from('friendships')
+          .select('id, user1_id, user2_id')
+          .or(`user1_id.eq.${userId},user2_id.eq.${userId}`),
+        supabase
+          .from('friend_requests')
+          .select('id, sender_id, receiver_id, status')
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+          .eq('status', 'pending'),
+      ])
+
+      const peerIds = new Set<string>()
+      for (const f of (rawFriendships ?? []) as any[]) {
+        const peerId = f.user1_id === userId ? f.user2_id : f.user1_id
+        if (peerId) peerIds.add(peerId)
+      }
+      for (const r of (rawRequests ?? []) as any[]) {
+        const peerId = r.sender_id === userId ? r.receiver_id : r.sender_id
+        if (peerId) peerIds.add(peerId)
+      }
+
+      const profileMap: Record<string, any> = {}
+      if (peerIds.size > 0) {
+        const { data: peerProfiles } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, church_name')
+          .in('id', Array.from(peerIds))
+        for (const p of (peerProfiles ?? []) as any[]) {
+          profileMap[p.id] = p
+        }
+      }
+
+      const toFriendProfile = (pid: string) => {
+        const p = profileMap[pid]
+        return {
+          id: pid,
+          name: p?.full_name || p?.username || 'Bạn bè',
+          photos: p?.avatar_url ? [p.avatar_url] : [],
+          church: p?.church_name || '',
+        }
+      }
+
+      const nextFriends: FriendItem[] = []
+      const friendPeerSet = new Set<string>()
+      for (const f of (rawFriendships ?? []) as any[]) {
+        const peerId = f.user1_id === userId ? f.user2_id : f.user1_id
+        if (peerId && !friendPeerSet.has(peerId)) {
+          friendPeerSet.add(peerId)
+          nextFriends.push({ id: f.id, profile: toFriendProfile(peerId) })
+        }
+      }
+
+      const nextIncoming: FriendItem[] = []
+      const nextOutgoing: FriendItem[] = []
+      for (const r of (rawRequests ?? []) as any[]) {
+        const peerId = r.sender_id === userId ? r.receiver_id : r.sender_id
+        if (!peerId || friendPeerSet.has(peerId)) continue
+        const item: FriendItem = { id: r.id, profile: toFriendProfile(peerId) }
+        if (r.receiver_id === userId) {
+          nextIncoming.push(item)
+        } else {
+          nextOutgoing.push(item)
+        }
+      }
+
+      setFriends(nextFriends)
+      setIncoming(nextIncoming)
+      setOutgoing(nextOutgoing)
+    } catch {}
+  }, [supabase, userId])
+
+  useEffect(() => {
+    if (!userId) return
+    if (!initialFriends || initialFriends.length === 0) {
+      void refreshConnections()
+    }
+
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel(`moments_friends_${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'friend_requests' },
+          () => {
+            void refreshConnections()
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'friendships' },
+          () => {
+            void refreshConnections()
+          }
+        )
+        .subscribe()
+    } catch {}
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void refreshConnections()
+      }
+    }
+
+    const intervalMs = showFriendsDialog ? 4000 : 12000
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void refreshConnections()
+      }
+    }, intervalMs)
+
+    window.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleVisibility)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleVisibility)
+      if (channel) {
+        try {
+          supabase.removeChannel(channel)
+        } catch {}
+      }
+    }
+  }, [userId, supabase, refreshConnections, showFriendsDialog, initialFriends])
+
   // Camera state
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>(
+    () => cachedCameraFacingMode || 'user'
+  )
   const [cameraErrorKind, setCameraErrorKind] = useState<
     'permission' | 'notfound' | 'busy' | 'unsupported' | 'unknown' | null
   >(null)
@@ -913,32 +1069,105 @@ export default function MomentsClient({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const pressTimerRef = useRef<number | null>(null)
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
+  const detachVideoElement = useCallback(() => {
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
   }, [])
 
-  const attachStream = (el: HTMLVideoElement | null, stream: MediaStream) => {
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    stopCachedCameraStream()
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+  }, [])
+
+  const attachStream = useCallback((el: HTMLVideoElement | null, stream: MediaStream) => {
     if (!el) return
-    el.srcObject = stream
+    stream.getVideoTracks().forEach((t) => {
+      t.enabled = true
+    })
+    if (el.srcObject !== stream) {
+      el.srcObject = stream
+    }
     el.muted = true
     const play = () => {
       el.play().catch(() => undefined)
     }
     if (el.readyState >= 1) play()
     else el.onloadedmetadata = () => play()
-  }
+  }, [])
+
+  const applyTrackCapabilities = useCallback(async (stream: MediaStream) => {
+    const track = stream.getVideoTracks()[0]
+    if (!track) return
+    try {
+      const caps = (track as any)?.getCapabilities?.()
+      if (caps?.zoom && caps.zoom.max > caps.zoom.min) {
+        setZoomRange({
+          min: caps.zoom.min,
+          max: caps.zoom.max,
+          step: caps.zoom.step || 0.1,
+        })
+      }
+      if (caps?.focusMode?.includes('continuous')) {
+        await track
+          .applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] })
+          .catch(() => undefined)
+      }
+    } catch {}
+  }, [])
 
   const startCamera = useCallback(
-    async (mode: 'user' | 'environment') => {
-      stopCamera()
+    async (mode: 'user' | 'environment', forcePrompt = false) => {
       setCameraErrorKind(null)
       setTorchOn(false)
       setZoomRange(null)
       setZoom(1)
+
+      // 1. Reuse existing live stream in memory if facingMode matches (prevents iOS re-prompt on tab switches)
+      if (
+        !forcePrompt &&
+        cachedCameraFacingMode === mode &&
+        hasLiveVideoTrack(cachedCameraStream) &&
+        cachedCameraStream
+      ) {
+        streamRef.current = cachedCameraStream
+        attachStream(videoRef.current, cachedCameraStream)
+        void applyTrackCapabilities(cachedCameraStream)
+        return
+      }
+
+      // If switching between front/back camera, stop the old stream first
+      if (cachedCameraStream && cachedCameraFacingMode !== mode) {
+        stopCachedCameraStream()
+      }
+
+      // 2. Check persisted/browser permission state on iOS so we don't spam prompts when denied
+      if (!forcePrompt && typeof window !== 'undefined') {
+        try {
+          if (navigator.permissions?.query) {
+            const status = await navigator.permissions
+              .query({ name: 'camera' as PermissionName })
+              .catch(() => null)
+            if (status?.state === 'denied') {
+              localStorage.setItem(CAMERA_PERM_STORAGE_KEY, 'denied')
+              setCameraErrorKind('permission')
+              return
+            }
+            if (status?.state === 'granted') {
+              localStorage.setItem(CAMERA_PERM_STORAGE_KEY, 'granted')
+            }
+          }
+          const savedPerm = localStorage.getItem(CAMERA_PERM_STORAGE_KEY)
+          if (savedPerm === 'denied') {
+            setCameraErrorKind('permission')
+            return
+          }
+        } catch {}
+      }
 
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
@@ -947,56 +1176,91 @@ export default function MomentsClient({
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: mode,
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
+            width: { ideal: 1440 },
+            height: { ideal: 1920 },
           },
           audio: false,
         })
+        try {
+          localStorage.setItem(CAMERA_PERM_STORAGE_KEY, 'granted')
+        } catch {}
+
+        cachedCameraStream = stream
+        cachedCameraFacingMode = mode
         streamRef.current = stream
         attachStream(videoRef.current, stream)
-
-        const track = stream.getVideoTracks()[0]
-        try {
-          const caps = (track as any)?.getCapabilities?.()
-          if (caps?.zoom && caps.zoom.max > caps.zoom.min) {
-            setZoomRange({
-              min: caps.zoom.min,
-              max: caps.zoom.max,
-              step: caps.zoom.step || 0.1,
-            })
-          }
-          if (caps?.focusMode?.includes('continuous')) {
-            await track
-              .applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] })
-              .catch(() => undefined)
-          }
-        } catch {}
+        await applyTrackCapabilities(stream)
       } catch (err: any) {
         if (err instanceof Error && err.message === 'no-camera') {
           setCameraErrorKind('unsupported')
         } else {
           const name = err?.name
-          if (name === 'NotAllowedError' || name === 'SecurityError') setCameraErrorKind('permission')
-          else if (name === 'NotFoundError' || name === 'OverconstrainedError')
+          if (name === 'NotAllowedError' || name === 'SecurityError') {
+            try {
+              localStorage.setItem(CAMERA_PERM_STORAGE_KEY, 'denied')
+            } catch {}
+            setCameraErrorKind('permission')
+          } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
             setCameraErrorKind('notfound')
-          else if (name === 'NotReadableError' || name === 'AbortError') setCameraErrorKind('busy')
-          else setCameraErrorKind('unknown')
+          } else if (name === 'NotReadableError' || name === 'AbortError') {
+            setCameraErrorKind('busy')
+          } else {
+            setCameraErrorKind('unknown')
+          }
         }
       }
     },
-    [stopCamera]
+    [attachStream, applyTrackCapabilities]
   )
 
   useEffect(() => {
-    startCamera(facingMode)
-    return stopCamera
-  }, [facingMode, startCamera, stopCamera])
+    void startCamera(facingMode, false)
+
+    // When switching tabs inside VOW SPA, pause video element & disable track frames
+    // without calling track.stop() so iOS Safari keeps the camera session alive and never re-prompts.
+    // Only release hardware completely when page/app goes to background (pagehide).
+    const handlePageHide = () => {
+      stopCamera()
+    }
+    const handleVisibilityChange = () => {
+      if (typeof document === 'undefined') return
+      if (document.visibilityState === 'hidden') {
+        cachedCameraStream?.getVideoTracks().forEach((t) => {
+          t.enabled = false
+        })
+      } else if (document.visibilityState === 'visible') {
+        if (hasLiveVideoTrack(cachedCameraStream) && cachedCameraStream) {
+          attachStream(videoRef.current, cachedCameraStream)
+        } else {
+          void startCamera(facingMode, false)
+        }
+      }
+    }
+
+    window.addEventListener('pagehide', handlePageHide)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      stopCamera()
+      detachVideoElement()
+    }
+  }, [facingMode, startCamera, stopCamera, attachStream, detachVideoElement])
+
+  useEffect(() => {
+    return () => {
+      if (capturedDataUrl && capturedDataUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(capturedDataUrl)
+      }
+    }
+  }, [capturedDataUrl])
 
   useEffect(() => {
     if (!capturedDataUrl && !cameraErrorKind && videoRef.current && streamRef.current) {
       attachStream(videoRef.current, streamRef.current)
     }
-  }, [capturedDataUrl, cameraErrorKind])
+  }, [capturedDataUrl, cameraErrorKind, attachStream])
 
   const handleToggleTorch = useCallback(async () => {
     const track = streamRef.current?.getVideoTracks()[0]
@@ -1182,32 +1446,20 @@ export default function MomentsClient({
       }
 
       const storagePath = `${userId}/${Date.now()}.${ext}`
-      const targetBucket =
-        capturedMediaType === 'video' ? 'moment-videos' : 'moment-images'
 
-      // Try uploading to moment-images / moment-videos first, fallback to 'moments' bucket seamlessly
-      let publicUrl = ''
-      const primaryUpload = await supabase.storage
-        .from(targetBucket)
+      // Upload directly to 'moments' bucket
+      const uploadRes = await supabase.storage
+        .from('moments')
         .upload(storagePath, uploadBlob, { contentType, upsert: false })
 
-      if (!primaryUpload.error && primaryUpload.data) {
-        const { data: urlData } = supabase.storage
-          .from(targetBucket)
-          .getPublicUrl(primaryUpload.data.path)
-        publicUrl = urlData.publicUrl
-      } else {
-        const fallbackUpload = await supabase.storage
-          .from('moments')
-          .upload(storagePath, uploadBlob, { contentType, upsert: false })
-        if (fallbackUpload.error || !fallbackUpload.data) {
-          throw fallbackUpload.error || new Error('Không tải được tệp lên bộ nhớ')
-        }
-        const { data: urlData } = supabase.storage
-          .from('moments')
-          .getPublicUrl(fallbackUpload.data.path)
-        publicUrl = urlData.publicUrl
+      if (uploadRes.error || !uploadRes.data) {
+        throw uploadRes.error || new Error('Không tải được tệp lên bộ nhớ')
       }
+
+      const { data: urlData } = supabase.storage
+        .from('moments')
+        .getPublicUrl(uploadRes.data.path)
+      const publicUrl = urlData.publicUrl
 
       const res = await fetch('/api/moments', {
         method: 'POST',
@@ -1264,16 +1516,20 @@ export default function MomentsClient({
     async (momentId: string) => {
       if (!window.confirm('Xóa khoảnh khắc này?')) return
       try {
-        const { error } = await (supabase.from('moments') as any)
-          .update({ is_deleted: true })
-          .eq('id', momentId)
-        if (error) throw error
+        const res = await fetch(`/api/moments?id=${encodeURIComponent(momentId)}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error || 'Xóa thất bại')
+        }
         setMoments((prev) => prev.filter((m) => m.id !== momentId))
+        notify('Đã xóa khoảnh khắc')
       } catch (err: any) {
         notify(err?.message || 'Xóa thất bại', 'error')
       }
     },
-    [supabase, notify]
+    [notify]
   )
 
   const handleCopyInviteLink = useCallback(async () => {
@@ -1294,50 +1550,69 @@ export default function MomentsClient({
     if (!code || sendingInvite) return
     setSendingInvite(true)
     try {
-      const cleanPrefix = code.replace(/^(FC|VOW)-/, '').toLowerCase()
-      const { data: candidates } = await supabase
-        .from('profiles')
-        .select('id, username, full_name, avatar_url, church_name')
-        .neq('id', userId)
-        .limit(100)
+      let target: any = null
 
-      const target = ((candidates ?? []) as any[]).find(
-        (p) =>
-          p.id.replace(/-/g, '').toLowerCase().startsWith(cleanPrefix) ||
-          (p.username && p.username.toUpperCase() === code)
-      )
+      // 1. Gọi RPC find_profile_by_invite_code trước; nếu có kết quả thì dùng ngay
+      try {
+        const { data: rpcData } = await (supabase.rpc as any)('find_profile_by_invite_code', {
+          code,
+        })
+        if (rpcData && rpcData.id && rpcData.id !== userId) {
+          target = rpcData
+        }
+      } catch {}
+
+      // 2. Fallback nếu RPC chưa triển khai: truy vấn trực tiếp theo username hoặc prefix ID mà không kéo 100 profiles
+      if (!target) {
+        const cleanPrefix = code.replace(/^(FC|VOW)-/, '').toLowerCase()
+        const { data: directMatches } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, church_name')
+          .neq('id', userId)
+          .or(`username.ilike.${code},id.ilike.${cleanPrefix}%`)
+          .limit(1)
+
+        if (Array.isArray(directMatches) && directMatches.length > 0) {
+          target = directMatches[0]
+        }
+      }
 
       if (!target) {
         throw new Error('Không tìm thấy người dùng với mã mời này')
       }
 
-      const { error } = await (supabase.from('friend_requests') as any).insert({
-        sender_id: userId,
-        receiver_id: target.id,
-        status: 'pending',
-      })
+      const { data: insertedRow, error } = await (supabase.from('friend_requests') as any)
+        .insert({
+          sender_id: userId,
+          receiver_id: target.id,
+          status: 'pending',
+        })
+        .select('id')
+        .maybeSingle()
+
       if (error && error.code !== '23505') throw error
 
       setInviteInput('')
-      setOutgoing((prev) => [
-        ...prev,
-        {
-          id: `req-${Date.now()}`,
-          profile: {
-            id: target.id,
-            name: target.full_name || target.username || 'Người dùng VOW',
-            photos: target.avatar_url ? [target.avatar_url] : [],
-            church: target.church_name || '',
-          },
+      const newReqItem: FriendItem = {
+        id: insertedRow?.id || `req-${Date.now()}`,
+        profile: {
+          id: target.id,
+          name: target.full_name || target.username || 'Người dùng VOW',
+          photos: target.avatar_url ? [target.avatar_url] : [],
+          church: target.church_name || '',
         },
-      ])
+      }
+      setOutgoing((prev) =>
+        prev.some((r) => r.profile.id === target.id) ? prev : [...prev, newReqItem]
+      )
       notify(`Đã gửi lời mời tới ${target.full_name || target.username || 'bạn mới'}`)
+      void refreshConnections()
     } catch (err: any) {
       notify(err?.message || 'Gửi lời mời thất bại', 'error')
     } finally {
       setSendingInvite(false)
     }
-  }, [inviteInput, sendingInvite, supabase, userId, notify])
+  }, [inviteInput, sendingInvite, supabase, userId, notify, refreshConnections])
 
   const handleAcceptRequest = useCallback(
     async (req: FriendItem) => {
@@ -1350,11 +1625,12 @@ export default function MomentsClient({
         setIncoming((prev) => prev.filter((r) => r.id !== req.id))
         setFriends((prev) => [...prev, req])
         notify(`Đã kết bạn với ${req.profile.name}`)
+        void refreshConnections()
       } catch (err: any) {
         notify(err?.message || 'Chấp nhận thất bại', 'error')
       }
     },
-    [supabase, userId, notify]
+    [supabase, notify, refreshConnections]
   )
 
   const handleDeclineRequest = useCallback(
@@ -1365,24 +1641,28 @@ export default function MomentsClient({
           .eq('id', req.id)
         setIncoming((prev) => prev.filter((r) => r.id !== req.id))
         notify(`Đã từ chối lời mời của ${req.profile.name}`)
+        void refreshConnections()
       } catch (err: any) {
         notify(err?.message || 'Từ chối thất bại', 'error')
       }
     },
-    [supabase, notify]
+    [supabase, notify, refreshConnections]
   )
 
   const handleCancelRequest = useCallback(
     async (req: FriendItem) => {
       try {
-        await (supabase.from('friend_requests') as any).delete().eq('id', req.id)
-        setOutgoing((prev) => prev.filter((r) => r.id !== req.id))
+        await (supabase.from('friend_requests') as any)
+          .delete()
+          .or(`id.eq.${req.id},and(sender_id.eq.${userId},receiver_id.eq.${req.profile.id})`)
+        setOutgoing((prev) => prev.filter((r) => r.id !== req.id && r.profile.id !== req.profile.id))
         notify(`Đã hủy lời mời tới ${req.profile.name}`)
+        void refreshConnections()
       } catch (err: any) {
         notify(err?.message || 'Hủy lời mời thất bại', 'error')
       }
     },
-    [supabase, notify]
+    [supabase, userId, notify, refreshConnections]
   )
 
   const handleRemoveFriend = useCallback(
@@ -1392,11 +1672,12 @@ export default function MomentsClient({
         await (supabase.from('friendships') as any).delete().eq('id', fr.id)
         setFriends((prev) => prev.filter((f) => f.id !== fr.id))
         notify(`Đã hủy kết bạn với ${fr.profile.name}`)
+        void refreshConnections()
       } catch (err: any) {
         notify(err?.message || 'Hủy kết bạn thất bại', 'error')
       }
     },
-    [supabase, notify]
+    [supabase, notify, refreshConnections]
   )
 
   const peerOf = useCallback(
@@ -1467,7 +1748,7 @@ export default function MomentsClient({
   const cameraErrorCopy = {
     permission: {
       title: 'Chưa được cấp quyền camera',
-      hint: 'iPhone: mở Cài đặt → Safari → Camera → chọn "Cho phép", rồi quay lại đây bấm Thử lại.',
+      hint: 'iPhone: mở Cài đặt → Safari → Camera → chọn "Cho phép", hoặc nhấn "Cấp quyền" bên dưới.',
     },
     notfound: {
       title: 'Không tìm thấy camera',
@@ -1502,15 +1783,15 @@ export default function MomentsClient({
   ).toUpperCase()
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-6rem)] w-full max-w-md flex-col bg-[#050505]">
+    <div className="fixed inset-0 z-20 mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-md flex-col overflow-hidden overscroll-none bg-[#050505] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
       {/* Top Bar (Luxury Dark Glassmorphism) */}
-      <div className="flex shrink-0 items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="flex shrink-0 items-center justify-between px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-1">
         {/* Left: User avatar in a perfect circle with a crisp 1px gold border */}
         <button
           type="button"
           onClick={() => router.push('/ho-so')}
           aria-label="Hồ sơ của tôi"
-          className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.5)] bg-[rgba(255,255,255,0.03)] text-[16px] font-bold text-[#E8D08D] shadow-[0_0_12px_rgba(232,208,141,0.2)] transition active:scale-95"
+          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.5)] bg-[rgba(255,255,255,0.03)] text-[15px] font-bold text-[#E8D08D] shadow-[0_0_12px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
         >
           {currentUser?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1525,12 +1806,12 @@ export default function MomentsClient({
         </button>
 
         {/* Center: Two minimalist icons (App Grid and Chat bubble) with thin gold outlines */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setShowGridModal(true)}
             aria-label="Xem tất cả khoảnh khắc dạng lưới"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95 touch-manipulation"
           >
             <GridFourSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
           </button>
@@ -1539,7 +1820,7 @@ export default function MomentsClient({
             type="button"
             onClick={() => router.push('/tin-nhan')}
             aria-label="Tin nhắn"
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95 touch-manipulation"
           >
             <ChatBubbleSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
             {unreadCount > 0 && (
@@ -1553,18 +1834,21 @@ export default function MomentsClient({
         {/* Right: Glassmorphism pill button displaying a user icon and "2 Bạn" with 1px gold border, sparkling gold accents */}
         <button
           type="button"
-          onClick={() => setShowFriendsDialog((v) => !v)}
+          onClick={() => {
+            setShowFriendsDialog((v) => !v)
+            void refreshConnections()
+          }}
           aria-label="Mở danh sách bạn bè"
-          className="relative flex h-11 shrink-0 items-center gap-2 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-5 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95"
+          className="relative flex h-10 shrink-0 items-center gap-2 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-4 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
         >
           {/* Subtle sparkling gold lens flare dot */}
           <span className="absolute -top-1 -right-0.5 h-2 w-2 rounded-full bg-white shadow-[0_0_8px_#FFF,0_0_12px_#E8D08D]" />
-          <UsersSvg className="h-4.5 w-4.5 text-[#E8D08D]" />
-          <span className="text-[15px] font-semibold tracking-wide text-[#F0F0F0]">
+          <UsersSvg className="h-4 w-4 text-[#E8D08D]" />
+          <span className="text-[14px] font-semibold tracking-wide text-[#F0F0F0]">
             {friends.length} Bạn
           </span>
           {incoming.length > 0 && (
-            <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_10px_#E8D08D]">
+            <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_10px_#E8D08D]">
               {incoming.length}
             </span>
           )}
@@ -1880,8 +2164,8 @@ export default function MomentsClient({
 
       {/* Main Body: Captured Preview OR Live Camera Viewfinder */}
       {capturedDataUrl ? (
-        <section className="flex min-h-0 flex-1 flex-col px-4 pb-4">
-          <div className="relative mt-3 min-h-[180px] flex-1 overflow-hidden rounded-[2.5rem] bg-[#1c1c1e]">
+        <section className="flex min-h-0 flex-1 flex-col px-3 sm:px-4 pb-2">
+          <div className="relative mt-2 min-h-[300px] flex-1 overflow-hidden rounded-[2.25rem] bg-[#1c1c1e]">
             {capturedMediaType === 'video' ? (
               <video
                 src={capturedDataUrl}
@@ -1906,17 +2190,17 @@ export default function MomentsClient({
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Thêm chú thích (không bắt buộc)..."
             maxLength={140}
-            className="mt-4 h-12 w-full shrink-0 rounded-full border border-white/10 bg-[#1c1c1e] px-5 text-sm text-white placeholder:text-white/40 focus:border-gold focus:outline-none"
+            className="mt-3 h-11 w-full shrink-0 rounded-full border border-white/10 bg-[#1c1c1e] px-5 text-sm text-white placeholder:text-white/40 focus:border-gold focus:outline-none"
           />
 
-          <div className="mt-3 flex shrink-0 gap-2">
+          <div className="mt-2.5 flex shrink-0 gap-2">
             <button
               type="button"
               onClick={() => {
                 setCapturedDataUrl(null)
                 setCapturedBlob(null)
               }}
-              className="flex-1 rounded-full bg-[#1c1c1e] py-3.5 text-sm font-semibold text-white active:scale-95"
+              className="flex-1 rounded-full bg-[#1c1c1e] py-3 text-sm font-semibold text-white active:scale-95 touch-manipulation"
             >
               Chụp lại
             </button>
@@ -1924,24 +2208,24 @@ export default function MomentsClient({
               type="button"
               onClick={() => void handlePostMoment()}
               disabled={posting}
-              className="flex-[2] rounded-full bg-gold py-3.5 text-sm font-bold text-ink disabled:opacity-40 active:scale-95"
+              className="flex-[2] rounded-full bg-gold py-3 text-sm font-bold text-ink disabled:opacity-40 active:scale-95 touch-manipulation"
             >
               {posting ? 'Đang gửi...' : postFailed ? 'Thử gửi lại' : 'Gửi cho bạn bè'}
             </button>
           </div>
 
           {postFailed && (
-            <p className="mt-2 text-center text-xs text-danger">
+            <p className="mt-1.5 text-center text-xs text-danger">
               Gửi thất bại — ảnh vẫn còn đây, kiểm tra mạng rồi bấm thử lại nhé.
             </p>
           )}
           {processError && (
-            <p className="mt-2 text-center text-xs text-danger">{processError}</p>
+            <p className="mt-1.5 text-center text-xs text-danger">{processError}</p>
           )}
         </section>
       ) : (
         <section
-          className="flex min-h-0 flex-1 flex-col px-4"
+          className="flex min-h-0 flex-1 flex-col px-3 sm:px-4"
           onTouchStart={(e) => {
             if (e.touches.length === 1) {
               swipeStartRef.current = {
@@ -1965,8 +2249,8 @@ export default function MomentsClient({
             }
           }}
         >
-          {/* Camera Viewfinder (Large dark rectangle with smooth rounded corners & 1px gold focal bracket lines) */}
-          <div className="relative mt-3 min-h-[180px] flex-1 overflow-hidden rounded-[2.5rem] border border-[rgba(232,208,141,0.25)] bg-[#0c0c0e] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(232,208,141,0.2)]">
+          {/* Camera Viewfinder (Expanded iPhone-proportioned rectangle with smooth rounded corners & 1px gold focal bracket lines) */}
+          <div className="relative mt-2 min-h-[320px] flex-1 overflow-hidden rounded-[2.25rem] border border-[rgba(232,208,141,0.28)] bg-[#0c0c0e] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(232,208,141,0.2)]">
             {cameraErrorKind ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-8 text-center">
                 <CameraOutlineSvg className="h-14 w-14 text-white/40" />
@@ -1978,10 +2262,15 @@ export default function MomentsClient({
                 </p>
                 <button
                   type="button"
-                  onClick={() => void startCamera(facingMode)}
-                  className="mt-1 rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(255,255,255,0.08)] px-6 py-2.5 text-sm font-semibold text-[#E8D08D] active:scale-95"
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem(CAMERA_PERM_STORAGE_KEY)
+                    } catch {}
+                    void startCamera(facingMode, true)
+                  }}
+                  className="mt-1 rounded-full border border-[rgba(232,208,141,0.3)] bg-[rgba(255,255,255,0.08)] px-6 py-2.5 text-sm font-semibold text-[#E8D08D] active:scale-95 touch-manipulation"
                 >
-                  Thử lại
+                  Cấp quyền / Thử lại
                 </button>
               </div>
             ) : (
@@ -2018,7 +2307,7 @@ export default function MomentsClient({
                 type="button"
                 onClick={() => void handleToggleTorch()}
                 aria-label={torchOn ? 'Tắt flash' : 'Bật flash'}
-                className={`absolute left-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] backdrop-blur-md transition active:scale-95 ${
+                className={`absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] backdrop-blur-md transition active:scale-95 touch-manipulation ${
                   torchOn
                     ? 'bg-[#E8D08D] text-black shadow-[0_0_15px_#E8D08D]'
                     : 'bg-black/40 text-[#E8D08D]'
@@ -2028,55 +2317,55 @@ export default function MomentsClient({
               </button>
             )}
 
+            {/* Zoom Controls overlaid inside bottom of viewfinder when using back camera so viewfinder stays large */}
+            {!cameraErrorKind && facingMode !== 'user' && (
+              <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
+                <div className="flex items-center gap-1 rounded-full border border-[rgba(232,208,141,0.3)] bg-black/55 p-1 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
+                  {availableZooms.map((z) => {
+                    const isActive = Math.abs(zoom - z) < 0.001
+                    return (
+                      <button
+                        key={z}
+                        type="button"
+                        onClick={() => void handleSetZoom(z)}
+                        aria-label={`Zoom ${z}x`}
+                        className={`h-7 min-w-[34px] rounded-full px-2.5 text-xs font-bold transition-all active:scale-95 touch-manipulation ${
+                          isActive
+                            ? 'bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#B38C3B] text-black shadow-[0_0_12px_rgba(232,208,141,0.5)]'
+                            : 'text-[#E8D08D]/75 hover:text-[#E8D08D]'
+                        }`}
+                      >
+                        {z}x
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {isRecordingVideo && (
-              <div className="absolute right-5 top-5 flex items-center gap-1.5 rounded-full bg-red-600/80 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-red-600/80 px-3 py-1 text-xs font-bold text-white backdrop-blur">
                 <span className="h-2 w-2 rounded-full bg-white animate-ping" />
                 REC 3s
               </div>
             )}
           </div>
 
-          {/* Zoom Controls: Glassmorphism pill with metallic gold active circle */}
-          {!cameraErrorKind && facingMode !== 'user' && (
-            <div className="mt-3 flex shrink-0 items-center justify-center">
-              <div className="flex items-center gap-1 rounded-full border border-[rgba(232,208,141,0.25)] bg-[rgba(255,255,255,0.04)] p-1 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
-                {availableZooms.map((z) => {
-                  const isActive = Math.abs(zoom - z) < 0.001
-                  return (
-                    <button
-                      key={z}
-                      type="button"
-                      onClick={() => void handleSetZoom(z)}
-                      aria-label={`Zoom ${z}x`}
-                      className={`h-8 min-w-[36px] rounded-full px-3 text-xs font-bold transition-all active:scale-95 ${
-                        isActive
-                          ? 'bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#B38C3B] text-black shadow-[0_0_12px_rgba(232,208,141,0.5)]'
-                          : 'text-[#E8D08D]/50 hover:text-[#E8D08D]'
-                      }`}
-                    >
-                      {z}x
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Camera Actions: Shutter Row */}
-          <div className="mt-3.5 flex shrink-0 items-center justify-between px-8">
+          <div className="mt-2.5 flex shrink-0 items-center justify-between px-7">
             {/* Left: Gallery Thumbnail encased in 1px gold border with elegant tiny PREMIUM tag */}
             <button
               type="button"
               onClick={handleClickGallery}
               aria-label="Chọn ảnh từ thư viện (VOW Premium)"
-              className="group relative flex flex-col items-center transition active:scale-90"
+              className="group relative flex flex-col items-center transition active:scale-90 touch-manipulation"
             >
               {!premiumActive && (
-                <span className="absolute -top-3 z-10 rounded-md border border-[rgba(232,208,141,0.4)] bg-black/80 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-[#E8D08D] shadow-[0_0_8px_rgba(232,208,141,0.3)] backdrop-blur-md">
+                <span className="absolute -top-2.5 z-10 rounded-md border border-[rgba(232,208,141,0.4)] bg-black/80 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-[#E8D08D] shadow-[0_0_8px_rgba(232,208,141,0.3)] backdrop-blur-md">
                   PREMIUM
                 </span>
               )}
-              <span className="flex h-13 w-13 items-center justify-center rounded-2xl border border-[rgba(232,208,141,0.35)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(232,208,141,0.35)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
                 <GalleryAddSvg />
               </span>
             </button>
@@ -2096,7 +2385,7 @@ export default function MomentsClient({
               onPointerUp={handleShutterPointerUp}
               disabled={cameraErrorKind !== null}
               aria-label="Chụp"
-              className={`relative flex h-[86px] w-[86px] items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40 ${
+              className={`relative flex h-[78px] w-[78px] items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40 touch-manipulation ${
                 isRecordingVideo ? 'scale-105' : ''
               }`}
             >
@@ -2114,8 +2403,8 @@ export default function MomentsClient({
               <span
                 className={`relative z-10 rounded-full transition-all ${
                   isRecordingVideo
-                    ? 'h-11 w-11 bg-red-500'
-                    : 'h-14 w-14 bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_0_12px_rgba(255,255,255,0.8)]'
+                    ? 'h-10 w-10 bg-red-500'
+                    : 'h-[52px] w-[52px] bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_0_12px_rgba(255,255,255,0.8)]'
                 }`}
               />
             </button>
@@ -2125,29 +2414,29 @@ export default function MomentsClient({
               type="button"
               onClick={() => setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'))}
               aria-label="Đổi camera"
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition active:scale-90"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#E8D08D] shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition active:scale-90 touch-manipulation"
             >
               <FlipCameraSvg />
             </button>
           </div>
 
           {/* History Section: "Lịch sử ⌄" using Elegant Gold Serif Font */}
-          <div className="mt-3 shrink-0 select-none pb-24 text-center">
+          <div className="mt-2 shrink-0 select-none pb-2 text-center">
             <button
               type="button"
               onClick={() => openHistory(null, null)}
-              className="mx-auto flex items-center gap-1.5 font-serif text-[19px] font-semibold tracking-wide text-[#E8D08D] active:scale-95 hover:text-[#FFF1CA]"
+              className="mx-auto flex items-center gap-1.5 font-serif text-[17px] font-semibold tracking-wide text-[#E8D08D] active:scale-95 hover:text-[#FFF1CA] touch-manipulation"
             >
               <span>Lịch sử</span>
               <ChevronDownSvg className="h-4 w-4 stroke-[2.2] text-[#E8D08D]" />
             </button>
             {sortedMoments.length > 0 ? (
-              <p className="mt-1 text-xs text-[#9E9E9E] font-light">
+              <p className="mt-0.5 text-[11px] text-[#9E9E9E] font-light">
                 {sortedMoments.length} khoảnh khắc · mới nhất{' '}
                 {timeAgoVi(sortedMoments[0].created_at)}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-[#9E9E9E] font-light">Vuốt lên để xem khoảnh khắc</p>
+              <p className="mt-0.5 text-[11px] text-[#9E9E9E] font-light">Vuốt lên để xem khoảnh khắc</p>
             )}
           </div>
         </section>

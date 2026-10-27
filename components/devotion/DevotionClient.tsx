@@ -3,8 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { DailyVerse } from '@/types/database'
-import { getTodayLesson, type BibleLesson } from '@/lib/bible'
-import WallpaperModal from './WallpaperModal'
+import type { DailyLesson, BibleLesson } from '@/lib/bible'
+import WallpaperModal, { preloadWallpaperImage, WALLPAPERS } from './WallpaperModal'
 import SettingsModal from './SettingsModal'
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
   userName: string
   today: string
   isAdmin?: boolean
+  initialLesson?: DailyLesson | BibleLesson | null
 }
 
 interface DailyLessonItem {
@@ -34,6 +35,16 @@ const DAY_NAMES = ['CHỦ NHẬT', 'THỨ HAI', 'THỨ BA', 'THỨ TƯ', 'THỨ 
 const WEEK_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 const MUSIC_STORAGE_KEY = 'fc_music_on'
 
+const DEFAULT_FALLBACK_LESSON: BibleLesson = {
+  sach: 'Thi Thiên',
+  ma: 'PSA',
+  chuong: 23,
+  cau: 1,
+  loi_kinh_thanh: 'Đức Giê-hô-va là Đấng chăn giữ tôi: tôi sẽ chẳng thiếu thốn gì.',
+  bai_hoc: 'Hãy dành vài phút tĩnh lặng để hướng lòng về Chúa hôm nay và nhận lãnh sự bình an từ Ngài.',
+  loi_cau_nguyen: 'Chúa ơi, xin dẫn dắt con trong ngày mới này và cho con luôn vững lòng tin cậy nơi Ngài. A-men.',
+}
+
 function getGreeting(hour: number): string {
   if (hour >= 5 && hour < 11) return 'buổi sáng'
   if (hour >= 11 && hour < 14) return 'buổi trưa'
@@ -47,14 +58,24 @@ function getDayOfYear(date = new Date()): number {
   return Math.floor(diff / (1000 * 60 * 60 * 24))
 }
 
+function formatLocalDateYYYYMMDD(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function getSundayToSaturdayDates(todayStr: string): string[] {
-  const d = new Date(todayStr)
-  const sunday = new Date(d)
-  sunday.setDate(d.getDate() - d.getDay())
+  const parts = (todayStr || '').split('-').map(Number)
+  const nowLocal = new Date()
+  const d =
+    parts.length === 3 && !parts.some(isNaN)
+      ? new Date(parts[0], parts[1] - 1, parts[2])
+      : new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate())
+  const sunday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay())
   return Array.from({ length: 7 }, (_, i) => {
-    const cur = new Date(sunday)
-    cur.setDate(sunday.getDate() + i)
-    return cur.toISOString().split('T')[0]
+    const cur = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i)
+    return formatLocalDateYYYYMMDD(cur)
   })
 }
 
@@ -258,6 +279,10 @@ export const MOOD_TABS: Record<MoodTabKey, MoodTabConfig> = {
   },
 }
 
+// Module-level memory cache so switching tabs or reopening "Tìm Chúa trước" is 0ms on iPhone
+let cachedDailyLessons: DailyLessonItem[] | null = null
+let cachedTopicData: Record<string, TopicArticle[]> | null = null
+
 /* ================== COMPONENT ================== */
 
 export default function DevotionClient({
@@ -269,16 +294,18 @@ export default function DevotionClient({
   userName,
   today,
   isAdmin = false,
+  initialLesson = null,
 }: Props) {
   // Navigation View State: 'home' = selection page, 'daily' = daily lesson, 'topic' = context reflection
   const [activeView, setActiveView] = useState<'home' | 'daily' | 'topic'>('home')
   const [selectedTopic, setSelectedTopic] = useState<TopicConfig | null>(null)
   const [topicArticleIndex, setTopicArticleIndex] = useState(0)
+  const [articleSwitchPulse, setArticleSwitchPulse] = useState(false)
   const [activeMoodTab, setActiveMoodTab] = useState<MoodTabKey>('comfort')
 
-  // Data states
-  const [dailyLessons, setDailyLessons] = useState<DailyLessonItem[]>([])
-  const [topicData, setTopicData] = useState<Record<string, TopicArticle[]> | null>(null)
+  // Data states (initialized synchronously from module cache if already loaded)
+  const [dailyLessons, setDailyLessons] = useState<DailyLessonItem[]>(() => cachedDailyLessons ?? [])
+  const [topicData, setTopicData] = useState<Record<string, TopicArticle[]> | null>(() => cachedTopicData)
 
   // Streak & read state
   const [todayRead, setTodayRead] = useState(initialTodayRead)
@@ -318,10 +345,13 @@ export default function DevotionClient({
   const musicOnRef = useRef(musicOn)
   musicOnRef.current = musicOn
 
+  const toastTimerRef = useRef<number | null>(null)
+  const randomTimerRef = useRef<number | null>(null)
   const touchStartXRef = useRef(0)
   const touchStartYRef = useRef(0)
+  const topicScrollRef = useRef<HTMLElement | null>(null)
 
-  const [fallbackLesson, setFallbackLesson] = useState<BibleLesson | null>(null)
+  const [fallbackLesson] = useState<BibleLesson>(() => initialLesson ?? DEFAULT_FALLBACK_LESSON)
   const supabase = createClient()
   const now = new Date()
   const headerDateStr = `${DAY_NAMES[now.getDay()]}, ${now.getDate()} THÁNG ${now.getMonth() + 1}`
@@ -331,32 +361,98 @@ export default function DevotionClient({
   const wallpaperIdx = (Math.abs(dayOfYear) % 16) + 1
   const wallpaperSrc = `/wallpapers/w${wallpaperIdx}.jpg`
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current)
+    }
     setToastMessage(msg)
-    window.setTimeout(() => setToastMessage(null), 2600)
-  }
+    toastTimerRef.current = window.setTimeout(() => {
+      toastTimerRef.current = null
+      setToastMessage(null)
+    }, 2600)
+  }, [])
 
-  // Pre-load lessons & data
   useEffect(() => {
-    setFallbackLesson(getTodayLesson(new Date()))
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current)
+        toastTimerRef.current = null
+      }
+      if (randomTimerRef.current !== null) {
+        window.clearTimeout(randomTimerRef.current)
+        randomTimerRef.current = null
+      }
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.removeAttribute('src')
+        audioRef.current.load()
+        audioRef.current = null
+      }
+    }
+  }, [])
 
-    fetch('/VOW%20daily.json')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: DailyLessonItem[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setDailyLessons(data)
-        }
-      })
-      .catch(() => {})
+  // Pre-load lessons & data without network contention
+  useEffect(() => {
+    const abortController = new AbortController()
+    let idleId: number | null = null
+    let deferTimer: number | null = null
 
-    fetch('/kinh-thanh-hoan-canh.json')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && typeof data === 'object') {
-          setTopicData(data)
-        }
-      })
-      .catch(() => {})
+    const loadTopicsDeferred = () => {
+      if (cachedTopicData || abortController.signal.aborted) return
+      fetch('/kinh-thanh-hoan-canh.json', { signal: abortController.signal })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && typeof data === 'object' && !abortController.signal.aborted) {
+            cachedTopicData = data
+            setTopicData(data)
+          }
+        })
+        .catch(() => {})
+    }
+
+    const scheduleTopicFetch = () => {
+      if (cachedTopicData || abortController.signal.aborted) return
+      const win = window as any
+      if (typeof win.requestIdleCallback === 'function') {
+        idleId = win.requestIdleCallback(() => loadTopicsDeferred(), { timeout: 1200 })
+      } else {
+        deferTimer = window.setTimeout(loadTopicsDeferred, 400)
+      }
+    }
+
+    if (!cachedDailyLessons) {
+      fetch('/VOW%20daily.json', { signal: abortController.signal })
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data: DailyLessonItem[]) => {
+          if (Array.isArray(data) && data.length > 0 && !abortController.signal.aborted) {
+            cachedDailyLessons = data
+            setDailyLessons(data)
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          scheduleTopicFetch()
+        })
+    } else {
+      scheduleTopicFetch()
+    }
+
+    // Warm up the first 2 wallpapers in background idle time so opening "Tạo hình nền" is instant on iPhone
+    const warmTimer = window.setTimeout(() => {
+      if (WALLPAPERS[0]?.src) void preloadWallpaperImage(WALLPAPERS[0].src).catch(() => {})
+      if (WALLPAPERS[1]?.src) void preloadWallpaperImage(WALLPAPERS[1].src).catch(() => {})
+    }, 600)
+
+    return () => {
+      abortController.abort()
+      if (idleId !== null && typeof (window as any).cancelIdleCallback === 'function') {
+        ;(window as any).cancelIdleCallback(idleId)
+      }
+      if (deferTimer !== null) {
+        window.clearTimeout(deferTimer)
+      }
+      window.clearTimeout(warmTimer)
+    }
   }, [])
 
   // ================== AUDIO BACKGROUND ENGINE ==================
@@ -420,7 +516,11 @@ export default function DevotionClient({
       window.removeEventListener('pagehide', handlePageHide)
       window.removeEventListener('blur', handleBlur)
       try {
-        audio?.pause()
+        if (audio) {
+          audio.pause()
+          audio.removeAttribute('src')
+          audio.load()
+        }
       } catch {}
       audioRef.current = null
     }
@@ -559,16 +659,17 @@ export default function DevotionClient({
 
   // Helper for topic articles (robust 14 topic mapping)
   const getTopicArticles = useCallback((topic: TopicConfig): TopicArticle[] => {
-    if (!topicData) return []
+    const source = topicData || cachedTopicData
+    if (!source) return []
 
     // 1. Direct match with jsonKey
-    if (topicData[topic.jsonKey] && topicData[topic.jsonKey].length > 0) {
-      return topicData[topic.jsonKey]
+    if (source[topic.jsonKey] && source[topic.jsonKey].length > 0) {
+      return source[topic.jsonKey]
     }
 
     // 2. Direct match with topic.title
-    if (topicData[topic.title] && topicData[topic.title].length > 0) {
-      return topicData[topic.title]
+    if (source[topic.title] && source[topic.title].length > 0) {
+      return source[topic.title]
     }
 
     // 3. Robust alias mapping for all 14 topics
@@ -591,8 +692,8 @@ export default function DevotionClient({
 
     const aliases = aliasMap[topic.id] || []
     for (const key of aliases) {
-      if (topicData[key] && topicData[key].length > 0) {
-        return topicData[key]
+      if (source[key] && source[key].length > 0) {
+        return source[key]
       }
     }
 
@@ -614,15 +715,42 @@ export default function DevotionClient({
     ? currentTopicArticles[topicArticleIndex % currentTopicArticles.length]
     : null
 
-  // Next article button: pick another RANDOM article (different from current)
-  const handleNextRandomArticle = () => {
-    if (currentTopicArticles.length <= 1) return
-    let nextIdx = topicArticleIndex
-    while (nextIdx === topicArticleIndex) {
-      nextIdx = Math.floor(Math.random() * currentTopicArticles.length)
+  // Next article button: pick another RANDOM article (different from current) + scroll to top & animate
+  const handleNextRandomArticle = useCallback(() => {
+    if (currentTopicArticles.length === 0) return
+    setArticleSwitchPulse(true)
+    if (randomTimerRef.current !== null) {
+      window.clearTimeout(randomTimerRef.current)
     }
-    setTopicArticleIndex(nextIdx)
-  }
+    randomTimerRef.current = window.setTimeout(() => {
+      randomTimerRef.current = null
+      setArticleSwitchPulse(false)
+    }, 260)
+
+    if (currentTopicArticles.length > 1) {
+      setTopicArticleIndex((prev) => {
+        let nextIdx = prev
+        let guard = 0
+        while (nextIdx === prev && guard < 12) {
+          nextIdx = Math.floor(Math.random() * currentTopicArticles.length)
+          guard++
+        }
+        if (nextIdx === prev) {
+          nextIdx = (prev + 1) % currentTopicArticles.length
+        }
+        return nextIdx
+      })
+    }
+
+    // Immediately scroll the reading container back to top so the user sees the new article header & verse on iPhone
+    if (topicScrollRef.current) {
+      try {
+        topicScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+      } catch {
+        topicScrollRef.current.scrollTop = 0
+      }
+    }
+  }, [currentTopicArticles.length])
 
   // ================== SHARING HELPER ==================
   const handleShareVerse = async () => {
@@ -707,7 +835,7 @@ export default function DevotionClient({
               onClick={() => setMusicOn((prev) => !prev)}
               aria-label={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
               title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
-              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition duration-75 active:scale-95 touch-manipulation select-none ${
                 lightMode
                   ? musicOn
                     ? 'border-[#D4AF37]/60 bg-amber-50 text-[#B38C3B] shadow-[0_0_12px_rgba(212,175,55,0.25)]'
@@ -730,7 +858,7 @@ export default function DevotionClient({
               onClick={toggleLightMode}
               aria-label={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
               title={lightMode ? 'Chế độ tối' : 'Chế độ sáng'}
-              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition duration-75 active:scale-95 touch-manipulation select-none ${
                 lightMode
                   ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
@@ -749,7 +877,7 @@ export default function DevotionClient({
               onClick={() => setShowWallpaperModal(true)}
               aria-label="Tạo hình nền"
               title="Tạo hình nền"
-              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition duration-75 active:scale-95 touch-manipulation select-none ${
                 lightMode
                   ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
@@ -764,7 +892,7 @@ export default function DevotionClient({
               onClick={() => setShowSettingsModal(true)}
               aria-label="Cài đặt"
               title="Cài đặt"
-              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition active:scale-95 ${
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border backdrop-blur-md transition duration-75 active:scale-95 touch-manipulation select-none ${
                 lightMode
                   ? 'border-neutral-200 bg-white text-neutral-800 shadow-sm'
                   : 'border-[rgba(232,208,141,0.2)] bg-[rgba(255,255,255,0.03)] text-[#F0F0F0] shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
@@ -836,13 +964,14 @@ export default function DevotionClient({
                 window.history.pushState({ vowSubPage: 'daily' }, '')
                 setActiveView('daily')
               }}
-              className="group min-h-[144px] sm:min-h-[158px] flex flex-col justify-between p-4.5 sm:p-5 rounded-2xl sm:rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_12px_36px_-10px_rgba(212,175,55,0.28)] active:scale-[0.99] transition-all duration-300 text-left cursor-pointer w-full"
+              className="group min-h-[144px] sm:min-h-[158px] flex flex-col justify-between p-4.5 sm:p-5 rounded-2xl sm:rounded-3xl relative overflow-hidden border border-[#D4AF37]/50 shadow-[0_12px_36px_-10px_rgba(212,175,55,0.28)] active:scale-[0.99] transition-all duration-150 text-left cursor-pointer w-full touch-manipulation select-none"
             >
               {/* Ảnh Phong Cảnh Có Màu Sắc Thật (wallpapers/w1.jpg .. w16.jpg) */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={wallpaperSrc}
                 alt=""
+                decoding="async"
                 className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-75 scale-105 transition-transform duration-1000"
               />
 
@@ -900,7 +1029,7 @@ export default function DevotionClient({
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveMoodTab(tab.key)}
-                    className={`py-1.5 sm:py-2 px-1 text-center rounded-xl text-xs sm:text-[13px] tracking-wide transition-all duration-200 cursor-pointer ${
+                    className={`py-1.5 sm:py-2 px-1 text-center rounded-xl text-xs sm:text-[13px] tracking-wide transition-all duration-100 cursor-pointer touch-manipulation select-none active:scale-95 ${
                       isActive
                         ? 'bg-gradient-to-b from-[#D4AF37]/25 to-[#D4AF37]/10 border border-[#D4AF37]/45 text-[#FFF3B0] shadow-[0_2px_12px_rgba(212,175,55,0.2)] font-medium'
                         : lightMode
@@ -926,7 +1055,7 @@ export default function DevotionClient({
                   onClick={() => handleSelectTopic(pill)}
                   className={`${
                     pill.colSpan ? 'col-span-2' : 'col-span-1'
-                  } group relative p-3 sm:p-3.5 rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer text-left backdrop-blur-md overflow-hidden ${
+                  } group relative p-3 sm:p-3.5 rounded-2xl border border-t-white/[0.22] hover:border-[#D4AF37]/50 shadow-md active:scale-[0.97] transition-all duration-100 cursor-pointer text-left backdrop-blur-md overflow-hidden touch-manipulation select-none ${
                     lightMode
                       ? 'bg-gradient-to-br from-white/95 via-white/80 to-amber-50/40 border-stone-200/80'
                       : 'bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent border-white/[0.1]'
@@ -1001,7 +1130,7 @@ export default function DevotionClient({
                 onClick={handleShareVerse}
                 aria-label="Chia sẻ câu gốc"
                 title="Chia sẻ câu gốc"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] text-[#E8D08D] backdrop-blur transition hover:bg-[rgba(232,208,141,0.22)] active:scale-95 shadow-sm cursor-pointer"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] text-[#E8D08D] backdrop-blur transition duration-75 hover:bg-[rgba(232,208,141,0.22)] active:scale-90 shadow-sm cursor-pointer touch-manipulation select-none"
               >
                 <ShareSvg className="h-4 w-4 text-[#E8D08D]" />
               </button>
@@ -1054,7 +1183,7 @@ export default function DevotionClient({
               type="button"
               onClick={handleMarkRead}
               disabled={todayRead}
-              className={`flex w-full items-center justify-center gap-2 rounded-full border py-3 text-sm font-semibold tracking-wide transition-all ${
+              className={`flex w-full items-center justify-center gap-2 rounded-full border py-3 text-sm font-semibold tracking-wide transition-all duration-100 touch-manipulation select-none ${
                 todayRead
                   ? 'border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.12)] text-[#E8D08D] shadow-[0_0_15px_rgba(232,208,141,0.2)]'
                   : 'border-[#E8D08D] bg-[#E8D08D] text-black shadow-[0_0_20px_rgba(232,208,141,0.3)] active:scale-95'
@@ -1116,30 +1245,53 @@ export default function DevotionClient({
 
       {/* ================== READING VIEW 2: CHỌN TÂM TRẠNG ================== */}
       {activeView === 'topic' && selectedTopic && (
-        <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1">
+        <main
+          ref={topicScrollRef}
+          className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain nice-scroll touch-pan-y px-4 sm:px-5 py-4 transition-all duration-300 animate-in fade-in slide-in-from-bottom-1"
+        >
           {/* Ambient Glow for Topic Reading */}
           <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 w-[320px] h-[160px] rounded-full bg-gradient-to-b from-[#D4AF37]/[0.12] via-[#E5B84B]/[0.05] to-transparent blur-[60px]" />
           {currentTopicArticle ? (
-            <div className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 ${
-              lightMode
-                ? 'border-neutral-200 bg-white/95 shadow-md'
-                : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
-            }`}>
+            <div
+              key={`${selectedTopic.id}-${topicArticleIndex}`}
+              className={`relative overflow-hidden rounded-[1.8rem] border p-5 sm:p-6 backdrop-blur-2xl mb-4 transition-opacity duration-200 ${
+                articleSwitchPulse ? 'opacity-80' : 'opacity-100'
+              } ${
+                lightMode
+                  ? 'border-neutral-200 bg-white/95 shadow-md'
+                  : 'border-[rgba(232,208,141,0.28)] bg-[rgba(255,255,255,0.03)] shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(232,208,141,0.2)]'
+              }`}
+            >
               <QuoteWatermark className="absolute right-4 top-4 h-16 w-16 text-[#E8D08D] opacity-15 pointer-events-none" />
 
-              {/* Bible Address Header with Cuốn Kinh Thánh (BookOpenIcon) */}
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.1)] text-[#E8D08D] shadow-sm">
-                  <BookOpenIcon className="h-4 w-4 text-[#E8D08D]" />
+              {/* Bible Address Header with Cuốn Kinh Thánh (BookOpenIcon) + Quick Switch Button */}
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[rgba(232,208,141,0.35)] bg-[rgba(232,208,141,0.1)] text-[#E8D08D] shadow-sm">
+                    <BookOpenIcon className="h-4 w-4 text-[#E8D08D]" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8D08D] truncate">
+                      {selectedTopic.title}
+                    </span>
+                    <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-wide text-[#E8D08D]">
+                      {currentTopicArticle.dia_chi}
+                    </h3>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8D08D]">
-                    {selectedTopic.title}
-                  </span>
-                  <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-wide text-[#E8D08D]">
-                    {currentTopicArticle.dia_chi}
-                  </h3>
-                </div>
+
+                {currentTopicArticles.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleNextRandomArticle}
+                    aria-label="Đổi bài suy ngẫm khác"
+                    title="Đổi bài suy ngẫm khác"
+                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.38)] bg-[rgba(232,208,141,0.12)] px-3 py-1.5 text-[11px] font-semibold text-[#E8D08D] shadow-sm transition duration-75 active:scale-90 touch-manipulation select-none cursor-pointer"
+                  >
+                    <RefreshCwIcon className={`h-3.5 w-3.5 ${articleSwitchPulse ? 'animate-spin' : ''}`} />
+                    <span>Bài khác</span>
+                  </button>
+                )}
               </div>
 
               {/* Article Content */}
@@ -1171,9 +1323,9 @@ export default function DevotionClient({
                 <button
                   type="button"
                   onClick={handleNextRandomArticle}
-                  className="flex w-full items-center justify-center gap-2 rounded-full border border-[#E8D08D] bg-[#E8D08D] py-3 text-sm font-semibold text-black shadow-[0_0_20px_rgba(232,208,141,0.25)] transition active:scale-95"
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-[#E8D08D] bg-[#E8D08D] py-3 text-sm font-semibold text-black shadow-[0_0_20px_rgba(232,208,141,0.25)] transition duration-75 active:scale-95 touch-manipulation select-none cursor-pointer"
                 >
-                  <RefreshCwIcon className="h-4 w-4" />
+                  <RefreshCwIcon className={`h-4 w-4 ${articleSwitchPulse ? 'animate-spin' : ''}`} />
                   <span>Đổi bài suy ngẫm khác</span>
                 </button>
               </div>
@@ -1190,7 +1342,25 @@ export default function DevotionClient({
 
 
       {/* ================== MODALS ================== */}
-      {showWallpaperModal && <WallpaperModal onClose={() => setShowWallpaperModal(false)} />}
+      {showWallpaperModal && (
+        <WallpaperModal
+          currentVerse={
+            currentDailyItem?.cau_goc
+              ? {
+                  reference: todayVerseAddress || 'Lời Chúa hôm nay',
+                  text: currentDailyItem.cau_goc
+                    .trim()
+                    .split(/\r?\n/)
+                    .slice(0, -1)
+                    .join(' ')
+                    .replace(/^[“"']+|[”"']+$/g, '')
+                    .trim() || currentDailyItem.cau_goc.replace(/^[“"']+|[”"']+$/g, '').trim(),
+                }
+              : undefined
+          }
+          onClose={() => setShowWallpaperModal(false)}
+        />
+      )}
       <SettingsModal
         open={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}

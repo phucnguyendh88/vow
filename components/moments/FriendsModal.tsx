@@ -36,49 +36,55 @@ export default function FriendsModal({
 
   if (!open) return null
 
-  const handleCopyLink = () => {
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    let success = false
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        success = true
+      }
+    } catch {}
+
+    if (!success && typeof document !== 'undefined') {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.left = '-9999px'
+        textarea.style.top = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        success = document.execCommand('copy')
+        document.body.removeChild(textarea)
+      } catch {}
+    }
+    return success
+  }
+
+  const handleCopyLink = async () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vow-faith.vercel.app'
     const baseUrl = origin.includes('localhost') ? origin : 'https://vow-faith.vercel.app'
     const inviteUrl = `${baseUrl}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
     const message = `Gửi link này cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn: ${inviteUrl}`
 
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        navigator.clipboard
-          .writeText(message)
-          .then(() => {
-            setLinkCopied(true)
-            toast.success('Đã sao chép link mời kèm lời nhắn')
-            setTimeout(() => setLinkCopied(false), 2500)
-          })
-          .catch(() => {
-            toast.error('Không sao chép được')
-          })
-      } else {
-        toast.error('Trình duyệt không hỗ trợ sao chép tự động')
-      }
-    } catch {
+    const ok = await copyToClipboard(message)
+    if (ok) {
+      setLinkCopied(true)
+      toast.success('Đã sao chép link mời kèm lời nhắn')
+      setTimeout(() => setLinkCopied(false), 2500)
+    } else {
       toast.error('Không sao chép được')
     }
   }
 
-  const handleCopyRawCode = () => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        navigator.clipboard
-          .writeText(myInviteCode)
-          .then(() => {
-            setCodeCopied(true)
-            toast.success(`Đã sao chép mã ${myInviteCode}`)
-            setTimeout(() => setCodeCopied(false), 2500)
-          })
-          .catch(() => {
-            toast.error('Không sao chép được')
-          })
-      } else {
-        toast.error('Trình duyệt không hỗ trợ sao chép tự động')
-      }
-    } catch {
+  const handleCopyRawCode = async () => {
+    const ok = await copyToClipboard(myInviteCode)
+    if (ok) {
+      setCodeCopied(true)
+      toast.success(`Đã sao chép mã ${myInviteCode}`)
+      setTimeout(() => setCodeCopied(false), 2500)
+    } else {
       toast.error('Không sao chép được')
     }
   }

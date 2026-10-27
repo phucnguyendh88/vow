@@ -4,7 +4,17 @@ export const revalidate = 0
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import DevotionClient from '@/components/devotion/DevotionClient'
+import { getTodayLesson, getVietnamDateString } from '@/lib/bible'
 import type { DailyVerse } from '@/types/database'
+
+function getVietnamDateInfo() {
+  const today = getVietnamDateString()
+  const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
+  const sevenDaysAgoStr = getVietnamDateString(sevenDaysAgo)
+
+  return { today, sevenDaysAgoStr }
+}
 
 export default async function TimChuaTruocPage() {
   const supabase = await createClient()
@@ -16,14 +26,12 @@ export default async function TimChuaTruocPage() {
 
   if (!user) redirect('/dang-nhap')
 
-  const today = new Date().toISOString().split('T')[0]
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+  const { today, sevenDaysAgoStr } = getVietnamDateInfo()
+  const initialLesson = getTodayLesson()
 
   // Chạy đồng thời toàn bộ 4 truy vấn song song để triệt tiêu thời gian chờ
   const [verseResult, streaksResult, totalStreakResult, profileResult] = await Promise.all([
-    supabase.from('daily_verses').select('*').eq('date', today).single(),
+    supabase.from('daily_verses').select('*').eq('date', today).maybeSingle(),
     supabase
       .from('reading_streaks')
       .select('date')
@@ -38,23 +46,30 @@ export default async function TimChuaTruocPage() {
       .from('profiles')
       .select('full_name, username, role, is_complete')
       .eq('id', user.id)
-      .single(),
+      .maybeSingle(),
   ])
 
   const verse = verseResult.data
   const verseError = verseResult.error
   const streaks = (streaksResult.data as Array<{ date: string }> | null) ?? []
   const totalStreak = totalStreakResult.count ?? 0
-  const profile = profileResult.data as { full_name: string | null; username: string | null; role: string | null; is_complete: boolean | null } | null
+  const profile = profileResult.data as {
+    full_name: string | null
+    username: string | null
+    role: string | null
+    is_complete: boolean | null
+  } | null
+
   // First-time users must finish onboarding before entering the main app
   if (profile && profile.is_complete === false) redirect('/onboarding')
 
   const todayRead = streaks.some((s) => s.date === today)
+  const AnyDevotionClient = DevotionClient as any
 
   return (
-    <DevotionClient
+    <AnyDevotionClient
       verse={verse as DailyVerse | null}
-      verseError={verseError?.message ?? null}
+      verseError={verseError ? 'Không thể tải bài tĩnh nguyện hôm nay.' : null}
       streaks={streaks.map((s) => s.date)}
       totalStreak={totalStreak}
       todayRead={todayRead}
@@ -62,6 +77,7 @@ export default async function TimChuaTruocPage() {
       userName={profile?.full_name ?? profile?.username ?? 'bạn'}
       today={today}
       isAdmin={profile?.role === 'admin'}
+      initialLesson={initialLesson}
     />
   )
 }

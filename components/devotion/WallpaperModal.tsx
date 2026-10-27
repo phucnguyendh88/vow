@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 export interface WallpaperVerse {
   reference: string
@@ -112,6 +112,59 @@ export const WALLPAPERS = [
 const CANVAS_WIDTH = 1080
 const CANVAS_HEIGHT = 1920
 
+// Module-level memory caches so wallpaper images & fonts load once and render in 0ms on subsequent switches
+const wallpaperImageCache = new Map<string, HTMLImageElement>()
+const wallpaperLoadingPromises = new Map<string, Promise<HTMLImageElement>>()
+let fontsReadyPromise: Promise<void> | null = null
+
+function ensureFontsLoaded(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts?.load) {
+    return Promise.resolve()
+  }
+  if (!fontsReadyPromise) {
+    fontsReadyPromise = Promise.all([
+      document.fonts.load('600 64px "Playfair Display"'),
+      document.fonts.load('italic 500 64px "Playfair Display"'),
+      document.fonts.load('600 44px "Be Vietnam Pro"'),
+    ])
+      .then(() => undefined)
+      .catch(() => undefined)
+  }
+  return fontsReadyPromise
+}
+
+export function preloadWallpaperImage(src: string): Promise<HTMLImageElement> {
+  const cached = wallpaperImageCache.get(src)
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    return Promise.resolve(cached)
+  }
+  const existingPromise = wallpaperLoadingPromises.get(src)
+  if (existingPromise) {
+    return existingPromise
+  }
+
+  const p = new Promise<HTMLImageElement>((resolve, reject) => {
+    if (typeof Image === 'undefined') {
+      reject(new Error('no-image'))
+      return
+    }
+    const img = new Image()
+    img.decoding = 'async'
+    img.onload = () => {
+      wallpaperImageCache.set(src, img)
+      wallpaperLoadingPromises.delete(src)
+      resolve(img)
+    }
+    img.onerror = (err) => {
+      wallpaperLoadingPromises.delete(src)
+      reject(err)
+    }
+    img.src = src
+  })
+  wallpaperLoadingPromises.set(src, p)
+  return p
+}
+
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(' ')
   const lines: string[] = []
@@ -142,13 +195,69 @@ function drawCoverImage(
   ctx.drawImage(img, (targetWidth - w) / 2, (targetHeight - h) / 2, w, h)
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
+function renderVerseOverlay(ctx: CanvasRenderingContext2D, verse: WallpaperVerse) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT)
+  gradient.addColorStop(0, 'rgba(0,0,0,0.25)')
+  gradient.addColorStop(0.5, 'rgba(0,0,0,0.45)')
+  gradient.addColorStop(1, 'rgba(0,0,0,0.55)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+  let fontSize = 60
+  let lines: string[] = []
+  while (
+    fontSize > 32 &&
+    ((ctx.font = `500 italic ${fontSize}px "Playfair Display", Georgia, serif`),
+    (lines = wrapText(ctx, verse.text, 840)),
+    !(lines.length * fontSize * 1.42 <= 520))
+  ) {
+    fontSize -= 4
+  }
+
+  const lineHeight = fontSize * 1.42
+  const totalTextHeight = lines.length * lineHeight
+  const centerY = CANVAS_HEIGHT * 0.58
+  const startY = centerY - totalTextHeight / 2 + lineHeight / 2
+
+  const radial = ctx.createRadialGradient(
+    CANVAS_WIDTH / 2,
+    centerY,
+    60,
+    CANVAS_WIDTH / 2,
+    centerY,
+    520
+  )
+  radial.addColorStop(0, 'rgba(0,0,0,0.42)')
+  radial.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = radial
+  ctx.fillRect(0, 553.6, CANVAS_WIDTH, 1120)
+
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'
+  ctx.shadowBlur = 18
+  ctx.fillStyle = '#ffffff'
+  lines.forEach((line, idx) => {
+    ctx.fillText(line, CANVAS_WIDTH / 2, startY + idx * lineHeight)
   })
+
+  ctx.shadowBlur = 10
+  ctx.font = '600 40px "Be Vietnam Pro", sans-serif'
+  ctx.fillStyle = '#f5b301'
+  ctx.fillText(
+    verse.reference,
+    CANVAS_WIDTH / 2,
+    startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 52
+  )
+
+  const barY = startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 100
+  ctx.fillStyle = 'rgba(245,179,1,0.7)'
+  ctx.fillRect(CANVAS_WIDTH / 2 - 60, barY, 120, 3)
+
+  ctx.font = '600 28px "Be Vietnam Pro", sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'
+  ctx.fillText('V O W', CANVAS_WIDTH / 2, 1810)
+  ctx.shadowBlur = 0
 }
 
 function CloseIcon({ className = '' }: { className?: string }) {
@@ -174,102 +283,85 @@ interface Props {
   onClose: () => void
 }
 
-export default function WallpaperModal({ onClose }: Props) {
+export default function WallpaperModal({ onClose, currentVerse }: Props) {
+  const versesList = useMemo<WallpaperVerse[]>(() => {
+    if (currentVerse?.text && currentVerse?.reference) {
+      return [
+        currentVerse,
+        ...SAMPLE_VERSES.filter((v) => v.reference !== currentVerse.reference),
+      ]
+    }
+    return SAMPLE_VERSES
+  }, [currentVerse])
+
   const [selectedVerseIndex, setSelectedVerseIndex] = useState(0)
   const [selectedWallpaperIndex, setSelectedWallpaperIndex] = useState(0)
+  const [thumbsReady, setThumbsReady] = useState(() => wallpaperImageCache.has(WALLPAPERS[0].src))
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const drawReqIdRef = useRef(0)
+
+  useEffect(() => {
+    if (currentVerse?.reference) {
+      setSelectedVerseIndex(0)
+    }
+  }, [currentVerse])
 
   const drawWallpaper = useCallback(async () => {
     const canvas = canvasRef.current
     if (!canvas) return
-    canvas.width = CANVAS_WIDTH
-    canvas.height = CANVAS_HEIGHT
+    if (canvas.width !== CANVAS_WIDTH) canvas.width = CANVAS_WIDTH
+    if (canvas.height !== CANVAS_HEIGHT) canvas.height = CANVAS_HEIGHT
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const verse = SAMPLE_VERSES[selectedVerseIndex] || SAMPLE_VERSES[0]
+    const reqId = ++drawReqIdRef.current
+    const verse = versesList[selectedVerseIndex] || versesList[0]
     const wallpaper = WALLPAPERS[selectedWallpaperIndex] || WALLPAPERS[0]
 
-    try {
-      await document.fonts.load('600 64px "Playfair Display"')
-      await document.fonts.load('italic 500 64px "Playfair Display"')
-      await document.fonts.load('600 44px "Be Vietnam Pro"')
-    } catch {}
+    // Fast path: if image is already cached in memory, draw immediately in 0ms!
+    const cachedImg = wallpaperImageCache.get(wallpaper.src)
+    if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+      drawCoverImage(ctx, cachedImg, CANVAS_WIDTH, CANVAS_HEIGHT)
+      renderVerseOverlay(ctx, verse)
+      setThumbsReady(true)
+      return
+    }
+
+    // Immediate luxury dark placeholder with text so canvas is never blank while image downloads
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT)
+    bgGrad.addColorStop(0, '#14120e')
+    bgGrad.addColorStop(0.5, '#0b0b0f')
+    bgGrad.addColorStop(1, '#070709')
+    ctx.fillStyle = bgGrad
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    renderVerseOverlay(ctx, verse)
 
     try {
-      const img = await loadImage(wallpaper.src)
+      const [img] = await Promise.all([
+        preloadWallpaperImage(wallpaper.src),
+        ensureFontsLoaded(),
+      ])
+      if (drawReqIdRef.current !== reqId) return
       drawCoverImage(ctx, img, CANVAS_WIDTH, CANVAS_HEIGHT)
+      renderVerseOverlay(ctx, verse)
     } catch {
+      if (drawReqIdRef.current !== reqId) return
       ctx.fillStyle = '#0b0b0f'
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      renderVerseOverlay(ctx, verse)
+    } finally {
+      setThumbsReady(true)
     }
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT)
-    gradient.addColorStop(0, 'rgba(0,0,0,0.25)')
-    gradient.addColorStop(0.5, 'rgba(0,0,0,0.45)')
-    gradient.addColorStop(1, 'rgba(0,0,0,0.55)')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-
-    let fontSize = 60
-    let lines: string[] = []
-    while (
-      fontSize > 32 &&
-      ((ctx.font = `500 italic ${fontSize}px "Playfair Display", Georgia, serif`),
-      (lines = wrapText(ctx, verse.text, 840)),
-      !(lines.length * fontSize * 1.42 <= 520))
-    ) {
-      fontSize -= 4
-    }
-
-    const lineHeight = fontSize * 1.42
-    const totalTextHeight = lines.length * lineHeight
-    const centerY = CANVAS_HEIGHT * 0.58
-    const startY = centerY - totalTextHeight / 2 + lineHeight / 2
-
-    const radial = ctx.createRadialGradient(
-      CANVAS_WIDTH / 2,
-      centerY,
-      60,
-      CANVAS_WIDTH / 2,
-      centerY,
-      520
-    )
-    radial.addColorStop(0, 'rgba(0,0,0,0.42)')
-    radial.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = radial
-    ctx.fillRect(0, 553.6, CANVAS_WIDTH, 1120)
-
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.shadowColor = 'rgba(0,0,0,0.55)'
-    ctx.shadowBlur = 18
-    ctx.fillStyle = '#ffffff'
-    lines.forEach((line, idx) => {
-      ctx.fillText(line, CANVAS_WIDTH / 2, startY + idx * lineHeight)
-    })
-
-    ctx.shadowBlur = 10
-    ctx.font = '600 40px "Be Vietnam Pro", sans-serif'
-    ctx.fillStyle = '#f5b301'
-    ctx.fillText(
-      verse.reference,
-      CANVAS_WIDTH / 2,
-      startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 52
-    )
-
-    const barY = startY + (lines.length - 1) * lineHeight + lineHeight / 2 + 100
-    ctx.fillStyle = 'rgba(245,179,1,0.7)'
-    ctx.fillRect(CANVAS_WIDTH / 2 - 60, barY, 120, 3)
-
-    ctx.font = '600 28px "Be Vietnam Pro", sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'
-    ctx.fillText('V O W', CANVAS_WIDTH / 2, 1810)
-    ctx.shadowBlur = 0
-  }, [selectedVerseIndex, selectedWallpaperIndex])
+    // Preload adjacent wallpapers in background so next tap is instant
+    const nextIdx = (selectedWallpaperIndex + 1) % WALLPAPERS.length
+    const next2Idx = (selectedWallpaperIndex + 2) % WALLPAPERS.length
+    void preloadWallpaperImage(WALLPAPERS[nextIdx].src).catch(() => {})
+    void preloadWallpaperImage(WALLPAPERS[next2Idx].src).catch(() => {})
+  }, [selectedVerseIndex, selectedWallpaperIndex, versesList])
 
   useEffect(() => {
-    drawWallpaper()
+    void drawWallpaper()
   }, [drawWallpaper])
 
   const handleDownload = () => {
@@ -300,7 +392,7 @@ export default function WallpaperModal({ onClose }: Props) {
               type="button"
               onClick={handleDownload}
               aria-label="Tải hình nền xuống"
-              className="rounded-full bg-gold p-2.5 text-ink transition active:scale-95 cursor-pointer hover:brightness-105"
+              className="rounded-full bg-gold p-2.5 text-ink transition duration-75 active:scale-95 cursor-pointer hover:brightness-105 touch-manipulation"
             >
               <DownloadIcon className="h-5 w-5" />
             </button>
@@ -308,14 +400,14 @@ export default function WallpaperModal({ onClose }: Props) {
               type="button"
               onClick={onClose}
               aria-label="Đóng"
-              className="rounded-full bg-white/10 p-2 text-muted hover:text-white transition active:scale-95 cursor-pointer"
+              className="rounded-full bg-white/10 p-2 text-muted hover:text-white transition duration-75 active:scale-95 cursor-pointer touch-manipulation"
             >
               <CloseIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <canvas ref={canvasRef} className="mt-4 w-full rounded-2xl" />
+        <canvas ref={canvasRef} className="mt-4 aspect-[9/16] w-full rounded-2xl bg-[#0b0b0f]" />
 
         <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-muted">
           Câu gốc
@@ -325,8 +417,8 @@ export default function WallpaperModal({ onClose }: Props) {
           onChange={(e) => setSelectedVerseIndex(Number(e.target.value))}
           className="mt-2 w-full rounded-xl border border-white/10 bg-[#141418] px-3 py-2.5 text-sm text-cream cursor-pointer"
         >
-          {SAMPLE_VERSES.map((v, idx) => (
-            <option key={v.reference} value={idx}>
+          {versesList.map((v, idx) => (
+            <option key={`${v.reference}-${idx}`} value={idx}>
               {v.reference}
             </option>
           ))}
@@ -336,25 +428,33 @@ export default function WallpaperModal({ onClose }: Props) {
           Phong cảnh
         </p>
         <div className="mt-2 grid grid-cols-4 gap-2">
-          {WALLPAPERS.map((wp, idx) => (
-            <button
-              key={wp.src}
-              type="button"
-              onClick={() => setSelectedWallpaperIndex(idx)}
-              className={`overflow-hidden rounded-xl border-2 ${
-                selectedWallpaperIndex === idx ? 'border-gold' : 'border-transparent'
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={wp.src}
-                alt={wp.name}
-                className="aspect-[9/16] w-full object-cover"
-                loading="lazy"
-              />
-              <p className="bg-ink py-1 text-[10px] text-cream">{wp.name}</p>
-            </button>
-          ))}
+          {WALLPAPERS.map((wp, idx) => {
+            const shouldLoadThumb = thumbsReady || idx < 4 || idx === selectedWallpaperIndex
+            return (
+              <button
+                key={wp.src}
+                type="button"
+                onClick={() => setSelectedWallpaperIndex(idx)}
+                className={`overflow-hidden rounded-xl border-2 transition duration-75 active:scale-95 touch-manipulation ${
+                  selectedWallpaperIndex === idx ? 'border-gold' : 'border-transparent'
+                }`}
+              >
+                {shouldLoadThumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={wp.src}
+                    alt={wp.name}
+                    decoding="async"
+                    loading={idx < 4 ? 'eager' : 'lazy'}
+                    className="aspect-[9/16] w-full bg-[#141418] object-cover"
+                  />
+                ) : (
+                  <div className="aspect-[9/16] w-full animate-pulse bg-[#141418]" />
+                )}
+                <p className="bg-ink py-1 text-[10px] text-cream">{wp.name}</p>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

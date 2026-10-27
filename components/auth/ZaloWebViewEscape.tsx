@@ -36,14 +36,36 @@ export default function ZaloWebViewEscape() {
 
   if (!mounted || !zaloInfo.isZalo || dismissed) return null
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
+    const text = typeof window !== 'undefined' ? window.location.href : ''
+    if (!text) return
+    let success = false
     try {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(window.location.href)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2500)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+        success = true
       }
     } catch {}
+
+    if (!success && typeof document !== 'undefined') {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.left = '-9999px'
+        textarea.style.top = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        success = document.execCommand('copy')
+        document.body.removeChild(textarea)
+      } catch {}
+    }
+
+    if (success) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
   }
 
   const handleOpenChrome = () => {

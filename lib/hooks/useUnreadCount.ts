@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export function useUnreadCount(_userId?: string | null) {
+export function useUnreadCount(userId?: string | null) {
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const supabase = createClient()
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -17,6 +18,13 @@ export function useUnreadCount(_userId?: string | null) {
       }
     } catch {}
   }, [supabase])
+
+  const debouncedRefresh = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
+      void refresh()
+    }, 300)
+  }, [refresh])
 
   useEffect(() => {
     void refresh()
@@ -32,8 +40,15 @@ export function useUnreadCount(_userId?: string | null) {
             schema: 'public',
             table: 'messages',
           },
-          () => {
-            void refresh()
+          (payload: any) => {
+            if (
+              payload?.eventType === 'INSERT' &&
+              userId &&
+              payload?.new?.sender_id === userId
+            ) {
+              return
+            }
+            debouncedRefresh()
           }
         )
         .subscribe()
@@ -42,7 +57,7 @@ export function useUnreadCount(_userId?: string | null) {
     const handleVisibility = () => {
       try {
         if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-          void refresh()
+          debouncedRefresh()
         }
       } catch {}
     }
@@ -55,6 +70,10 @@ export function useUnreadCount(_userId?: string | null) {
     } catch {}
 
     return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
       try {
         if (channel) supabase.removeChannel(channel)
       } catch {}
@@ -65,7 +84,7 @@ export function useUnreadCount(_userId?: string | null) {
         }
       } catch {}
     }
-  }, [supabase, refresh])
+  }, [supabase, refresh, debouncedRefresh, userId])
 
   return { unreadCount, refresh }
 }

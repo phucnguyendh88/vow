@@ -224,6 +224,7 @@ export default function DatingClient({
   const [swipeAction, setSwipeAction] = useState<'like' | 'pass' | null>(null)
   const [dragX, setDragX] = useState(0)
   const [rediscoverMode, setRediscoverMode] = useState(false)
+  const [rediscoverSwipedIds, setRediscoverSwipedIds] = useState<string[]>([])
   const [swipedIds, setSwipedIds] = useState<string[]>([])
   const [persistedSwipedIds, setPersistedSwipedIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
@@ -331,11 +332,13 @@ export default function DatingClient({
       if (filters.gender !== 'all' && c.gender && c.gender !== filters.gender) return false
       if (c.age < filters.minAge || c.age > filters.maxAge) return false
       if (rediscoverMode) {
-        return swipedIds.includes(c.id) || persistedSwipedIds.includes(c.id) || c.isSeed
+        const wasSwiped =
+          swipedIds.includes(c.id) || persistedSwipedIds.includes(c.id) || c.isSeed
+        return wasSwiped && !rediscoverSwipedIds.includes(c.id)
       }
       return !swipedIds.includes(c.id)
     })
-  }, [allCandidates, filters, rediscoverMode, swipedIds, persistedSwipedIds])
+  }, [allCandidates, filters, rediscoverMode, swipedIds, persistedSwipedIds, rediscoverSwipedIds])
 
   const currentCandidate = filteredCandidates[currentIndex]
 
@@ -345,6 +348,7 @@ export default function DatingClient({
       if (!next) {
         setSwipedIds([])
       }
+      setRediscoverSwipedIds([])
       setCurrentIndex(0)
       return next
     })
@@ -407,7 +411,9 @@ export default function DatingClient({
           return next
         })
         if (rediscoverMode) {
-          setCurrentIndex((i) => i + 1)
+          setRediscoverSwipedIds((prev) =>
+            prev.includes(target.id) ? prev : [...prev, target.id]
+          )
         }
       }, 320)
     },

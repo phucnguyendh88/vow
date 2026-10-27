@@ -46,14 +46,12 @@ export async function middleware(request: NextRequest) {
     user = (await supabase.auth.getSession()).data.session?.user ?? null
   }
 
-  // Route API admin — kiểm tra quyền quản trị
+  // Route API admin — yêu cầu xác thực phiên đăng nhập; quyền quản trị chi tiết
+  // (profiles.role === 'admin' | app_metadata.role === 'admin' | email whitelist)
+  // được xác minh tại verifyAdmin() trong từng route handler.
   if (pathname.startsWith('/api/admin')) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    if (user.email !== 'phucnguyendh88@gmail.com' && user.app_metadata?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }
 
