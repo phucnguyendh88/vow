@@ -1678,6 +1678,26 @@ export default function MomentsClient({
         throw new Error('Không thể kết bạn với chính mình')
       }
 
+      if (friends.some((f) => f.profile.id === target.id)) {
+        notify('Bạn và người này đã là bạn bè rồi', 'error')
+        return
+      }
+
+      if (outgoing.some((r) => r.profile.id === target.id)) {
+        notify('Bạn đã gửi lời mời tới người này rồi, vui lòng chờ phản hồi', 'error')
+        return
+      }
+
+      if (incoming.some((r) => r.profile.id === target.id)) {
+        notify('Người này đã gửi lời mời cho bạn rồi! Vui lòng kiểm tra mục Lời mời', 'error')
+        return
+      }
+
+      // Tự động dọn dẹp (Self-healing) các bản ghi cũ/stale trước khi tạo mới để tránh xung đột unique_friend_request
+      await (supabase.from('friend_requests') as any)
+        .delete()
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${target.id}),and(sender_id.eq.${target.id},receiver_id.eq.${userId})`)
+
       const { data: insertedRow, error } = await (supabase.from('friend_requests') as any)
         .insert({
           sender_id: userId,
@@ -1687,7 +1707,7 @@ export default function MomentsClient({
         .select('id')
         .maybeSingle()
 
-      if (error && error.code !== '23505') throw error
+      if (error) throw error
 
       setInviteInput('')
       const newReqItem: FriendItem = {
@@ -1709,7 +1729,7 @@ export default function MomentsClient({
     } finally {
       setSendingInvite(false)
     }
-  }, [inviteInput, sendingInvite, supabase, userId, notify, refreshConnections])
+  }, [inviteInput, sendingInvite, supabase, userId, notify, refreshConnections, friends, outgoing, incoming])
 
   const handleAcceptRequest = useCallback(
     async (req: FriendItem) => {
@@ -1768,6 +1788,11 @@ export default function MomentsClient({
       if (!window.confirm(`Hủy kết bạn với ${fr.profile.name}?`)) return
       try {
         await (supabase.from('friendships') as any).delete().eq('id', fr.id)
+
+        await (supabase.from('friend_requests') as any)
+          .delete()
+          .or(`and(sender_id.eq.${userId},receiver_id.eq.${fr.profile.id}),and(sender_id.eq.${fr.profile.id},receiver_id.eq.${userId})`)
+
         setFriends((prev) => prev.filter((f) => f.id !== fr.id))
         notify(`Đã hủy kết bạn với ${fr.profile.name}`)
         void refreshConnections()
@@ -1775,7 +1800,7 @@ export default function MomentsClient({
         notify(err?.message || 'Hủy kết bạn thất bại', 'error')
       }
     },
-    [supabase, notify, refreshConnections]
+    [supabase, userId, notify, refreshConnections]
   )
 
   const peerOf = useCallback(

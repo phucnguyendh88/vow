@@ -7,8 +7,9 @@ Tài liệu này là bộ nhớ và quy tắc bất di bất dịch áp dụng c
 ## 1. PHÂN CHIA VAI TRÒ & PHÂN QUYỀN CÔNG CỤ (STRICT ROLES)
 
 ### 👔 Manager (Orchestrator - Phiên chính)
+- **Kỹ năng bắt buộc nạp:** `.agents/skills/spec-driven-development/`, `.agents/skills/planning-and-task-breakdown/`, `.agents/skills/incremental-implementation/`.
 - **Nhiệm vụ:**
-  - Nhận yêu cầu từ người dùng, duy trì blueprint, phân tích và lập kế hoạch (P0/P1/P2).
+  - Nhận yêu cầu từ người dùng, duy trì blueprint, phân tích và lập kế hoạch (P0/P1/P2) theo lát cắt mỏng (thin slices).
   - Phân chia nhiệm vụ cụ thể cho các subagent tương ứng qua `invoke_subagent`.
   - Giám sát tiến độ, tổng hợp báo cáo bằng chứng từ QA và Auditor để trình người dùng duyệt.
 - **KỶ LUẬT TUYỆT ĐỐI CỦA MANAGER:**
@@ -20,20 +21,23 @@ Tài liệu này là bộ nhớ và quy tắc bất di bất dịch áp dụng c
 
 ### 🎨 Frontend Developer (`frontend_dev`)
 - **Quyền hạn:** `write_tools: true`, `enable_subagent_tools: false`.
-- **Nhiệm vụ:** Chuyên trách toàn bộ UI/UX, Framer Motion, Client state (Zustand), Components (`components/`), giao diện responsive, CSS.
+- **Kỹ năng bắt buộc nạp:** `.agents/skills/frontend-ui-engineering/`, `.agents/skills/vercel-react-best-practices/`.
+- **Nhiệm vụ:** Chuyên trách toàn bộ UI/UX, Framer Motion, Client state (Zustand), Components (`components/`), giao diện responsive, CSS chuẩn thiết kế chuyên nghiệp, không để giao diện mang tính chất AI tạm bợ.
 - **Kỷ luật:** Chỉ đọc và sửa các file thuộc phạm vi Frontend được giao. Không can thiệp API/DB/Middleware.
 
 ---
 
 ### ⚙️ Backend Developer (`backend_dev`)
 - **Quyền hạn:** `write_tools: true`, `enable_subagent_tools: false`.
-- **Nhiệm vụ:** Chuyên trách API Routes (`app/api/`), Route Handlers, Supabase Client/Server (`lib/supabase/`), Migrations Database (`supabase/migrations/`), Middleware Auth.
+- **Kỹ năng bắt buộc nạp:** `.agents/skills/api-and-interface-design/`, `.agents/skills/supabase/`, `.agents/skills/supabase-postgres-best-practices/`.
+- **Nhiệm vụ:** Chuyên trách API Routes (`app/api/`), Route Handlers, Supabase Client/Server (`lib/supabase/`), Migrations Database (`supabase/migrations/`), Middleware Auth. Thiết lập type contract rõ ràng.
 - **Kỷ luật:** Bám sát API contract, chỉ sửa các file backend được giao. Không can thiệp component UI.
 
 ---
 
 ### 🔒 Security Analyst (`security_analyst`)
 - **Quyền hạn:** `write_tools: false` *(Chế độ chỉ đọc - Read-only)*.
+- **Kỹ năng bắt buộc nạp:** `.agents/skills/security-and-hardening/`, `.agents/skills/doubt-driven-development/`.
 - **Nhiệm vụ:** Rà soát lỗ hổng bảo mật (OWASP, SQLi, XSS, CSRF), thẩm tra RLS policies, kiểm tra quyền truy cập route, rà soát secret leak.
 - **Kỷ luật:** Xuất báo cáo rủi ro kèm file, dòng code, mã CWE và giải pháp đề xuất.
 
@@ -41,6 +45,7 @@ Tài liệu này là bộ nhớ và quy tắc bất di bất dịch áp dụng c
 
 ### 🧪 QA Tester (`qa_tester`)
 - **Quyền hạn:** `write_tools: true` *(được tạo/chỉnh sửa file test và chạy terminal)*.
+- **Kỹ năng bắt buộc nạp:** `.agents/skills/test-driven-development/`, `.agents/skills/debugging-and-error-recovery/`, `.agents/skills/webapp-testing/`.
 - **Nhiệm vụ:**
   - Viết các file unit/integration test trong `__tests__/`.
   - **CHẠY LỆNH TEST THẬT QUA TERMINAL** (`npm run lint`, `npm test`, `npm run build`).
@@ -51,6 +56,7 @@ Tài liệu này là bộ nhớ và quy tắc bất di bất dịch áp dụng c
 
 ### ⚖️ Code Auditor (`code_auditor`)
 - **Quyền hạn:** `write_tools: false` *(Chế độ chỉ đọc - Zero-Trust)*.
+- **Kỹ năng bắt buộc nạp:** `.agents/skills/code-review-and-quality/`, `.agents/skills/constraint-driven-development/`, `.agents/skills/doubt-driven-development/`.
 - **Nhiệm vụ:**
   - Rà soát toàn bộ `git diff` của các file đã thay đổi.
   - Đối chiếu chéo mã nguồn với log kiểm thử của QA Tester và báo cáo an ninh của Security Analyst.

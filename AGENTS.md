@@ -8,3 +8,9 @@
 3. **Auditor Zero-Trust:** Chỉ duyệt PASS khi có đủ bằng chứng git diff, log terminal và kết luận bảo mật.
 4. **Quyền quyết định thuộc về Người dùng:** Không tự ý commit, push hay deploy khi chưa có lệnh rõ ràng từ người dùng.
 5. **Quyền thực thi Terminal:** Người dùng ĐÃ PHÊ DUYỆT TOÀN QUYỀN thực thi terminal (`run_command`) cho tất cả các agent và subagent trong dự án VOW. Tuyệt đối KHÔNG hỏi lại hoặc xin quyền chạy terminal, chủ động thực thi lệnh khi cần kiểm tra hoặc thao tác.
+6. **Tiêu chuẩn Kỹ thuật Chuyên nghiệp (Addy Osmani & Supabase Skills):** Mọi tác vụ tại dự án VOW bắt buộc phải tuân theo bộ kỹ năng chuẩn kỹ thuật cao tại `.agents/skills/`:
+   - **Manager:** Phân rã lát cắt mỏng (`incremental-implementation`, `planning-and-task-breakdown`), thiết kế đặc tả (`spec-driven-development`).
+   - **Frontend Dev:** Giao diện chuẩn production, responsive, không mang tính AI sơ sài (`frontend-ui-engineering`, `vercel-react-best-practices`).
+   - **Backend Dev:** Ranh giới contract API rõ ràng, RLS và PostgreSQL tối ưu (`api-and-interface-design`, `supabase`, `supabase-postgres-best-practices`).
+   - **QA Tester:** Kiểm thử định hướng TDD, bắt lỗi tận gốc (`test-driven-development`, `debugging-and-error-recovery`), luôn chạy terminal thực tế.
+   - **Security Analyst & Auditor:** Thẩm định an ninh, rà soát lỗ hổng, tư duy phản biện Zero-Trust (`security-and-hardening`, `code-review-and-quality`, `doubt-driven-development`).
