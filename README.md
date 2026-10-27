@@ -20,7 +20,7 @@ vow/
 │   ├── (auth)/dang-nhap/     # Trang đăng nhập
 │   ├── (main)/               # Layout chính với Bottom Nav
 │   │   ├── tim-chua-truoc/   # Tab 1: Học Kinh Thánh
-│   │   ├── khoang-khac/      # Tab 2: Khoảnh khắc (Locket)
+│   │   ├── khoanh-khac/      # Tab 2: Khoảnh khắc (Locket)
 │   │   └── ket-noi-sau/      # Tab 3: Hẹn hò (Tinder)
 │   ├── api/
 │   │   ├── swipe/            # API quẹt Like/Pass

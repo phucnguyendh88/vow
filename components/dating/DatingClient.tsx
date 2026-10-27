@@ -849,7 +849,7 @@ export default function DatingClient({
                 const name = matchedModal.name
                 setMatchedModal(null)
                 router.push(
-                  `/khoang-khac?locket=${encodeURIComponent(id)}&name=${encodeURIComponent(
+                  `/khoanh-khac?locket=${encodeURIComponent(id)}&name=${encodeURIComponent(
                     name
                   )}`
                 )

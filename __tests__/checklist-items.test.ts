@@ -18,7 +18,7 @@ describe('Comprehensive Checklist Verification (13 Items)', () => {
       }
 
       expect(sanitizeNextUrl('/ho-so')).toBe('/ho-so')
-      expect(sanitizeNextUrl('/khoang-khac')).toBe('/khoang-khac')
+      expect(sanitizeNextUrl('/khoanh-khac')).toBe('/khoanh-khac')
       expect(sanitizeNextUrl('//evil.com')).toBe('/tim-chua-truoc')
       expect(sanitizeNextUrl('/\\evil.com')).toBe('/tim-chua-truoc')
       expect(sanitizeNextUrl('https://evil.com')).toBe('/tim-chua-truoc')

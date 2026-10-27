@@ -49,7 +49,7 @@ function HeartIcon() {
 
 const navTabs = [
   { href: '/tim-chua-truoc', label: 'Tìm Chúa trước', icon: <DevotionIcon /> },
-  { href: '/khoang-khac', label: 'Khoảnh khắc', icon: <CameraIcon /> },
+  { href: '/khoanh-khac', label: 'Khoảnh khắc', icon: <CameraIcon /> },
   { href: '/ket-noi-sau', label: 'Kết nối sau', icon: <HeartIcon /> },
 ]
 

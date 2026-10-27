@@ -919,6 +919,39 @@ export default function MomentsClient({
     }
   }, [searchParams])
 
+  // ================== REALTIME MOMENTS SYNC ==================
+  const refreshMoments = useCallback(async () => {
+    if (!userId) return
+    try {
+      const { data: newMoments, error } = await supabase
+        .from('moments')
+        .select(`
+          id,
+          user_id,
+          media_url,
+          media_type,
+          thumbnail_url,
+          caption,
+          is_deleted,
+          deleted_at,
+          created_at,
+          profiles:user_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(60)
+
+      if (!error && Array.isArray(newMoments)) {
+        setMoments(newMoments as unknown as MomentWithProfile[])
+      }
+    } catch {}
+  }, [supabase, userId])
+
   // ================== REALTIME FRIEND REQUESTS & FRIENDSHIPS SYNC ==================
   const refreshConnections = useCallback(async () => {
     if (!userId) return
@@ -1010,6 +1043,7 @@ export default function MomentsClient({
           { event: '*', schema: 'public', table: 'friend_requests' },
           () => {
             void refreshConnections()
+            void refreshMoments()
           }
         )
         .on(
@@ -1017,6 +1051,14 @@ export default function MomentsClient({
           { event: '*', schema: 'public', table: 'friendships' },
           () => {
             void refreshConnections()
+            void refreshMoments()
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'moments' },
+          () => {
+            void refreshMoments()
           }
         )
         .subscribe()
@@ -1025,6 +1067,7 @@ export default function MomentsClient({
     const handleVisibility = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         void refreshConnections()
+        void refreshMoments()
       }
     }
 
@@ -1032,6 +1075,7 @@ export default function MomentsClient({
     const timer = window.setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         void refreshConnections()
+        void refreshMoments()
       }
     }, intervalMs)
 
@@ -1048,7 +1092,7 @@ export default function MomentsClient({
         } catch {}
       }
     }
-  }, [userId, supabase, refreshConnections, showFriendsDialog, initialFriends])
+  }, [userId, supabase, refreshConnections, refreshMoments, showFriendsDialog, initialFriends])
 
   // Camera state
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(
@@ -1416,8 +1460,9 @@ export default function MomentsClient({
       setHistoryInitialId(initialId)
       setHistoryFilter(filter)
       setShowHistoryViewer(true)
+      void refreshMoments()
     },
-    []
+    [refreshMoments]
   )
 
   const handlePostMoment = useCallback(async () => {
@@ -1536,7 +1581,7 @@ export default function MomentsClient({
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vow-faith.vercel.app'
       const baseUrl = origin.includes('localhost') ? origin : 'https://vow-faith.vercel.app'
-      const link = `${baseUrl}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
+      const link = `${baseUrl}/khoanh-khac?code=${encodeURIComponent(myInviteCode)}`
       const msg = `Gửi link này cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn: ${link}`
       await navigator.clipboard.writeText(msg)
       notify('Đã sao chép link mời kết bạn')
@@ -1678,11 +1723,12 @@ export default function MomentsClient({
         setFriends((prev) => [...prev, req])
         notify(`Đã kết bạn với ${req.profile.name}`)
         void refreshConnections()
+        void refreshMoments()
       } catch (err: any) {
         notify(err?.message || 'Chấp nhận thất bại', 'error')
       }
     },
-    [supabase, notify, refreshConnections]
+    [supabase, notify, refreshConnections, refreshMoments]
   )
 
   const handleDeclineRequest = useCallback(
@@ -1861,7 +1907,10 @@ export default function MomentsClient({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowGridModal(true)}
+            onClick={() => {
+              setShowGridModal(true)
+              void refreshMoments()
+            }}
             aria-label="Xem tất cả khoảnh khắc dạng lưới"
             className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95 touch-manipulation"
           >

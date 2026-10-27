@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  const protectedPaths = ['/tim-chua-truoc', '/khoang-khac', '/ket-noi-sau', '/ho-so', '/tin-nhan', '/admin']
+  const protectedPaths = ['/tim-chua-truoc', '/khoanh-khac', '/ket-noi-sau', '/ho-so', '/tin-nhan', '/admin']
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   // Fast path: public routes that don't need auth verification

@@ -65,7 +65,7 @@ export default function FriendsModal({
   const handleCopyLink = async () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vow-faith.vercel.app'
     const baseUrl = origin.includes('localhost') ? origin : 'https://vow-faith.vercel.app'
-    const inviteUrl = `${baseUrl}/khoang-khac?code=${encodeURIComponent(myInviteCode)}`
+    const inviteUrl = `${baseUrl}/khoanh-khac?code=${encodeURIComponent(myInviteCode)}`
     const message = `Gửi link này cho bạn bè — họ mở link là tới thẳng trang kết bạn, mã tự điền sẵn: ${inviteUrl}`
 
     const ok = await copyToClipboard(message)
