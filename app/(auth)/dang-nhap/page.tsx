@@ -26,7 +26,17 @@ export default function LoginPage() {
       data: { session },
     } = await supabase.auth.getSession()
     if (!session?.user) throw new Error('Không lấy được phiên đăng nhập.')
-    router.replace('/tim-chua-truoc')
+
+    const { data: profile } = await (supabase.from('profiles') as any)
+      .select('is_complete, full_name')
+      .eq('id', session.user.id)
+      .maybeSingle()
+
+    if (!profile || profile.is_complete !== true || !profile.full_name?.trim()) {
+      router.replace('/onboarding')
+    } else {
+      router.replace('/tim-chua-truoc')
+    }
   }
 
   useEffect(() => {
@@ -60,14 +70,24 @@ export default function LoginPage() {
 
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
         const user = session?.user ?? null
         if (cancelled) return
         if (user) {
           const isGuest = Boolean(user.is_anonymous)
           setSessionUser({ id: user.id, isGuest })
           if (!isGuest) {
-            router.replace('/tim-chua-truoc')
+            const { data: profile } = await (supabase.from('profiles') as any)
+              .select('is_complete, full_name')
+              .eq('id', user.id)
+              .maybeSingle()
+
+            if (cancelled) return
+            if (!profile || profile.is_complete !== true || !profile.full_name?.trim()) {
+              router.replace('/onboarding')
+            } else {
+              router.replace('/tim-chua-truoc')
+            }
           }
         } else {
           setSessionUser(null)

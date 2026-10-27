@@ -1557,28 +1557,80 @@ export default function MomentsClient({
         const { data: rpcData } = await (supabase.rpc as any)('find_profile_by_invite_code', {
           code,
         })
-        if (rpcData && rpcData.id && rpcData.id !== userId) {
-          target = rpcData
+        const candidate = Array.isArray(rpcData) ? rpcData[0] : (rpcData?.id ? rpcData : null)
+        if (candidate && candidate.id) {
+          if (candidate.id === userId) {
+            throw new Error('Không thể kết bạn với chính mình')
+          }
+          target = candidate
         }
-      } catch {}
+      } catch (rpcErr: any) {
+        if (rpcErr?.message === 'Không thể kết bạn với chính mình') {
+          throw rpcErr
+        }
+      }
 
-      // 2. Fallback nếu RPC chưa triển khai: truy vấn trực tiếp theo username hoặc prefix ID mà không kéo 100 profiles
+      const cleanPrefix = code.replace(/^(FC|VOW)-/, '').toLowerCase()
+
+      // 2. Fallback an toàn:
+      // a) Tìm theo username.ilike.${code}
       if (!target) {
-        const cleanPrefix = code.replace(/^(FC|VOW)-/, '').toLowerCase()
-        const { data: directMatches } = await supabase
+        const { data: userMatches } = await supabase
           .from('profiles')
           .select('id, username, full_name, avatar_url, church_name')
           .neq('id', userId)
-          .or(`username.ilike.${code},id.ilike.${cleanPrefix}%`)
+          .ilike('username', code)
           .limit(1)
 
-        if (Array.isArray(directMatches) && directMatches.length > 0) {
-          target = directMatches[0]
+        if (Array.isArray(userMatches) && userMatches.length > 0) {
+          target = userMatches[0]
         }
+      }
+
+      // b) Nếu cleanPrefix hợp lệ (>= 4 ký tự hex): Sử dụng range query UUID an toàn
+      if (!target) {
+        const hexPrefix = cleanPrefix.replace(/[^0-9a-f]/g, '').slice(0, 8)
+        if (hexPrefix.length >= 4) {
+          const minUuid = `${hexPrefix.padEnd(8, '0')}-0000-0000-0000-000000000000`
+          const maxUuid = `${hexPrefix.padEnd(8, 'f')}-ffff-ffff-ffff-ffffffffffff`
+          const { data: rangeMatches } = await supabase
+            .from('profiles')
+            .select('id, username, full_name, avatar_url, church_name')
+            .neq('id', userId)
+            .gte('id', minUuid)
+            .lte('id', maxUuid)
+            .limit(10)
+          if (Array.isArray(rangeMatches)) {
+            const matched = (rangeMatches as any[]).find((p: any) =>
+              p.id.replace(/-/g, '').toLowerCase().startsWith(cleanPrefix)
+            )
+            if (matched) target = matched
+          }
+        }
+      }
+
+      // c) Fallback an toàn như commit 5bfb384 nếu vẫn chưa có
+      if (!target) {
+        const { data: candidates } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, church_name')
+          .neq('id', userId)
+          .limit(100)
+        const matched = ((candidates ?? []) as any[]).find(
+          (p) =>
+            p.id.replace(/-/g, '').toLowerCase().startsWith(cleanPrefix) ||
+            (p.username && p.username.toUpperCase() === code)
+        )
+        if (matched) target = matched
       }
 
       if (!target) {
         throw new Error('Không tìm thấy người dùng với mã mời này')
+      }
+
+      // d) Chặn kết bạn với chính mình nếu target.id === userId
+      if (target.id === userId) {
+        throw new Error('Không thể kết bạn với chính mình')
       }
 
       const { data: insertedRow, error } = await (supabase.from('friend_requests') as any)

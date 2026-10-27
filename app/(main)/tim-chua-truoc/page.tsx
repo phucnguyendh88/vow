@@ -61,7 +61,7 @@ export default async function TimChuaTruocPage() {
   } | null
 
   // First-time users must finish onboarding before entering the main app
-  if (profile && profile.is_complete === false) redirect('/onboarding')
+  if (!profile || profile.is_complete !== true || !profile.full_name?.trim()) redirect('/onboarding')
 
   const todayRead = streaks.some((s) => s.date === today)
   const AnyDevotionClient = DevotionClient as any

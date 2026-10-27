@@ -27,11 +27,20 @@ export default function OnboardingPage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.push('/dang-nhap')
-      } else {
-        setUserId(user.id)
+        return
+      }
+      setUserId(user.id)
+
+      const { data: profile } = await (supabase.from('profiles') as any)
+        .select('is_complete, full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile?.is_complete && profile?.full_name?.trim()) {
+        router.replace('/tim-chua-truoc')
       }
     })
   }, [supabase, router])
