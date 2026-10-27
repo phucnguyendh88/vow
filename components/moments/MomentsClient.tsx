@@ -201,6 +201,24 @@ function GridFourSvg({ className = 'h-6 w-6' }: { className?: string }) {
   )
 }
 
+function ShareSvg({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  )
+}
+
 /* --- Reply Box inside History Viewer (Vp) --- */
 function MomentReplyBox({
   onReply,
@@ -210,6 +228,7 @@ function MomentReplyBox({
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [openStickers, setOpenStickers] = useState(false)
+  const QUICK_EMOJIS = ['💛', '😍', '🔥']
 
   const handleSend = useCallback(
     async (msg: string, sticker?: string) => {
@@ -228,40 +247,60 @@ function MomentReplyBox({
   )
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1 rounded-full bg-[#1c1c1e] py-2 pl-5 pr-2">
+    <div className="flex flex-col gap-2 w-full">
+      <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#1c1c1e] py-1.5 pl-4 pr-1.5 shadow-lg">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void handleSend(text)
           }}
-          placeholder="Send message..."
+          placeholder="Gửi tin nhắn..."
           maxLength={200}
           aria-label="Nhắn tin về khoảnh khắc này"
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-white placeholder:text-white/40 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[14px] text-white placeholder:text-white/40 focus:outline-none"
         />
+
+        {/* Quick Reaction Emojis: 💛, 😍, 🔥 */}
+        <div className="flex items-center gap-0.5">
+          {QUICK_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => void handleSend(emoji)}
+              disabled={sending}
+              aria-label={`Gửi ${emoji}`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[17px] transition active:scale-90 hover:bg-white/10 disabled:opacity-40"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+
         <button
           type="button"
           onClick={() => setOpenStickers((v) => !v)}
           aria-label="Chọn sticker"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[22px] transition active:scale-90"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[18px] transition active:scale-90 hover:bg-white/10"
         >
           😊
         </button>
-        <button
-          type="button"
-          onClick={() => void handleSend(text)}
-          disabled={!text.trim() || sending}
-          aria-label="Gửi tin nhắn"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition active:scale-90 disabled:opacity-30"
-        >
-          <SendPlaneSvg />
-        </button>
+
+        {text.trim() && (
+          <button
+            type="button"
+            onClick={() => void handleSend(text)}
+            disabled={!text.trim() || sending}
+            aria-label="Gửi tin nhắn"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E8D08D] text-black transition active:scale-90 disabled:opacity-30 shadow-[0_0_8px_rgba(232,208,141,0.5)]"
+          >
+            <SendPlaneSvg />
+          </button>
+        )}
       </div>
 
       {openStickers && (
-        <div className="grid grid-cols-4 gap-2 rounded-2xl bg-[#1c1c1e] p-3">
+        <div className="grid grid-cols-4 gap-2 rounded-2xl border border-white/10 bg-[#1c1c1e] p-3 shadow-xl">
           {STICKERS.map((s) => (
             <button
               key={s.key}
@@ -273,7 +312,7 @@ function MomentReplyBox({
               className="flex items-center justify-center rounded-xl bg-white/5 p-2 transition active:scale-95 hover:bg-white/10 disabled:opacity-40"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.src} alt={s.label} className="h-14 w-14 object-contain" loading="lazy" />
+              <img src={s.src} alt={s.label} className="h-12 w-12 object-contain" loading="lazy" />
             </button>
           ))}
         </div>
@@ -357,6 +396,7 @@ function HistoryViewer({
   ownAvatar,
   onOpenProfile,
   onOpenUserProfile,
+  onOpenGrid,
 }: {
   moments: MomentWithProfile[]
   initialId: string | null
@@ -371,6 +411,7 @@ function HistoryViewer({
   ownAvatar: string | null
   onOpenProfile: () => void
   onOpenUserProfile?: (id: string) => void
+  onOpenGrid?: () => void
 }) {
   const total = moments.length
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -389,6 +430,28 @@ function HistoryViewer({
   const animatingRef = useRef(false)
   const dragRef = useRef<{ startY: number; baseOffset: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
+
+  const handleShareCurrent = useCallback(async () => {
+    const currentMoment = moments[indexRef.current]
+    if (!currentMoment) return
+    const shareUrl = currentMoment.media_url
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Khoảnh khắc trên VOW',
+          text: currentMoment.caption || 'Xem khoảnh khắc trên VOW',
+          url: shareUrl,
+        })
+        return
+      } catch {}
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        setEdgeNotice('start')
+      } catch {}
+    }
+  }, [moments])
 
   useEffect(() => {
     const el = containerRef.current
@@ -547,7 +610,7 @@ function HistoryViewer({
           type="button"
           onClick={onOpenProfile}
           aria-label="Hồ sơ của tôi"
-          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#1c1c1e] text-[17px] font-bold text-white/70 active:scale-95"
+          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.4)] bg-[#1c1c1e] text-[17px] font-bold text-white/70 active:scale-95"
         >
           {ownAvatar ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -610,81 +673,86 @@ function HistoryViewer({
                 return (
                   <div
                     key={m.id}
-                    className="flex w-full shrink-0 flex-col px-4"
+                    className="flex w-full shrink-0 flex-col items-center justify-center px-4"
                     style={{ height: viewportH > 0 ? viewportH : '100%' }}
                     aria-hidden={i !== index}
                   >
-                    <div className="relative min-h-0 flex-1 overflow-hidden rounded-[2.5rem] bg-[#1c1c1e]">
-                      {m.media_type === 'video' ? (
-                        <video
-                          src={m.media_url}
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={m.media_url}
-                          alt={m.caption || `Khoảnh khắc của ${author.name}`}
-                          className="h-full w-full object-cover"
-                          decoding="async"
-                          loading="lazy"
-                          draggable={false}
-                        />
-                      )}
-                      {m.caption && (
-                        <div className="absolute inset-x-0 bottom-4 flex justify-center px-6">
-                          <p className="max-w-full truncate rounded-full bg-black/45 px-4 py-2 text-center text-[15px] text-white backdrop-blur-sm">
-                            {m.caption}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      onClick={() => !isMine && onOpenUserProfile?.(m.user_id)}
-                      className={`flex items-center gap-3 px-2 py-3 ${
-                        !isMine ? 'cursor-pointer hover:opacity-85 transition' : ''
-                      }`}
-                    >
-                      {author.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={author.avatar}
-                          alt={author.name}
-                          className="h-10 w-10 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1c1c1e] text-sm font-bold text-white">
-                          {author.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-white">
-                        {author.name}
-                        <span className="ml-2 font-normal text-white/50">
-                          {timeAgoVi(m.created_at)}
-                        </span>
-                      </p>
-                      {isMine && (
-                        <button
-                          type="button"
-                          onClick={() => onDelete(m.id)}
-                          aria-label="Xóa khoảnh khắc"
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1c1c1e] text-red-300 active:scale-95"
-                        >
-                          <TrashSvg />
-                        </button>
-                      )}
-                    </div>
-
-                    {!isMine && (
-                      <div className="shrink-0 pb-1">
-                        <MomentReplyBox onReply={(text, sticker) => onReplyMoment(m, text, sticker)} />
+                    <div className="flex w-full max-w-sm flex-col">
+                      {/* Khung ảnh vuông bo góc lớn aspect-square rounded-[32px] sm:rounded-[36px] */}
+                      <div className="relative w-full aspect-square overflow-hidden rounded-[32px] sm:rounded-[36px] border border-[rgba(232,208,141,0.25)] bg-[#1c1c1e] shadow-2xl">
+                        {m.media_type === 'video' ? (
+                          <video
+                            src={m.media_url}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={m.media_url}
+                            alt={m.caption || `Khoảnh khắc của ${author.name}`}
+                            className="h-full w-full object-cover select-none"
+                            decoding="async"
+                            loading="lazy"
+                            draggable={false}
+                          />
+                        )}
+                        {m.caption && (
+                          <div className="absolute inset-x-0 bottom-4 flex justify-center px-4 pointer-events-none">
+                            <p className="max-w-[90%] truncate rounded-full border border-white/10 bg-black/60 px-4 py-1.5 text-center text-[14px] text-white backdrop-blur-md shadow-lg">
+                              {m.caption}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      {/* Ngay dưới ảnh: Hiển thị avatar người đăng, emoji phản hồi (nếu có), tên và thời gian (ví dụ: 18h / timeAgoVi) */}
+                      <div className="flex items-center justify-between px-1.5 pt-3 pb-1.5">
+                        <div
+                          onClick={() => !isMine && onOpenUserProfile?.(m.user_id)}
+                          className={`flex items-center gap-2.5 min-w-0 ${
+                            !isMine ? 'cursor-pointer hover:opacity-85 transition' : ''
+                          }`}
+                        >
+                          {author.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={author.avatar}
+                              alt={author.name}
+                              className="h-9 w-9 shrink-0 rounded-full border border-[rgba(232,208,141,0.4)] object-cover shadow"
+                            />
+                          ) : (
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] bg-[#1c1c1e] text-xs font-bold text-[#E8D08D]">
+                              {author.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex items-center gap-1.5 text-[15px] font-semibold text-white">
+                            <span className="truncate">{author.name}</span>
+                            <span className="text-xs font-normal text-white/50">· {timeAgoVi(m.created_at)}</span>
+                          </div>
+                        </div>
+                        {isMine && (
+                          <button
+                            type="button"
+                            onClick={() => onDelete(m.id)}
+                            aria-label="Xóa khoảnh khắc"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1c1c1e] text-red-300 hover:text-red-400 active:scale-95 transition"
+                          >
+                            <TrashSvg />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Ngay dưới đó: Thanh nhập tin nhắn và các emoji phản hồi nhanh: 💛, 😍, 🔥, sticker */}
+                      {!isMine && (
+                        <div className="w-full pt-0.5">
+                          <MomentReplyBox onReply={(text, sticker) => onReplyMoment(m, text, sticker)} />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}
@@ -693,14 +761,53 @@ function HistoryViewer({
         )}
       </div>
 
-      <div className="relative shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="relative shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 flex flex-col gap-2">
         {edgeNotice && (
           <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full">
-            <p className="whitespace-nowrap rounded-full bg-[#1c1c1e] px-4 py-2 text-sm font-medium text-white/80 shadow-lg">
+            <p className="whitespace-nowrap rounded-full border border-white/10 bg-[#1c1c1e] px-4 py-1.5 text-xs font-medium text-white/80 shadow-lg">
               {edgeNotice === 'end' ? 'Đã xem hết khoảnh khắc' : 'Đây là khoảnh khắc mới nhất'}
             </p>
           </div>
         )}
+
+        {/* Hàng nút điều khiển viewer: Nút Grid (trái), Nút Camera tròn (giữa - bấm vào để quay về camera chụp), Nút Chia sẻ (phải) */}
+        <div className="flex items-center justify-around w-full max-w-xs mx-auto px-4">
+          {/* Nút Grid (trái) */}
+          <button
+            type="button"
+            onClick={onOpenGrid}
+            aria-label="Xem lưới khoảnh khắc"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-[#E8D08D] hover:bg-white/10 active:scale-95 transition shadow-lg"
+          >
+            <GridFourSvg className="h-5 w-5 stroke-[1.8]" />
+          </button>
+
+          {/* Nút Camera tròn (giữa - quay lại camera chụp) */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Quay lại camera chụp"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full transition-transform active:scale-95 shadow-[0_0_20px_rgba(232,208,141,0.4)]"
+          >
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FFF8E7] via-[#E8D08D] to-[#99732B]" />
+            <div className="absolute inset-[3px] rounded-full bg-[#121214]" />
+            <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-[0_0_10px_rgba(255,255,255,0.8)]">
+              <CameraOutlineSvg className="h-5 w-5 stroke-[2] text-black" />
+            </span>
+          </button>
+
+          {/* Nút Chia sẻ (phải) */}
+          <button
+            type="button"
+            onClick={() => void handleShareCurrent()}
+            aria-label="Chia sẻ khoảnh khắc"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition shadow-lg"
+          >
+            <ShareSvg className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* GIỮ NGUYÊN thanh Bottom bar như cũ của app VOW */}
         <LocketFloatingNav onTabClick={onClose} />
       </div>
     </div>
@@ -1336,38 +1443,47 @@ export default function MomentsClient({
     if (!video || cameraErrorKind || !streamRef.current) return
     const vw = video.videoWidth || 640
     const vh = video.videoHeight || 480
+
+    // Khung ngắm có tỉ lệ vuông 1:1 (aspect-square) với object-cover
+    // Cắt chính xác khung vuông tâm thẻ <video> để ảnh chụp khớp 100% với khung ngắm
+    const minDim = Math.min(vw, vh)
+    let sw = minDim
+    let sh = minDim
+    let sx = (vw - minDim) / 2
+    let sy = (vh - minDim) / 2
+
+    if (zoom > 1 && !zoomRange) {
+      sw = minDim / zoom
+      sh = minDim / zoom
+      sx = (vw - sw) / 2
+      sy = (vh - sh) / 2
+    }
+
+    const targetSize = Math.min(1080, Math.round(minDim))
     const canvas = document.createElement('canvas')
-    canvas.width = vw
-    canvas.height = vh
+    canvas.width = targetSize
+    canvas.height = targetSize
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
     if (facingMode === 'user') {
-      ctx.translate(vw, 0)
+      ctx.translate(targetSize, 0)
       ctx.scale(-1, 1)
     }
 
-    if (zoom > 1 && !zoomRange) {
-      const sw = vw / zoom
-      const sh = vh / zoom
-      const sx = (vw - sw) / 2
-      const sy = (vh - sh) / 2
-      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, vw, vh)
-    } else {
-      ctx.drawImage(video, 0, 0, vw, vh)
-    }
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, targetSize, targetSize)
 
     canvas.toBlob(
       (blob) => {
         if (!blob) return
         setCapturedBlob(blob)
         setCapturedMediaType('image')
-        setCapturedDataUrl(canvas.toDataURL('image/jpeg', 0.85))
+        setCapturedDataUrl(canvas.toDataURL('image/jpeg', 0.88))
         setProcessError('')
         setPostFailed(false)
       },
       'image/jpeg',
-      0.85
+      0.88
     )
   }, [cameraErrorKind, facingMode, zoom, zoomRange])
 
@@ -1907,29 +2023,11 @@ export default function MomentsClient({
 
   return (
     <div className="fixed inset-0 z-20 mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-md flex-col overflow-hidden overscroll-none bg-[#050505] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
-      {/* Top Bar (Luxury Dark Glassmorphism) */}
-      <div className="flex shrink-0 items-center justify-between px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-1">
-        {/* Left: User avatar in a perfect circle with a crisp 1px gold border */}
-        <button
-          type="button"
-          onClick={() => router.push('/ho-so')}
-          aria-label="Hồ sơ của tôi"
-          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.5)] bg-[rgba(255,255,255,0.03)] text-[15px] font-bold text-[#E8D08D] shadow-[0_0_12px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
-        >
-          {currentUser?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={currentUser.avatar_url}
-              alt="Tôi"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span>{ownInitial}</span>
-          )}
-        </button>
-
-        {/* Center: Two minimalist icons (App Grid and Chat bubble) with thin gold outlines */}
-        <div className="flex items-center gap-3">
+      {/* Top Bar (Luxury Dark Glassmorphism, fixed-friendly, max-w-md mx-auto) */}
+      <header className="flex shrink-0 items-center justify-between px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-1.5 w-full max-w-md mx-auto">
+        {/* Left: 1) List grid & 2) Tin nhắn */}
+        <div className="flex items-center gap-2">
+          {/* 1) List grid (Icon danh sách/lưới khoảnh khắc - mở modal Grid/Kỷ niệm) */}
           <button
             type="button"
             onClick={() => {
@@ -1937,18 +2035,19 @@ export default function MomentsClient({
               void refreshMoments()
             }}
             aria-label="Xem tất cả khoảnh khắc dạng lưới"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95 touch-manipulation"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[rgba(255,255,255,0.04)] text-[#E8D08D] shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition active:scale-95 touch-manipulation hover:border-[rgba(232,208,141,0.4)]"
           >
-            <GridFourSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
+            <GridFourSvg className="h-5 w-5 stroke-[1.8] text-[#E8D08D]" />
           </button>
 
+          {/* 2) Tin nhắn (Icon Chat bubble có badge unreadCount, click chuyển sang /tin-nhan) */}
           <button
             type="button"
             onClick={() => router.push('/tin-nhan')}
             aria-label="Tin nhắn"
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-[#F0F0F0] hover:text-[#E8D08D] transition active:scale-95 touch-manipulation"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[rgba(255,255,255,0.04)] text-[#E8D08D] shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition active:scale-95 touch-manipulation hover:border-[rgba(232,208,141,0.4)]"
           >
-            <ChatBubbleSvg className="h-6 w-6 stroke-[1.6] text-[#E8D08D]" />
+            <ChatBubbleSvg className="h-5 w-5 stroke-[1.8] text-[#E8D08D]" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
                 {unreadCount > 99 ? '99+' : unreadCount}
@@ -1957,29 +2056,49 @@ export default function MomentsClient({
           </button>
         </div>
 
-        {/* Right: Glassmorphism pill button displaying a user icon and "2 Bạn" with 1px gold border, sparkling gold accents */}
-        <button
-          type="button"
-          onClick={() => {
-            setShowFriendsDialog((v) => !v)
-            void refreshConnections()
-          }}
-          aria-label="Mở danh sách bạn bè"
-          className="relative flex h-10 shrink-0 items-center gap-2 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-4 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
-        >
-          {/* Subtle sparkling gold lens flare dot */}
-          <span className="absolute -top-1 -right-0.5 h-2 w-2 rounded-full bg-white shadow-[0_0_8px_#FFF,0_0_12px_#E8D08D]" />
-          <UsersSvg className="h-4 w-4 text-[#E8D08D]" />
-          <span className="text-[14px] font-semibold tracking-wide text-[#F0F0F0]">
-            {friends.length} Bạn
-          </span>
-          {incoming.length > 0 && (
-            <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_10px_#E8D08D]">
-              {incoming.length}
+        {/* Right: 3) Ô bạn bè & 4) Avatar */}
+        <div className="flex items-center gap-2.5">
+          {/* 3) Ô bạn bè (Pill button hiển thị số lượng bạn bè, icon Users, badge lời mời kết bạn nếu có) */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowFriendsDialog((v) => !v)
+              void refreshConnections()
+            }}
+            aria-label="Mở danh sách bạn bè"
+            className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-3 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
+          >
+            <UsersSvg className="h-4 w-4 text-[#E8D08D]" />
+            <span className="text-[13px] font-semibold tracking-wide text-[#F0F0F0]">
+              {friends.length} Bạn
             </span>
-          )}
-        </button>
-      </div>
+            {incoming.length > 0 && (
+              <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[9px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
+                {incoming.length}
+              </span>
+            )}
+          </button>
+
+          {/* 4) Avatar (Avatar tròn của currentUser với viền vàng VOW, click chuyển sang /ho-so) */}
+          <button
+            type="button"
+            onClick={() => router.push('/ho-so')}
+            aria-label="Hồ sơ của tôi"
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#E8D08D] bg-[rgba(255,255,255,0.05)] text-[14px] font-bold text-[#E8D08D] shadow-[0_0_12px_rgba(232,208,141,0.35)] transition active:scale-95 touch-manipulation"
+          >
+            {currentUser?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={currentUser.avatar_url}
+                alt="Tôi"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span>{ownInitial}</span>
+            )}
+          </button>
+        </div>
+      </header>
 
       {/* Full-Screen Friends Dialog (f in original) */}
       {showFriendsDialog && (
@@ -2290,8 +2409,9 @@ export default function MomentsClient({
 
       {/* Main Body: Captured Preview OR Live Camera Viewfinder */}
       {capturedDataUrl ? (
-        <section className="flex min-h-0 flex-1 flex-col px-3 sm:px-4 pb-2">
-          <div className="relative mt-2 min-h-[300px] flex-1 overflow-hidden rounded-[2.25rem] bg-[#1c1c1e]">
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 pb-2">
+          {/* Square preview matching viewfinder exactly */}
+          <div className="relative w-full max-w-sm aspect-square overflow-hidden rounded-[32px] sm:rounded-[36px] border border-[rgba(232,208,141,0.32)] bg-[#1c1c1e] shadow-2xl">
             {capturedMediaType === 'video' ? (
               <video
                 src={capturedDataUrl}
@@ -2316,17 +2436,17 @@ export default function MomentsClient({
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Thêm chú thích (không bắt buộc)..."
             maxLength={140}
-            className="mt-3 h-11 w-full shrink-0 rounded-full border border-white/10 bg-[#1c1c1e] px-5 text-sm text-white placeholder:text-white/40 focus:border-gold focus:outline-none"
+            className="mt-3 h-11 w-full max-w-sm shrink-0 rounded-full border border-white/10 bg-[#1c1c1e] px-5 text-sm text-white placeholder:text-white/40 focus:border-gold focus:outline-none shadow-md"
           />
 
-          <div className="mt-2.5 flex shrink-0 gap-2">
+          <div className="mt-2.5 flex w-full max-w-sm shrink-0 gap-2">
             <button
               type="button"
               onClick={() => {
                 setCapturedDataUrl(null)
                 setCapturedBlob(null)
               }}
-              className="flex-1 rounded-full bg-[#1c1c1e] py-3 text-sm font-semibold text-white active:scale-95 touch-manipulation"
+              className="flex-1 rounded-full border border-white/10 bg-[#1c1c1e] py-3 text-sm font-semibold text-white active:scale-95 touch-manipulation"
             >
               Chụp lại
             </button>
@@ -2334,7 +2454,7 @@ export default function MomentsClient({
               type="button"
               onClick={() => void handlePostMoment()}
               disabled={posting}
-              className="flex-[2] rounded-full bg-gold py-3 text-sm font-bold text-ink disabled:opacity-40 active:scale-95 touch-manipulation"
+              className="flex-[2] rounded-full bg-gradient-to-r from-[#FFF8E7] via-[#E8D08D] to-[#D4AF37] py-3 text-sm font-bold text-black disabled:opacity-40 active:scale-95 touch-manipulation shadow-[0_0_15px_rgba(232,208,141,0.4)]"
             >
               {posting ? 'Đang gửi...' : postFailed ? 'Thử gửi lại' : 'Gửi cho bạn bè'}
             </button>
@@ -2351,7 +2471,7 @@ export default function MomentsClient({
         </section>
       ) : (
         <section
-          className="flex min-h-0 flex-1 flex-col px-3 sm:px-4"
+          className="flex min-h-0 flex-1 flex-col items-center justify-between px-4 pb-1"
           onTouchStart={(e) => {
             if (e.touches.length === 1) {
               swipeStartRef.current = {
@@ -2375,8 +2495,8 @@ export default function MomentsClient({
             }
           }}
         >
-          {/* Camera Viewfinder (Expanded iPhone-proportioned rectangle with smooth rounded corners & 1px gold focal bracket lines) */}
-          <div className="relative mt-2 min-h-[320px] flex-1 overflow-hidden rounded-[2.25rem] border border-[rgba(232,208,141,0.28)] bg-[#0c0c0e] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(232,208,141,0.2)]">
+          {/* Camera Viewfinder (Tỉ lệ vuông aspect-square, bo góc lớn rounded-[32px] sm:rounded-[36px], cân đối giữa header bar và thanh chụp hình) */}
+          <div className="relative my-auto w-full max-w-sm aspect-square overflow-hidden rounded-[32px] sm:rounded-[36px] border border-[rgba(232,208,141,0.32)] bg-[#0c0c0e] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(232,208,141,0.2)]">
             {cameraErrorKind ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-8 text-center">
                 <CameraOutlineSvg className="h-14 w-14 text-white/40" />
@@ -2415,15 +2535,15 @@ export default function MomentsClient({
 
             {/* 4 Viewfinder Focal Marks: Thin 1px gold right-angle bracket lines */}
             {!cameraErrorKind && (
-              <div className="pointer-events-none absolute inset-5">
+              <div className="pointer-events-none absolute inset-4">
                 {/* Top-Left */}
-                <div className="absolute top-0 left-0 h-10 w-10 border-t border-l border-[rgba(232,208,141,0.65)]" />
+                <div className="absolute top-0 left-0 h-8 w-8 border-t border-l border-[rgba(232,208,141,0.7)]" />
                 {/* Top-Right */}
-                <div className="absolute top-0 right-0 h-10 w-10 border-t border-r border-[rgba(232,208,141,0.65)]" />
+                <div className="absolute top-0 right-0 h-8 w-8 border-t border-r border-[rgba(232,208,141,0.7)]" />
                 {/* Bottom-Left */}
-                <div className="absolute bottom-0 left-0 h-10 w-10 border-b border-l border-[rgba(232,208,141,0.65)]" />
+                <div className="absolute bottom-0 left-0 h-8 w-8 border-b border-l border-[rgba(232,208,141,0.7)]" />
                 {/* Bottom-Right */}
-                <div className="absolute bottom-0 right-0 h-10 w-10 border-b border-r border-[rgba(232,208,141,0.65)]" />
+                <div className="absolute bottom-0 right-0 h-8 w-8 border-b border-r border-[rgba(232,208,141,0.7)]" />
               </div>
             )}
 
@@ -2433,20 +2553,20 @@ export default function MomentsClient({
                 type="button"
                 onClick={() => void handleToggleTorch()}
                 aria-label={torchOn ? 'Tắt flash' : 'Bật flash'}
-                className={`absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] backdrop-blur-md transition active:scale-95 touch-manipulation ${
+                className={`absolute left-3.5 top-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(232,208,141,0.3)] backdrop-blur-md transition active:scale-95 touch-manipulation ${
                   torchOn
                     ? 'bg-[#E8D08D] text-black shadow-[0_0_15px_#E8D08D]'
-                    : 'bg-black/40 text-[#E8D08D]'
+                    : 'bg-black/45 text-[#E8D08D]'
                 }`}
               >
-                <FlashBoltSvg off={!torchOn} />
+                <FlashBoltSvg off={!torchOn} className="h-4 w-4" />
               </button>
             )}
 
             {/* Zoom Controls overlaid inside bottom of viewfinder when using back camera so viewfinder stays large */}
             {!cameraErrorKind && facingMode !== 'user' && (
-              <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
-                <div className="flex items-center gap-1 rounded-full border border-[rgba(232,208,141,0.3)] bg-black/55 p-1 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
+                <div className="flex items-center gap-1 rounded-full border border-[rgba(232,208,141,0.3)] bg-black/60 p-1 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
                   {availableZooms.map((z) => {
                     const isActive = Math.abs(zoom - z) < 0.001
                     return (
@@ -2470,7 +2590,7 @@ export default function MomentsClient({
             )}
 
             {isRecordingVideo && (
-              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-red-600/80 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+              <div className="absolute right-3.5 top-3.5 flex items-center gap-1.5 rounded-full bg-red-600/85 px-3 py-1 text-xs font-bold text-white backdrop-blur shadow-lg">
                 <span className="h-2 w-2 rounded-full bg-white animate-ping" />
                 REC 3s
               </div>
@@ -2478,7 +2598,7 @@ export default function MomentsClient({
           </div>
 
           {/* Camera Actions: Shutter Row */}
-          <div className="mt-2.5 flex shrink-0 items-center justify-between px-7">
+          <div className="w-full max-w-sm shrink-0 flex items-center justify-between px-6 pt-1">
             {/* Left: Gallery Thumbnail encased in 1px gold border with elegant tiny PREMIUM tag */}
             <button
               type="button"
@@ -2487,7 +2607,7 @@ export default function MomentsClient({
               className="group relative flex flex-col items-center transition active:scale-90 touch-manipulation"
             >
               {!premiumActive && (
-                <span className="absolute -top-2.5 z-10 rounded-md border border-[rgba(232,208,141,0.4)] bg-black/80 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-[#E8D08D] shadow-[0_0_8px_rgba(232,208,141,0.3)] backdrop-blur-md">
+                <span className="absolute -top-2.5 z-10 rounded-md border border-[rgba(232,208,141,0.4)] bg-black/85 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-[#E8D08D] shadow-[0_0_8px_rgba(232,208,141,0.3)] backdrop-blur-md">
                   PREMIUM
                 </span>
               )}
@@ -2504,7 +2624,7 @@ export default function MomentsClient({
               onChange={handleFileChange}
             />
 
-            {/* Center: Shutter Button - Crucial 3D Metallic Champagne-Gold Bezel with Glowing Radiant Flares */}
+            {/* Center: Shutter Button - Crucial 3D Metallic Champagne-Gold Bezel with White Core */}
             <button
               type="button"
               onPointerDown={handleShutterPointerDown}
@@ -2547,7 +2667,7 @@ export default function MomentsClient({
           </div>
 
           {/* History Section: "Lịch sử ⌄" using Elegant Gold Serif Font */}
-          <div className="mt-2 shrink-0 select-none pb-2 text-center">
+          <div className="mt-1 shrink-0 select-none pb-2 text-center">
             <button
               type="button"
               onClick={() => openHistory(null, null)}
@@ -2580,6 +2700,10 @@ export default function MomentsClient({
             setShowFriendsDialog(true)
           }}
           onClose={() => setShowHistoryViewer(false)}
+          onOpenGrid={() => {
+            setShowHistoryViewer(false)
+            setShowGridModal(true)
+          }}
           uid={userId}
           peerOf={peerOf}
           onDelete={(id) => void handleDeleteMoment(id)}

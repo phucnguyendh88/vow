@@ -1031,7 +1031,90 @@ export default function ChatClient({
                           isMe ? 'flex-row-reverse' : 'flex-row'
                         }`}
                       >
-                        {!replyData && stickerObj ? (
+                        {replyData ? (
+                          <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full`}>
+                            {/* Khung ảnh khoảnh khắc HIỂN THỊ LỚN */}
+                            <div className="relative mb-2 w-[270px] sm:w-[310px] max-w-full aspect-square overflow-hidden rounded-2xl border border-[rgba(232,208,141,0.35)] bg-[#121214] shadow-xl">
+                              {safeReplyThumbUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={safeReplyThumbUrl}
+                                  alt="Khoảnh khắc"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                  }}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-xs text-white/40">
+                                  Khoảnh khắc
+                                </div>
+                              )}
+
+                              {/* Tag Khoảnh khắc ở góc trên */}
+                              <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.4)] bg-black/65 px-2.5 py-1 backdrop-blur-md shadow-md">
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#E8D08D] shadow-[0_0_6px_#E8D08D]" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#E8D08D]">
+                                  Khoảnh khắc
+                                </span>
+                              </div>
+
+                              {/* Caption nếu có ở đáy ảnh */}
+                              {replyData.caption && (
+                                <div className="absolute inset-x-0 bottom-2.5 flex justify-center px-3 z-10">
+                                  <p className="max-w-[95%] truncate rounded-full border border-white/10 bg-black/70 px-3.5 py-1 text-center text-xs text-white backdrop-blur-md shadow-lg">
+                                    {safeText(replyData.caption)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Nội dung tin nhắn trả lời trong bong bóng chat theo style VOW */}
+                            {(effectiveContent || stickerObj) && (
+                              <div
+                                className={`rounded-2xl px-3.5 pb-1.5 pt-2.5 font-chat text-[15px] font-medium leading-relaxed max-w-[270px] sm:max-w-[310px] shadow-md ${
+                                  isMe
+                                    ? 'rounded-br-sm bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#D4AF37] text-black border border-[#E8D08D]/60'
+                                    : 'rounded-bl-sm bg-[#1c1c1e] text-white border border-white/10'
+                                }`}
+                              >
+                                {stickerObj ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={stickerObj.src}
+                                    alt={safeText(stickerObj.label || 'Sticker')}
+                                    className="h-24 w-24 object-contain"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                    }}
+                                  />
+                                ) : (
+                                  <div>{safeText(effectiveContent)}</div>
+                                )}
+
+                                <div
+                                  className={`mt-1 text-[11px] font-normal leading-none ${
+                                    isMe ? 'text-black/65 text-right' : 'text-white/45 text-left'
+                                  }`}
+                                >
+                                  {formatTimeHHMM(msg.created_at)}
+                                </div>
+                              </div>
+                            )}
+
+                            {!effectiveContent && !stickerObj && (
+                              <div
+                                className={`mt-0.5 text-[11px] ${
+                                  isMe ? 'text-white/50 text-right' : 'text-white/50 text-left'
+                                }`}
+                              >
+                                {formatTimeHHMM(msg.created_at)}
+                              </div>
+                            )}
+                          </div>
+                        ) : stickerObj ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={stickerObj.src}
@@ -1044,57 +1127,17 @@ export default function ChatClient({
                           />
                         ) : (
                           <div
-                            className={`rounded-2xl bg-chatbubble px-3.5 pb-1.5 pt-2.5 font-chat text-[15px] font-medium leading-relaxed text-white ${
-                              isMe ? 'rounded-br-md' : 'rounded-bl-md'
+                            className={`rounded-2xl px-3.5 pb-1.5 pt-2.5 font-chat text-[15px] font-medium leading-relaxed shadow-md ${
+                              isMe
+                                ? 'rounded-br-sm bg-gradient-to-br from-[#FFF5D6] via-[#E8D08D] to-[#D4AF37] text-black border border-[#E8D08D]/50'
+                                : 'rounded-bl-sm bg-[#1c1c1e] text-white border border-white/10'
                             }`}
                           >
-                            {replyData && (
-                              <div className="mb-2 flex items-center gap-2.5 rounded-xl border border-[rgba(232,208,141,0.25)] bg-black/50 p-2 backdrop-blur-sm">
-                                {safeReplyThumbUrl && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={safeReplyThumbUrl}
-                                    alt="Khoảnh khắc"
-                                    loading="lazy"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none'
-                                    }}
-                                    className="h-12 w-12 shrink-0 rounded-lg border border-[rgba(232,208,141,0.4)] object-cover shadow"
-                                  />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#E8D08D]">
-                                    Khoảnh khắc
-                                  </p>
-                                  {replyData.caption ? (
-                                    <p className="truncate text-xs italic text-white/80">
-                                      &ldquo;{safeText(replyData.caption)}&rdquo;
-                                    </p>
-                                  ) : (
-                                    <p className="text-xs text-white/50">Phản hồi khoảnh khắc</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {stickerObj ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={stickerObj.src}
-                                alt={safeText(stickerObj.label || 'Sticker')}
-                                className="h-24 w-24 object-contain"
-                                loading="lazy"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none'
-                                }}
-                              />
-                            ) : (
-                              effectiveContent && <div>{safeText(effectiveContent)}</div>
-                            )}
+                            {effectiveContent && <div>{safeText(effectiveContent)}</div>}
 
                             <div
-                              className={`mt-1 text-[11px] leading-none text-chattime ${
-                                isMe ? 'text-right' : 'text-left'
+                              className={`mt-1 text-[11px] font-normal leading-none ${
+                                isMe ? 'text-black/65 text-right' : 'text-white/45 text-left'
                               }`}
                             >
                               {formatTimeHHMM(msg.created_at)}
