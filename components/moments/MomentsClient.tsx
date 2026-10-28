@@ -389,6 +389,7 @@ function HistoryViewer({
   onDelete,
   onReplyMoment,
   ownAvatar,
+  ownInitial,
   onOpenProfile,
   onOpenUserProfile,
   onOpenGrid,
@@ -405,6 +406,7 @@ function HistoryViewer({
   onDelete: (id: string) => void
   onReplyMoment: (m: MomentWithProfile, text: string, stickerKey?: string) => Promise<void>
   ownAvatar: string | null
+  ownInitial?: string
   onOpenProfile: () => void
   onOpenUserProfile?: (id: string) => void
   onOpenGrid?: () => void
@@ -553,41 +555,58 @@ function HistoryViewer({
       aria-modal="true"
       aria-label="Xem khoảnh khắc"
     >
-      {/* Top Header Controls */}
-      <div className="relative flex shrink-0 items-start justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] z-20">
-        {/* Góc trên bên trái: Cột dọc gồm Grid View (phía trên) và Nút 'x' (ngay phía dưới) */}
-        <div className="flex flex-col items-center gap-2 z-10">
+      {/* Top Header Controls (Unified Luxury Obsidian & Champagne Gold Top Bar) */}
+      <div className="relative flex shrink-0 items-start justify-between px-4 pb-2 pt-[max(0.65rem,env(safe-area-inset-top))] z-20 w-full max-w-md mx-auto">
+        {/* BÊN TRÁI: Bộ đôi Nút Lưới + Nút Tin nhắn (và Nút Chụp hình tinh tế ngay dưới Nút Lưới) */}
+        <div className="flex items-start gap-2 z-10">
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenGrid}
+              aria-label="Xem lưới khoảnh khắc"
+              title="Lưới khoảnh khắc"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[rgba(255,255,255,0.04)] text-[#E8D08D] shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition active:scale-95 touch-manipulation hover:border-[rgba(232,208,141,0.4)]"
+            >
+              <GridFourSvg className="h-5 w-5 stroke-[1.8] text-[#E8D08D]" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Chụp ảnh mới (quay về máy ảnh)"
+              title="Chụp ảnh"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[rgba(232,208,141,0.35)] bg-[rgba(255,255,255,0.06)] text-[#E8D08D] shadow-[0_2px_10px_rgba(0,0,0,0.5)] backdrop-blur-md transition active:scale-95 touch-manipulation hover:border-[#E8D08D] hover:shadow-[0_0_12px_rgba(232,208,141,0.3)]"
+            >
+              <CameraOutlineSvg className="h-5 w-5 stroke-[1.8]" />
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={onOpenGrid}
-            aria-label="Xem lưới khoảnh khắc"
-            title="Lưới khoảnh khắc"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-[#E8D08D] shadow-lg backdrop-blur transition active:scale-95 hover:border-[rgba(232,208,141,0.4)]"
+            onClick={() => router.push('/tin-nhan')}
+            aria-label="Tin nhắn"
+            title="Tin nhắn"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[rgba(255,255,255,0.04)] text-[#E8D08D] shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition active:scale-95 touch-manipulation hover:border-[rgba(232,208,141,0.4)]"
           >
-            <GridFourSvg className="h-5 w-5 stroke-[1.8]" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng lịch sử"
-            title="Đóng"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-white/90 shadow-lg backdrop-blur transition active:scale-95 hover:bg-white/10"
-          >
-            <CloseSvg className="h-5 w-5" />
+            <ChatBubbleSvg className="h-5 w-5 stroke-[1.8] text-[#E8D08D]" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 
-        {/* Ở giữa: Nút "All Friends ⌄" (lọc theo bạn bè) */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-10 pt-0.5 pointer-events-auto">
+        {/* CHÍNH GIỮA: Pill lọc bạn bè ("All Friends ⌄" hoặc tên bạn đang lọc) căn giữa tuyệt đối */}
+        <div className="absolute left-1/2 -translate-x-1/2 top-[max(0.65rem,env(safe-area-inset-top))] z-10 pointer-events-auto">
           <button
             type="button"
             onClick={filterName ? onClearFilter : onOpenFriends}
             aria-label={filterName ? `Bỏ lọc ${filterName}` : 'Lọc theo bạn bè'}
-            className="flex h-11 items-center gap-2 rounded-full border border-white/10 bg-[#1c1c1e] px-4 text-[15px] font-semibold text-white shadow-lg backdrop-blur active:scale-95 transition"
+            className="flex h-10 items-center gap-2 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-4 text-[13px] font-semibold tracking-wide text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
           >
             {filterName ? (
               <>
-                <span className="max-w-32 truncate">{filterName}</span>
+                <span className="max-w-28 sm:max-w-32 truncate">{filterName}</span>
                 <CloseSvg className="h-4 w-4" />
               </>
             ) : (
@@ -599,35 +618,20 @@ function HistoryViewer({
           </button>
         </div>
 
-        {/* Góc trên bên phải: Nút Tin nhắn (có badge unreadCount) & Nút Avatar cá nhân */}
-        <div className="flex items-center gap-2.5 z-10 pt-0.5">
-          <button
-            type="button"
-            onClick={() => router.push('/tin-nhan')}
-            aria-label="Tin nhắn"
-            title="Tin nhắn"
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1e] text-[#E8D08D] shadow-lg backdrop-blur transition active:scale-95 hover:border-[rgba(232,208,141,0.4)]"
-          >
-            <ChatBubbleSvg className="h-5 w-5 stroke-[1.8]" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E8D08D] px-1 text-[10px] font-bold text-black shadow-[0_0_8px_#E8D08D]">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
-
+        {/* BÊN PHẢI: Avatar tròn của người dùng với viền vàng champagne #E8D08D */}
+        <div className="flex items-center z-10">
           <button
             type="button"
             onClick={onOpenProfile}
             aria-label="Hồ sơ của tôi"
             title="Hồ sơ của tôi"
-            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(232,208,141,0.4)] bg-[#1c1c1e] text-[15px] font-bold text-white/70 shadow-lg backdrop-blur active:scale-95 transition"
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#E8D08D] bg-[rgba(255,255,255,0.05)] text-[14px] font-bold text-[#E8D08D] shadow-[0_0_12px_rgba(232,208,141,0.35)] transition active:scale-95 touch-manipulation"
           >
             {ownAvatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={ownAvatar} alt="Tôi" className="h-full w-full object-cover" />
             ) : (
-              <span>PR</span>
+              <span>{ownInitial || 'PR'}</span>
             )}
           </button>
         </div>
@@ -2025,10 +2029,10 @@ export default function MomentsClient({
   return (
     <div className="fixed inset-0 z-20 mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-md flex-col overflow-hidden overscroll-none bg-[#050505] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
       {/* Top Bar (Luxury Dark Glassmorphism, fixed-friendly, max-w-md mx-auto) */}
-      <header className="flex shrink-0 items-center justify-between px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-1.5 w-full max-w-md mx-auto">
-        {/* Left: 1) List grid & 2) Tin nhắn */}
-        <div className="flex items-center gap-2">
-          {/* 1) List grid (Icon danh sách/lưới khoảnh khắc - mở modal Grid/Kỷ niệm) */}
+      <header className="relative flex shrink-0 items-center justify-between px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-1.5 w-full max-w-md mx-auto z-20">
+        {/* BÊN TRÁI: Bộ đôi 2 icon: Nút Lưới + Nút Tin nhắn */}
+        <div className="flex items-center gap-2 z-10">
+          {/* 1) Nút Lưới (Icon danh sách/lưới khoảnh khắc - mở modal Grid/Kỷ niệm) */}
           <button
             type="button"
             onClick={() => {
@@ -2041,7 +2045,7 @@ export default function MomentsClient({
             <GridFourSvg className="h-5 w-5 stroke-[1.8] text-[#E8D08D]" />
           </button>
 
-          {/* 2) Tin nhắn (Icon Chat bubble có badge unreadCount, click chuyển sang /tin-nhan) */}
+          {/* 2) Nút Tin nhắn (Icon Chat bubble có badge unreadCount, click chuyển sang /tin-nhan) */}
           <button
             type="button"
             onClick={() => router.push('/tin-nhan')}
@@ -2057,9 +2061,8 @@ export default function MomentsClient({
           </button>
         </div>
 
-        {/* Right: 3) Ô bạn bè & 4) Avatar */}
-        <div className="flex items-center gap-2.5">
-          {/* 3) Ô bạn bè (Pill button hiển thị số lượng bạn bè, icon Users, badge lời mời kết bạn nếu có) */}
+        {/* CHÍNH GIỮA: Pill Bạn bè ({friends.length} Bạn có icon UsersSvg và badge lời mời) căn giữa tuyệt đối */}
+        <div className="absolute left-1/2 -translate-x-1/2 top-[max(0.65rem,env(safe-area-inset-top))] z-10 pointer-events-auto">
           <button
             type="button"
             onClick={() => {
@@ -2067,7 +2070,7 @@ export default function MomentsClient({
               void refreshConnections()
             }}
             aria-label="Mở danh sách bạn bè"
-            className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-3 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
+            className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(232,208,141,0.4)] bg-[rgba(255,255,255,0.04)] px-3.5 text-[#F0F0F0] backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(232,208,141,0.2)] transition active:scale-95 touch-manipulation"
           >
             <UsersSvg className="h-4 w-4 text-[#E8D08D]" />
             <span className="text-[13px] font-semibold tracking-wide text-[#F0F0F0]">
@@ -2079,8 +2082,10 @@ export default function MomentsClient({
               </span>
             )}
           </button>
+        </div>
 
-          {/* 4) Avatar (Avatar tròn của currentUser với viền vàng VOW, click chuyển sang /ho-so) */}
+        {/* BÊN PHẢI: Avatar tròn của currentUser với viền vàng champagne #E8D08D */}
+        <div className="flex items-center z-10">
           <button
             type="button"
             onClick={() => router.push('/ho-so')}
@@ -2713,6 +2718,7 @@ export default function MomentsClient({
           onDelete={(id) => void handleDeleteMoment(id)}
           onReplyMoment={handleReplyMoment}
           ownAvatar={currentUser?.avatar_url ?? null}
+          ownInitial={ownInitial}
           unreadCount={unreadCount}
           onOpenProfile={() => {
             setShowHistoryViewer(false)
