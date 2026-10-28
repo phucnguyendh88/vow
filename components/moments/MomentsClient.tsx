@@ -9,6 +9,8 @@ import type { Moment } from '@/types/database'
 import { STICKERS } from '@/lib/stickers'
 import { useUnreadCount } from '@/lib/hooks/useUnreadCount'
 import UserProfileModal from '@/components/profile/UserProfileModal'
+import MomentShutterButton from '@/components/moments/MomentShutterButton'
+import { getSupportedVideoMimeType, getVideoExtension } from '@/lib/media/momentMedia'
 
 interface MomentWithProfile extends Moment {
   profiles: {
@@ -1198,7 +1200,7 @@ export default function MomentsClient({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const swipeStartRef = useRef<{ y: number; scrollY: number } | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const pressTimerRef = useRef<number | null>(null)
+  const isCancelledVideoRef = useRef(false)
 
   const detachVideoElement = useCallback(() => {
     if (videoRef.current) {
@@ -1355,6 +1357,13 @@ export default function MomentsClient({
     const handleVisibilityChange = () => {
       if (typeof document === 'undefined') return
       if (document.visibilityState === 'hidden') {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          isCancelledVideoRef.current = true
+          try {
+            mediaRecorderRef.current.stop()
+          } catch {}
+          setIsRecordingVideo(false)
+        }
         cachedCameraStream?.getVideoTracks().forEach((t) => {
           t.enabled = false
         })
@@ -1373,6 +1382,12 @@ export default function MomentsClient({
     return () => {
       window.removeEventListener('pagehide', handlePageHide)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        isCancelledVideoRef.current = true
+        try {
+          mediaRecorderRef.current.stop()
+        } catch {}
+      }
       stopCamera()
       detachVideoElement()
     }
@@ -1492,22 +1507,34 @@ export default function MomentsClient({
     }
   }, [cameraErrorKind, facingMode, flashMode, zoom, zoomRange])
 
-  // Support 3-second short video on long press
+  // Support 2-second short video recording on hold
   const startShortVideoRecording = useCallback(() => {
     if (!streamRef.current || cameraErrorKind || typeof MediaRecorder === 'undefined') return
     try {
+      isCancelledVideoRef.current = false
       const chunks: BlobPart[] = []
-      const recorder = new MediaRecorder(streamRef.current)
+      const mimeType = getSupportedVideoMimeType()
+      const recorderOptions: MediaRecorderOptions = {}
+      if (mimeType) {
+        recorderOptions.mimeType = mimeType
+      }
+      const recorder = new MediaRecorder(streamRef.current, recorderOptions)
       mediaRecorderRef.current = recorder
       setIsRecordingVideo(true)
 
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) chunks.push(e.data)
       }
+      recorder.onerror = () => {
+        setIsRecordingVideo(false)
+        isCancelledVideoRef.current = true
+        setProcessError('Lỗi khi quay video. Vui lòng thử lại.')
+      }
       recorder.onstop = () => {
         setIsRecordingVideo(false)
-        if (chunks.length > 0) {
-          const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' })
+        if (!isCancelledVideoRef.current && chunks.length > 0) {
+          const actualMime = recorder.mimeType || mimeType || 'video/webm'
+          const blob = new Blob(chunks, { type: actualMime })
           setCapturedBlob(blob)
           setCapturedMediaType('video')
           setCapturedDataUrl(URL.createObjectURL(blob))
@@ -1516,32 +1543,32 @@ export default function MomentsClient({
         }
       }
       recorder.start()
-      window.setTimeout(() => {
-        if (recorder.state === 'recording') {
-          recorder.stop()
-        }
-      }, 3000)
     } catch {
       setIsRecordingVideo(false)
     }
   }, [cameraErrorKind])
 
-  const handleShutterPointerDown = () => {
-    pressTimerRef.current = window.setTimeout(() => {
-      pressTimerRef.current = null
-      startShortVideoRecording()
-    }, 350)
-  }
-
-  const handleShutterPointerUp = () => {
-    if (pressTimerRef.current !== null) {
-      clearTimeout(pressTimerRef.current)
-      pressTimerRef.current = null
-      void handleCapturePhoto()
-    } else if (isRecordingVideo && mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
+  const stopShortVideoRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop()
+      } catch {
+        setIsRecordingVideo(false)
+      }
     }
-  }
+  }, [])
+
+  const cancelShortVideoRecording = useCallback(() => {
+    isCancelledVideoRef.current = true
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop()
+      } catch {
+        // ignore
+      }
+    }
+    setIsRecordingVideo(false)
+  }, [])
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -1593,8 +1620,8 @@ export default function MomentsClient({
 
     try {
       let uploadBlob: Blob = capturedBlob
-      let ext = capturedMediaType === 'video' ? 'webm' : 'jpg'
-      let contentType = capturedBlob.type || (capturedMediaType === 'video' ? 'video/webm' : 'image/jpeg')
+      let ext = capturedMediaType === 'video' ? getVideoExtension(capturedBlob) : 'jpg'
+      let contentType = capturedBlob.type || (capturedMediaType === 'video' ? (ext === 'mp4' ? 'video/mp4' : 'video/webm') : 'image/jpeg')
 
       if (capturedMediaType === 'image') {
         const fileObj = new File([capturedBlob], `moment_${Date.now()}.jpg`, {
@@ -2425,6 +2452,7 @@ export default function MomentsClient({
                 loop
                 muted
                 playsInline
+                {...{ 'webkit-playsinline': 'true' }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
             ) : (
@@ -2601,7 +2629,7 @@ export default function MomentsClient({
             {isRecordingVideo && (
               <div className="absolute right-3.5 top-3.5 flex items-center gap-1.5 rounded-full bg-red-600/85 px-3 py-1 text-xs font-bold text-white backdrop-blur shadow-lg">
                 <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-                REC 3s
+                REC 2s
               </div>
             )}
           </div>
@@ -2633,36 +2661,15 @@ export default function MomentsClient({
               onChange={handleFileChange}
             />
 
-            {/* Center: Shutter Button - Crucial 3D Metallic Champagne-Gold Bezel with White Core */}
-            <button
-              type="button"
-              onPointerDown={handleShutterPointerDown}
-              onPointerUp={handleShutterPointerUp}
+            {/* Center: Shutter Button with Hold-to-Record 2s & SVG Progress Ring */}
+            <MomentShutterButton
+              onCapturePhoto={handleCapturePhoto}
+              onStartRecording={startShortVideoRecording}
+              onStopRecording={stopShortVideoRecording}
+              onCancelRecording={cancelShortVideoRecording}
               disabled={cameraErrorKind !== null}
-              aria-label="Chụp"
-              className={`relative flex h-[78px] w-[78px] items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40 touch-manipulation ${
-                isRecordingVideo ? 'scale-105' : ''
-              }`}
-            >
-              {/* Outer 3D metallic champagne-gold jewelry bezel */}
-              <div
-                className={`absolute inset-0 rounded-full ${
-                  isRecordingVideo
-                    ? 'bg-red-500 shadow-[0_0_25px_rgba(239,68,68,0.7)]'
-                    : 'bg-gradient-to-br from-[#FFF8E7] via-[#E8D08D] to-[#99732B] shadow-[0_0_30px_rgba(232,208,141,0.55),0_0_60px_rgba(232,208,141,0.25)]'
-                }`}
-              />
-              {/* Subtle inner dark bezel ring */}
-              <div className="absolute inset-[3.5px] rounded-full bg-[#121214]" />
-              {/* Solid White Center Core */}
-              <span
-                className={`relative z-10 rounded-full transition-all ${
-                  isRecordingVideo
-                    ? 'h-10 w-10 bg-red-500'
-                    : 'h-[52px] w-[52px] bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_0_12px_rgba(255,255,255,0.8)]'
-                }`}
-              />
-            </button>
+              isRecording={isRecordingVideo}
+            />
 
             {/* Right: Switch Camera - Minimal gold camera flip icon */}
             <button
